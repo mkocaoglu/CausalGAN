@@ -24,20 +24,7 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, hidden_size = 10, z_dim_Image=100, intervene_on = None):
-      #several params not used 
-    """
 
-    Args:
-      sess: TensorFlow session
-      batch_size: The size of batch. Should be specified before training.
-      y_dim: (optional) Dimension of dim for y. [None]
-      z_dim: (optional) Dimension of dim for Z. [100]
-      gf_dim: (optional) Dimension of gen filters in first conv layer. [64]
-      df_dim: (optional) Dimension of discrim filters in first conv layer. [64]
-      gfc_dim: (optional) Dimension of gen units for for fully connected layer. [1024]
-      dfc_dim: (optional) Dimension of discrim units for fully connected layer. [1024]
-      c_dim: (optional) Dimension of image color. For grayscale input, set to 1. [3]
-    """
     self.sess = sess
     self.is_crop = is_crop
     self.is_grayscale = (c_dim == 1)
@@ -105,52 +92,18 @@ class DCGAN(object):
 
     inputs = self.inputs
     sample_inputs = self.sample_inputs
-    #self.k_t = tf.get_variable(name='k_t',initializer=0.,trainable=False)
-    #self.k_t_sum = scalar_summary("k_t_summary", self.k_t)
-
-    #self.k_t_male = tf.get_variable(name='k_t_male',initializer=0.,trainable=False)
-    #self.k_t_young = tf.get_variable(name='k_t_young',initializer=0.,trainable=False)
-    #self.k_t_smiling = tf.get_variable(name='k_t_smiling',initializer=0.,trainable=False)
-
-    #No placeholder needed b/c no need to feed in fake labels
-    #self.fakeLabelsDim = 3#has to be same as realLabelsDim -> create 1 variable
-    #self.fakeLabels = tf.placeholder(tf.float32, [None, self.fakeLabelsDim], name='fakeLabels')
-
-    #self.realLabelsDim=3
-    self.causal_labels_dim=3 # I will now use length 10 vectors as labels
-    # [1,1,1,1,1,0,0,0,0,0] represents 1 and [0,0,0,0,0,1,1,1,1,1] represents 0 now
-    # loss will be binary cross entropy between these 
+    self.causal_labels_dim=3 
     self.prev_loss = tf.get_variable(name='prev_loss',initializer=0.,trainable=False)
     self.realLabels = tf.placeholder(tf.float32,[None, self.causal_labels_dim],
                                      name='causal_labels')
 
-
-########################################################################################
-    #self.z = tf.placeholder(tf.float32, [None, self.z_dim], name='z')#needed
-    #renamed
     self.z_gen = tf.placeholder(tf.float32, [None, self.z_gen_dim], name='z_gen')#needed
-    #self.z_sum = histogram_summary("z", self.z_gen)
-
-    #feed in real labels for cross entropy with disc outputs
     self.y= tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
 
-########################################################################################
-    #self.intervention_set = tf.constant( np.array([0.,0.,0. ],dtype = np.float32) )
-    #self.intervention = tf.placeholder(tf.float32, [None, 3], name='intervention') # intervened on label
     self.zMale = tf.placeholder(tf.float32, [None, self.MaleDim], name='zMale')
     self.zYoung = tf.placeholder(tf.float32, [None, self.YoungDim], name='zYoung')
     self.zSmiling = tf.placeholder(tf.float32, [None, self.SmilingDim], name='zSmiling')
-    #self.z_gamma = tf.placeholder(tf.float32, [1, 10], name='d_z_gamma')
-    #with tf.variable_scope("discriminator") as scope:
-    #self.gamma = tf.placeholder(tf.float32,[1,1], name="d_gamma")
-    #self.gamma_sum = scalar_summary("gamma", self.gamma)
-    #self.zImage = tf.placeholder(tf.float32, [None, self.ImageDim], name='zImage')
 
-########################################################################################
-    #self.fakeLabels = self.causalController(self.zMale,self.zYoung,self.zSmiling) # None by 3 
-    #proposed modification:
-        #output 1d labels but also output second to last layer
-    #batch x causal_labels    , 3*[ batch x label_rep_dim ]
     self.fake_labels, self.fake_labels_logits, self.z_fake_labels = self.causalController(self.zMale,self.zYoung,self.zSmiling)
 
     self.zMaleLabel, self.zYoungLabel, self.zSmilingLabel = tf.split(self.fake_labels_logits, num_or_size_splits=3, axis=1)
@@ -166,18 +119,7 @@ class DCGAN(object):
     self.zMaleLabel_std_sum = scalar_summary("zMaleLabel_std", self.zMaleLabel_std)
     self.zYoungLabel_std_sum = scalar_summary("zYoungLabel_std", self.zYoungLabel_std)
     self.zSmilingLabel_std_sum = scalar_summary("zSmilingLabel_std", self.zSmilingLabel_std)
-
-    # IDEA: Create the standard deviation terms based on the labels at the output of discriminator 
-    # and add the standard deviation "l2 loss" to the loss function of causal controller
-
-    # IDEA: Use standard deviation of fake labels as minibatch features for the discriminator_CC
-
-    #append to some provided noise
     self.z= concat( [self.z_gen, self.z_fake_labels], axis=1 , name='z')
-
-    #improve notation: dim(z) =/= z_dim
-
-########################################################################################
 
     def sigmoid_cross_entropy_with_logits(x, y):
         return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
@@ -186,15 +128,9 @@ class DCGAN(object):
 
     self.G = self.generator(self.z)
 
-    #have D try to predict labels
     self.D, self.D_logits = self.discriminator(inputs)
     self.D_labels_for_real, self.D_labels_for_real_logits = self.discriminator_labeler(inputs)
     self.sampler = self.sampler(self.z_gen, self.zMale, self.zYoung, self.zSmiling)
-    # self.sampler_male = self.sampler_male(self.z_gen, self.zMale, self.zYoung, self.zSmiling, self.intervention)
-    # self.sampler_young = self.sampler_young(self.z_gen, self.zMale, self.zYoung, self.zSmiling, self.intervention)
-    # self.sampler_smiling = self.sampler_smiling(self.z_gen, self.zMale, self.zYoung, self.zSmiling, self.intervention)
-    #self.sampler_intervention = self.sampler_intervention(self.z_gen, self.zMale, self.zYoung, self.zSmiling, self.intervention, self.intervention_set)
-    # intervention is a dictionary with keys as names of intervened variables and values intervention values of logits
     self.sampler_label = self.sampler_label( self.zMale, self.zYoung, self.zSmiling)
 
     self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
@@ -203,26 +139,18 @@ class DCGAN(object):
     self.d__sum = histogram_summary("d_", self.D_)
     self.G_sum = image_summary("G", self.G, max_outputs = 10)
 
-    # IDEA: Try adding an independence loss to the discriminator to make its label estimates as indep as possible
-    #self.d_indep = tf.reduce_mean(tf.abs((-)*(-))) + tf.reduce_mean(tf.abs((-)(-)))
     self.zMaleLabel_logits, self.zYoungLabel_logits, self.zSmilingLabel_logits = tf.split(self.fake_labels_logits, num_or_size_splits=3, axis=1)
     self.zMaleLabel_disc, self.zYoungLabel_disc, self.zSmilingLabel_disc = tf.split(self.D_labels_for_fake, num_or_size_splits=3, axis=1)
     self.realMaleLabel, self.realYoungLabel, self.realSmilingLabel = tf.split(self.realLabels, num_or_size_splits=3, axis=1)
-    
-    # gamma = self.regularizer(self.zMaleLabel_logits, self.zYoungLabel_logits, self.zSmilingLabel_logits)
-    # self.g_lossLabels = 3*tf.reduce_mean( gamma*sigmoid_cross_entropy_with_logits(self.fake_labels_logits, self.D_labels_for_fake))
-
     self.g_lossLabels_Male = tf.reduce_mean( sigmoid_cross_entropy_with_logits(self.zMaleLabel_logits, self.zMaleLabel_disc)) 
     self.g_lossLabels_Young = tf.reduce_mean( sigmoid_cross_entropy_with_logits(self.zYoungLabel_logits, self.zYoungLabel_disc)) 
     self.g_lossLabels_Smiling = tf.reduce_mean( sigmoid_cross_entropy_with_logits(self.zSmilingLabel_logits, self.zSmilingLabel_disc)) 
-    ##self.g_lossLabels = tf.maximum(self.g_lossLabels_Male, tf.maximum(self.g_lossLabels_Young,self.g_lossLabels_Smiling))
     self.g_lossLabels = (self.g_lossLabels_Male + self.g_lossLabels_Young + self.g_lossLabels_Smiling)
     
     self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
     self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
     self.g_lossLabels_Smiling_sum = scalar_summary("g_loss_label_smiling", self.g_lossLabels_Smiling)
 
-    # Add a small noise to real labels to give cc more room in the Euclidean space for each label
     self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels))
     self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
 
@@ -235,11 +163,6 @@ class DCGAN(object):
     self.dcc_loss = self.dcc_loss_real+self.dcc_loss_fake
     self.dcc_loss_sum = scalar_summary("dcc_loss", self.dcc_loss)
 
-#      try:
-#        return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
-#      except:
-#        return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, targets=y)
-
     self.d_loss_real = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
     self.d_loss_fake = tf.reduce_mean(
@@ -247,42 +170,19 @@ class DCGAN(object):
     self.g_lossGAN = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
-    #self.g_lossLabels = tf.reduce_mean( sigmoid_cross_entropy_with_logits(self.fake_labels_logits, self.D_labels_for_fake)) 
-    #self.g_lossLabels = tf.reduce_mean( tf.nn.l2_loss(self.fake_labels - self.D_labels_for_fake)) 
-    #self.g_lossLabels = tf.reduce_mean((self.fake_labels - self.D_labels_for_fake)**2)
-    #self.g_loss = self.g_lossGAN + self.k_t_male*self.g_lossLabels_Male + self.k_t_young*self.g_lossLabels_Young \
-    #+ self.k_t_smiling*self.g_lossLabels_Smiling#+ self.c_loss
     self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
-    # labels are 10 dimensional now
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
-    #####
-    #self.c_loss = tf.reduce_mean( sigmoid_cross_entropy_with_logits(self.fake_labels_logits, self.D_labels_for_fake)) 
     self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
 
-    # self.d_labelLossReal = tf.reduce_mean(
-    #   sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))
-    #gamma_discriminator = self.regularizer_real(self.realMaleLabel, self.realYoungLabel, self.realSmilingLabel)
-    #self.d_labelLossReal = tf.reduce_mean(gamma_discriminator*sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))    #self.d_labelLossFake = tf.reduce_mean(
     self.d_labelLossReal = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))    #self.d_labelLossFake = tf.reduce_mean(
     self.d_labelLossFake = tf.maximum(0.5*self.prev_loss-self.g_lossLabels,0)
 
-    #  sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
-    #self.d_labelLossFake = 0
-    #self.indep_loss_fake, self.indep_loss_real = self.independence_checker(self.D_labels_for_fake_logits, self.D_logits_, self.D_labels_for_real_logits, self.D_logits)
-    #self.indep_loss_real = 0
-    #self.indep_loss_fake = 0
-    #self.indep_loss_real_sum = scalar_summary("indep_loss_real",self.indep_loss_real)
-    #self.indep_loss_fake_sum = scalar_summary("indep_loss_fake",self.indep_loss_fake)
-    #self.d_LabelIndependence = self.indep_loss_real + self.indep_loss_fake
-#######################
     self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
     self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
     self.d_loss_real_label_sum = scalar_summary("d_loss_real_label", self.d_labelLossReal)
     self.d_loss_fake_label_sum = scalar_summary("d_loss_fake_label", self.d_labelLossFake)
-    self.d_loss = self.d_loss_real + self.d_loss_fake #+ \
-            #self.d_labelLossReal + self.d_labelLossFake \
-            #+ self.d_LabelIndependence# Removed fake loss from d-loss
+    self.d_loss = self.d_loss_real + self.d_loss_fake
 
     self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
     self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
@@ -291,7 +191,7 @@ class DCGAN(object):
 
     self.dl_vars = [var for var in t_vars if 'dl_' in var.name ] 
     self.d_vars = [var for var in t_vars if 'd_' in var.name ]
-    self.g_vars = [var for var in t_vars if 'g_' in var.name ] # causal controller is part of the generator 
+    self.g_vars = [var for var in t_vars if 'g_' in var.name ] 
     self.c_vars = [var for var in t_vars if 'c_' in var.name ]    
     self.dcc_vars = [var for var in t_vars if 'dCC_' in var.name ]
     self.saver = tf.train.Saver()
@@ -311,11 +211,6 @@ class DCGAN(object):
     dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.dcc_loss, var_list=self.dcc_vars)
     update_prev_loss = tf.assign(self.prev_loss, self.d_labelLossReal)
-    #update_k = tf.assign(self.k_t, tf.clip_by_value(self.k_t + 0.001*(- 10*(self.d_loss_real+self.d_loss_fake) + self.g_lossGAN),0.0,0.7) )
-    # with tf.control_dependencies([g_optim]):
-    #     do_assignment=tf.assign(self.k_t_male, tf.clip_by_value(self.k_t_male - self.g_lossGAN + 3*self.g_lossLabels_Male,0.0,1.) )
-    #     do_assignment=tf.assign(self.k_t_young, tf.clip_by_value(self.k_t_young - self.g_lossGAN + 3*self.g_lossLabels_Young,0.0,1.) )
-    #     do_assignment=tf.assign(self.k_t_smiling, tf.clip_by_value(self.k_t_smiling - self.g_lossGAN + 3*self.g_lossLabels_Smiling,0.0,1.) )
     try:
       tf.global_variables_initializer().run()
     except:
@@ -332,11 +227,9 @@ class DCGAN(object):
     self.writer = SummaryWriter("./logs", self.sess.graph)
 
     sample_z= np.random.uniform(-1, 1, size=(self.sample_num, self.z_gen_dim))
-    #sample_zImage= np.random.uniform(-1, 1, size=(self.sample_num, self.z_gen_dim))
     sample_zMale= np.random.uniform(-1, 1,size=(self.sample_num,self.MaleDim)).astype(np.float32)
     sample_zYoung= np.random.uniform(-1, 1,size=(self.sample_num,self.YoungDim))
     sample_zSmiling= np.random.uniform(-1, 1,size=(self.sample_num,self.SmilingDim))
-    #sample_z_gamma = np.random.uniform(-1, 1,size=(1,10))
 
     sample_files = data[0:self.sample_num]
     sample = [
@@ -352,11 +245,7 @@ class DCGAN(object):
     else:
       sample_inputs = np.array(sample).astype(np.float32)
 
-    #This stays constant throughout training
-    #we just check against some fixed z to see model improv
-    #not sure why inputs is also passed
     sample_fd= {self.inputs: sample_inputs,
-         #self.realLabels:sample_labels,
          self.z_gen:    sample_z,
          self.zMale:    sample_zMale,
          self.zYoung:   sample_zYoung,
@@ -370,17 +259,6 @@ class DCGAN(object):
     else:
       print(" [!] Load failed...") 
     
-    # def label_mapper(u,dim):
-    #   if dim%2!=0:
-    #     print "Error dimension is not an even number"
-    #     print "Terminating..."
-    #     sys.exit()
-    #   u=(np.array(u)+1)/2.0 # this step maps -1,1 to 0,1
-    #   m = np.append(u,1-u)
-    #   return np.repeat(m,dim/2,axis=0)
-    # def label_mapper(u,dim):
-    #   u=(np.array(u)+1)/2.0 # this step maps -1,1 to 0,1
-    #   return np.repeat(u,dim,axis=0)
     def clamp(x, lower, upper):
       return max(min(upper, x), lower)
     def label_mapper(u,dim,s):
@@ -391,26 +269,13 @@ class DCGAN(object):
       elif s=='smiling':
         p = 0.482080
 
-      #u=(np.array(u)+1)/2.0 # this step maps -1,1 to 0,1
-      #u = 0.5*(np.array(u)+1)*0.5+0.25 # this step maps -1,1 to 0.2,0.8
       u = 0.5*(np.array(u)+1)
-      #lower, upper, scale = 0, 0.5, 1/1.0
-      #t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-      #s = t.rvs(1)
-      #u = u + (1-2.0*u)*s
-      #u = u + (1-2.0*u)*0.25 + np.random.uniform(-0.25, 0.25, 1).astype(np.float32)
-      #u = u + clamp(np.random.normal(0,0.1,1),-0.25,0.25)
-      # Following trick assures that the distribution over the label logits is uniform. But the range changes so util should be changed accordingly.
-      # assumes we are in the linear regularizerion, actually operates on a line of length 0.5 out of 1 in y axis. Change util accordingly
+
       if u == 1:
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      # u = 0.5+np.array(u)*0.3#ranges from 0.2 to 0.8 #0.5*(np.array(u)+1)
-      # lower, upper, scale = 0, 0.3, 1/2.0
-      # t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-      # s = t.rvs(1)
-      # u = u + (1-(u-0.2)/0.3)*s
+
       return u
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
@@ -432,27 +297,6 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    # def get_interventional_distributions(self):
-    #   nmbr = 100000
-    #   for i in range(2):
-    #     if i == 0:
-    #         do = -2*(1-p)+np.random.uniform(0,2*(1-p),[nmbr, 1]).astype(np.float32)
-    #     elif i == 1:
-    #         do = np.random.uniform(0,2*p,[nmbr, 1]).astype(np.float32)
-    #     batch_zMale = np.random.uniform(-1, 1, [nmbr, self.MaleDim]).astype(np.float32)
-    #     batch_zYoung = np.random.uniform(-1, 1, [nmbr, self.YoungDim]).astype(np.float32)
-    #     batch_zSmiling = np.random.uniform(-1, 1, [nmbr, self.SmilingDim]).astype(np.float32)
-    #     batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_gen_dim]).astype(np.float32)
-    #     fd= {self.z_gen: batch_z, self.zMale:    batch_zMale,\
-    #     self.zYoung:   batch_zYoung, self.zSmiling: batch_zSmiling,\
-    #     self.h2Male: do }  
-    #     x = np.sign(self.interventional_labels)
-    #     print x
-    #     y = pd.DataFrame(data=x,index = np.arange(x.shape[0]),columns = ['Male','Young','Smiling'])
-    #     print y
-    #     a = pd.crosstab(index=y['Male'], columns=[y['Young'],y['Smiling']])/y.shape[0]
-    #     print a
-    #     a.to_csv('Joint'+'Male' + str(i))
 
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
@@ -480,26 +324,10 @@ class DCGAN(object):
         else:
           batch_images = np.array(batch).astype(np.float32)
 
-        #batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_dim]) \
-        #      .astype(np.float32)
-        # get batch_z from causal controller instead
-        # also get the fake labels from causal controller
-
         batch_zMale = np.random.uniform(-1, 1, [config.batch_size, self.MaleDim]).astype(np.float32)
-        #batch_zMale = np.random.uniform(-1, 1, [config.batch_size, self.MaleDim])
         batch_zYoung = np.random.uniform(-1, 1, [config.batch_size, self.YoungDim]).astype(np.float32)
         batch_zSmiling = np.random.uniform(-1, 1, [config.batch_size, self.SmilingDim]).astype(np.float32)
-        #changed notation: not an image
         batch_z = np.random.uniform(-1, 1, [config.batch_size, self.z_gen_dim]).astype(np.float32)
-        #batch_zImage = np.random.uniform(-1, 1, [config.batch_size, self.ImageDim]).astype(np.float32)
-        #batch_z_gamma = np.random.uniform(-1, 1, [1, 10]).astype(np.float32)
-        #... #sampler confusion at this point#can't start line with ...
-
-
-        '''so in my understanding, we never feed in fake labels;
-            the generator outputs that for us. So I removed that from
-            feed_dict here.
-        '''
 
         fd= { self.inputs: batch_images,
              self.realLabels:realLabels,
@@ -519,16 +347,9 @@ class DCGAN(object):
         elif counter == 1*3165+500:
           label_sampler(self)
         else:
-          #dum = np.random.uniform(0, 1, size=(1, 1)).astype(np.float32)
-         #k_t_val = self.sess.run(self.k_t) 
-          #if np.mod(counter, 3) == np.random.random_integers(3)-1:
+
           if np.mod(counter+random_shift, 3) == 0:
-            # if np.random.random_integers(10) == 1: # do this update slower than the disc-gen updates
-            #   _, summary_str = self.sess.run([dcc_optim, self.dcc_sum], feed_dict=fd)
-            #   self.writer.add_summary(summary_str, counter)
-            #   _, summary_str = self.sess.run([c_optim, self.c_sum], feed_dict=fd)
-            #   self.writer.add_summary(summary_str, counter)
-            # Update D network
+
             _, summary_str = self.sess.run([d_label_optim, self.dl_sum], feed_dict=fd)
             self.writer.add_summary(summary_str, counter)
             _ = self.sess.run(update_prev_loss,feed_dict = fd)
@@ -548,22 +369,6 @@ class DCGAN(object):
             _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict=fd)
             self.writer.add_summary(summary_str, counter)
 
-        # _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict=fd)
-        # self.writer.add_summary(summary_str, counter)
-        # # should try running gen even more times since now we need an even stronger generator
-        # _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict=fd)
-        # self.writer.add_summary(summary_str, counter)
-        # _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict=fd)
-        # self.writer.add_summary(summary_str, counter)
-        # _, summary_str = self.sess.run([g_optim, self.g_sum], feed_dict=fd)
-        # self.writer.add_summary(summary_str, counter)
-
-        ##I don't understand why this is done this way
-        ##seems inefficient
-        #errD_fake = self.d_loss_fake.eval({ self.z_gen: batch_z })
-        #errD_real = self.d_loss_real.eval({ self.inputs: batch_images })
-        #errG = self.g_loss.eval({self.z: batch_z})
-
         #do this instead
         errD_fake,errD_real,errG= self.sess.run(
             [self.d_loss_fake,self.d_loss_real,self.g_loss], feed_dict=fd)
@@ -573,27 +378,6 @@ class DCGAN(object):
           % (epoch, idx, batch_idxs,
             time.time() - start_time, errD_fake+errD_real, errG))
 
-        # #This part needs fixing
-        # if np.mod(counter, 100) == 1:
-        #   if config.dataset == 'mnist':
-        #         #fd should be the same set of samples
-        #     samples, d_loss, g_loss = self.sess.run(
-        #       [self.sampler, self.d_loss, self.g_loss], feed_dict=sample_fd)
-        #     save_images(samples, [8, 8],
-        #           './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-        #     print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
-        #   else:
-        #     # try:
-        #     samples = self.sess.run(
-        #       [self.sampler],
-        #       feed_dict=sample_fd,
-        #     )
-        #     save_images(samples, [8, 8],
-        #           './{}/train_{:02d}_{:04d}.png'.format(config.sample_dir, epoch, idx))
-
-        #       #print("[Sample] d_loss: %.8f, g_loss: %.8f" % (d_loss, g_loss))
-        #     # except:
-        #     #   print("one pic error!...")
 
         if np.mod(counter, 2000) == 2:
           self.save(config.checkpoint_dir, counter)
@@ -846,41 +630,8 @@ class DCGAN(object):
       fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
       fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
       z_fake_labels = fake_labels_logits
-
-      # # Comment out the following
-      # self.h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-      # #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-      # #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-      # self.h1Male = linear(self.h0Male, 1, 'c_h1M')
-      # #self.h2Male = linear(self.h1Male, 1, 'c_h2M')
-      # #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-      # self.cMale = tf.sigmoid(self.h1Male)
-
-      # # a nn from zYoung to cYoung
-      # self.h0Young = tf.tanh(linear(zYoung, self.hidden_size, 'c_h0Y'))
-      # #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-      # #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-      # #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-      # self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-      # #self.h2Young = linear(self.h1Young, 1, 'c_h2Y')
-      # #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-      # self.cYoung = tf.sigmoid(self.h1Young)
-      
-      # # a nn to generate cSmiling from cYoung, cMale and zSmiling
-      # #TODO 3xhidden_size -> hidden_size in one layer
-      # self.zSmilingTotal = tf.concat([zSmiling, self.cYoung, self.cMale],1)
-      # self.h0Smiling = tf.tanh(linear(self.zSmilingTotal, self.hidden_size, 'c_h0S'))
-      # #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-      # #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-      # #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-      # self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-      # #self.h2Smiling = linear(self.h1Smiling, 1, 'c_h2S')
-      # #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-      # self.cSmiling = tf.sigmoid(self.h1Smiling)
-      # labels=concat([self.cMale, self.cYoung, self.cSmiling],axis=1)
     
     return fake_labels, fake_labels_logits, z_fake_labels
-    #return tf.concat([cMale,cYoung,cSmiling]) # this will be the latent code for generator input
 
 
 ############################################################      
@@ -968,12 +719,6 @@ class DCGAN(object):
       self.h2Smiling = linear(h1Smiling, 1, 'c_h2S')
       #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
 
-      # cSmiling_sym = tf.sign(h2Smiling)
-      # cSmiling = 0.5*(cSmiling_sym+1)
-      #if intervention_set[2]:
-      #h2Smiling = (1-intervention_set[2])*h2Smiling + intervention_set[2]*intervention[:,2]
-      #  h2Smiling = intervention[:,2]
-      #  print "intervene_on successfully set to Smiling"
       cSmiling = tf.sigmoid(self.h2Smiling)
       cSmiling_sym = 2*(cSmiling-0.5) 
 
@@ -1064,499 +809,7 @@ class DCGAN(object):
       fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
       fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
     return fake_labels_logits
-
-  # def sampler(self, z_gen,zMale,zYoung,zSmiling, intervention):#z, y=None):
-  #   rep_size = 1 # reduced from 3 to 1
-  #   self.intervene_on = None
-  #   with tf.variable_scope("causal") as scope:
-  #     print "Successfully in sampler"
-  #     scope.reuse_variables()
-  #     # a nn from zMale to cMale
-  #     h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     h1Male = tf.tanh(linear(h0Male, self.hidden_size, 'c_h1M'))
-  #     h2Male = linear(h1Male, 1, 'c_h2M')
-  #     #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-
-  #     # cMale_sym = tf.sign(h2Male)
-  #     # cMale = 0.5*(cMale_sym+1)
-  #     if self.intervene_on == "Male":
-  #       h2Male = intervention
-  #       print "intervene_on successfully set to Male"
-  #     cMale = tf.sigmoid(h2Male)
-  #     cMale_sym = 2*(cMale-0.5) 
-
-  #     # a nn from zYoung to cYoung
-  #     h0Young = tf.tanh(linear(tf.concat([zYoung,h2Male],1), self.hidden_size, 'c_h0Y'))
-  #     #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     h1Young = tf.tanh(linear(h0Young, self.hidden_size, 'c_h1Y'))
-  #     h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-
-  #     # cYoung_sym = tf.sign(h2Young)
-  #     # cYoung = 0.5*(cYoung_sym+1)
-  #     if self.intervene_on == "Young":
-  #       h2Young = intervention
-  #       print "intervene_on successfully set to Young"
-  #     cYoung = tf.sigmoid(h2Young)
-  #     cYoung_sym = 2*(cYoung-0.5) 
-  #     # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     #TODO 3xhidden_size -> hidden_size in one layer
-  #     zSmilingTotal = tf.concat([h2Male, h2Young, zSmiling], 1)
-  #     h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     h1Smiling = tf.tanh(linear(h0Smiling, self.hidden_size, 'c_h1S'))
-  #     h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-
-  #     # cSmiling_sym = tf.sign(h2Smiling)
-  #     # cSmiling = 0.5*(cSmiling_sym+1)
-  #     if self.intervene_on == "Smiling":
-  #       h2Smiling = intervention
-  #       print "intervene_on successfully set to Smiling"
-  #     cSmiling = tf.sigmoid(h2Smiling)
-  #     cSmiling_sym = 2*(cSmiling-0.5) 
-
-  #     fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
-  #     fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
-  #     z_fake_labels = fake_labels_logits
-  #     z = concat( [z_gen,z_fake_labels], axis=1)
-      
-  #     # scope.reuse_variables()
-  #     # # a nn from zMale to cMale
-  #     # h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     # #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     # #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     # h1Male = linear(h0Male, 1, 'c_h1M')
-  #     # #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-  #     # cMale = tf.sigmoid(h1Male)
-
-  #     # # a nn from zYoung to cYoung
-  #     # h0Young = tf.tanh(linear(zYoung, self.hidden_size, 'c_h0Y'))
-  #     # #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     # #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     # #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     # h1Young = linear(h0Young, 1, 'c_h1Y')
-  #     # #h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     # #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-  #     # cYoung = tf.sigmoid(h1Young)
-      
-  #     # # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     # #TODO 3xhidden_size -> hidden_size in one layer
-  #     # zSmilingTotal = tf.concat([zSmiling, cYoung, cMale],1)
-  #     # h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     # #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     # #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     # #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     # h1Smiling = linear(h0Smiling, 1, 'c_h1S')
-  #     # #h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     # #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-  #     # cSmiling = tf.sigmoid(h1Smiling)
-
-  #     # fakeLabels = tf.concat([cMale,cYoung,cSmiling],axis=1)
-  #     # z_fake_labels = tf.concat([h0Male,h0Young,h0Smiling],axis=1)
-  #     # z = concat( [z_gen,z_fake_labels], axis=1)
-
-  #   with tf.variable_scope("generator") as scope:
-  #     scope.reuse_variables()
   
-  #     s_h, s_w = self.output_height, self.output_width
-  #     s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-  #     s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-  #     s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-  #     s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
-  
-  #      # project `z` and reshape
-  #     h0 = tf.reshape(linear(z, self.gf_dim*8*s_h16*s_w16, 'g_h0_lin'),[-1, s_h16, s_w16, self.gf_dim * 8])
-  #     h0 = tf.nn.relu(self.g_bn0(h0, train=False))
-  
-  #     h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim*4], name='g_h1')
-  #     h1 = tf.nn.relu(self.g_bn1(h1, train=False))
-  
-  #     h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim*2], name='g_h2')
-  #     h2 = tf.nn.relu(self.g_bn2(h2, train=False))
-  
-  #     h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim*1], name='g_h3')
-  #     h3 = tf.nn.relu(self.g_bn3(h3, train=False))
-  
-  #     h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
-
-  #   return tf.nn.tanh(h4)
-
-
-  # def sampler_male(self, z_gen,zMale,zYoung,zSmiling, intervention):#z, y=None):
-  #   rep_size = 1 # reduced from 3 to 1
-  #   self.intervene_on = "Male"
-  #   with tf.variable_scope("causal") as scope:
-  #     print "Successfully in sampler"
-  #     scope.reuse_variables()
-  #     # a nn from zMale to cMale
-  #     h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     h1Male = tf.tanh(linear(h0Male, self.hidden_size, 'c_h1M'))
-  #     h2Male = linear(h1Male, 1, 'c_h2M')
-  #     #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-
-  #     # cMale_sym = tf.sign(h2Male)
-  #     # cMale = 0.5*(cMale_sym+1)
-  #     if self.intervene_on == "Male":
-  #       h2Male = intervention
-  #       print "intervene_on successfully set to Male"
-  #     cMale = tf.sigmoid(h2Male)
-  #     cMale_sym = 2*(cMale-0.5) 
-
-  #     # a nn from zYoung to cYoung
-  #     h0Young = tf.tanh(linear(tf.concat([zYoung,h2Male],1), self.hidden_size, 'c_h0Y'))
-  #     #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     h1Young = tf.tanh(linear(h0Young, self.hidden_size, 'c_h1Y'))
-  #     h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-
-  #     # cYoung_sym = tf.sign(h2Young)
-  #     # cYoung = 0.5*(cYoung_sym+1)
-  #     if self.intervene_on == "Young":
-  #       h2Young = intervention
-  #       print "intervene_on successfully set to Young"
-  #     cYoung = tf.sigmoid(h2Young)
-  #     cYoung_sym = 2*(cYoung-0.5) 
-  #     # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     #TODO 3xhidden_size -> hidden_size in one layer
-  #     zSmilingTotal = tf.concat([h2Male, h2Young, zSmiling], 1)
-  #     h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     h1Smiling = tf.tanh(linear(h0Smiling, self.hidden_size, 'c_h1S'))
-  #     h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-
-  #     # cSmiling_sym = tf.sign(h2Smiling)
-  #     # cSmiling = 0.5*(cSmiling_sym+1)
-  #     if self.intervene_on == "Smiling":
-  #       h2Smiling = intervention
-  #       print "intervene_on successfully set to Smiling"
-  #     cSmiling = tf.sigmoid(h2Smiling)
-  #     cSmiling_sym = 2*(cSmiling-0.5) 
-
-  #     fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
-  #     fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
-  #     z_fake_labels = fake_labels_logits
-  #     z = concat( [z_gen,z_fake_labels], axis=1)
-      
-  #     # scope.reuse_variables()
-  #     # # a nn from zMale to cMale
-  #     # h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     # #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     # #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     # h1Male = linear(h0Male, 1, 'c_h1M')
-  #     # #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-  #     # cMale = tf.sigmoid(h1Male)
-
-  #     # # a nn from zYoung to cYoung
-  #     # h0Young = tf.tanh(linear(zYoung, self.hidden_size, 'c_h0Y'))
-  #     # #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     # #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     # #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     # h1Young = linear(h0Young, 1, 'c_h1Y')
-  #     # #h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     # #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-  #     # cYoung = tf.sigmoid(h1Young)
-      
-  #     # # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     # #TODO 3xhidden_size -> hidden_size in one layer
-  #     # zSmilingTotal = tf.concat([zSmiling, cYoung, cMale],1)
-  #     # h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     # #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     # #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     # #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     # h1Smiling = linear(h0Smiling, 1, 'c_h1S')
-  #     # #h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     # #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-  #     # cSmiling = tf.sigmoid(h1Smiling)
-
-  #     # fakeLabels = tf.concat([cMale,cYoung,cSmiling],axis=1)
-  #     # z_fake_labels = tf.concat([h0Male,h0Young,h0Smiling],axis=1)
-  #     # z = concat( [z_gen,z_fake_labels], axis=1)
-
-  #   with tf.variable_scope("generator") as scope:
-  #     scope.reuse_variables()
-  
-  #     s_h, s_w = self.output_height, self.output_width
-  #     s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-  #     s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-  #     s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-  #     s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
-  
-  #      # project `z` and reshape
-  #     h0 = tf.reshape(linear(z, self.gf_dim*8*s_h16*s_w16, 'g_h0_lin'),[-1, s_h16, s_w16, self.gf_dim * 8])
-  #     h0 = tf.nn.relu(self.g_bn0(h0, train=False))
-  
-  #     h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim*4], name='g_h1')
-  #     h1 = tf.nn.relu(self.g_bn1(h1, train=False))
-  
-  #     h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim*2], name='g_h2')
-  #     h2 = tf.nn.relu(self.g_bn2(h2, train=False))
-  
-  #     h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim*1], name='g_h3')
-  #     h3 = tf.nn.relu(self.g_bn3(h3, train=False))
-  
-  #     h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
-
-  #   return tf.nn.tanh(h4)
-
-  # def sampler_young(self, z_gen,zMale,zYoung,zSmiling, intervention):#z, y=None):
-  #   rep_size = 1 # reduced from 3 to 1
-  #   self.intervene_on = "Young"
-  #   with tf.variable_scope("causal") as scope:
-  #     print "Successfully in sampler"
-  #     scope.reuse_variables()
-  #     # a nn from zMale to cMale
-  #     h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     h1Male = tf.tanh(linear(h0Male, self.hidden_size, 'c_h1M'))
-  #     h2Male = linear(h1Male, 1, 'c_h2M')
-  #     #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-
-  #     # cMale_sym = tf.sign(h2Male)
-  #     # cMale = 0.5*(cMale_sym+1)
-  #     if self.intervene_on == "Male":
-  #       h2Male = intervention
-  #       print "intervene_on successfully set to Male"
-  #     cMale = tf.sigmoid(h2Male)
-  #     cMale_sym = 2*(cMale-0.5) 
-
-  #     # a nn from zYoung to cYoung
-  #     h0Young = tf.tanh(linear(tf.concat([zYoung,h2Male],1), self.hidden_size, 'c_h0Y'))
-  #     #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     h1Young = tf.tanh(linear(h0Young, self.hidden_size, 'c_h1Y'))
-  #     h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-
-  #     # cYoung_sym = tf.sign(h2Young)
-  #     # cYoung = 0.5*(cYoung_sym+1)
-  #     if self.intervene_on == "Young":
-  #       h2Young = intervention
-  #       print "intervene_on successfully set to Young"
-  #     cYoung = tf.sigmoid(h2Young)
-  #     cYoung_sym = 2*(cYoung-0.5) 
-  #     # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     #TODO 3xhidden_size -> hidden_size in one layer
-  #     zSmilingTotal = tf.concat([h2Male, h2Young, zSmiling], 1)
-  #     h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     h1Smiling = tf.tanh(linear(h0Smiling, self.hidden_size, 'c_h1S'))
-  #     h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-
-  #     # cSmiling_sym = tf.sign(h2Smiling)
-  #     # cSmiling = 0.5*(cSmiling_sym+1)
-  #     if self.intervene_on == "Smiling":
-  #       h2Smiling = intervention
-  #       print "intervene_on successfully set to Smiling"
-  #     cSmiling = tf.sigmoid(h2Smiling)
-  #     cSmiling_sym = 2*(cSmiling-0.5) 
-
-  #     fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
-  #     fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
-  #     z_fake_labels = fake_labels_logits
-  #     z = concat( [z_gen,z_fake_labels], axis=1)
-      
-  #     # scope.reuse_variables()
-  #     # # a nn from zMale to cMale
-  #     # h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     # #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     # #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     # h1Male = linear(h0Male, 1, 'c_h1M')
-  #     # #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-  #     # cMale = tf.sigmoid(h1Male)
-
-  #     # # a nn from zYoung to cYoung
-  #     # h0Young = tf.tanh(linear(zYoung, self.hidden_size, 'c_h0Y'))
-  #     # #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     # #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     # #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     # h1Young = linear(h0Young, 1, 'c_h1Y')
-  #     # #h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     # #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-  #     # cYoung = tf.sigmoid(h1Young)
-      
-  #     # # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     # #TODO 3xhidden_size -> hidden_size in one layer
-  #     # zSmilingTotal = tf.concat([zSmiling, cYoung, cMale],1)
-  #     # h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     # #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     # #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     # #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     # h1Smiling = linear(h0Smiling, 1, 'c_h1S')
-  #     # #h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     # #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-  #     # cSmiling = tf.sigmoid(h1Smiling)
-
-  #     # fakeLabels = tf.concat([cMale,cYoung,cSmiling],axis=1)
-  #     # z_fake_labels = tf.concat([h0Male,h0Young,h0Smiling],axis=1)
-  #     # z = concat( [z_gen,z_fake_labels], axis=1)
-
-  #   with tf.variable_scope("generator") as scope:
-  #     scope.reuse_variables()
-  
-  #     s_h, s_w = self.output_height, self.output_width
-  #     s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-  #     s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-  #     s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-  #     s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
-  
-  #      # project `z` and reshape
-  #     h0 = tf.reshape(linear(z, self.gf_dim*8*s_h16*s_w16, 'g_h0_lin'),[-1, s_h16, s_w16, self.gf_dim * 8])
-  #     h0 = tf.nn.relu(self.g_bn0(h0, train=False))
-  
-  #     h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim*4], name='g_h1')
-  #     h1 = tf.nn.relu(self.g_bn1(h1, train=False))
-  
-  #     h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim*2], name='g_h2')
-  #     h2 = tf.nn.relu(self.g_bn2(h2, train=False))
-  
-  #     h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim*1], name='g_h3')
-  #     h3 = tf.nn.relu(self.g_bn3(h3, train=False))
-  
-  #     h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
-
-  #   return tf.nn.tanh(h4)
-
-  # def sampler_smiling(self, z_gen,zMale,zYoung,zSmiling, intervention):#z, y=None):
-  #   rep_size = 1 # reduced from 3 to 1
-  #   self.intervene_on="Smiling"
-  #   with tf.variable_scope("causal") as scope:
-  #     print "Successfully in sampler"
-  #     scope.reuse_variables()
-  #     # a nn from zMale to cMale
-  #     h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     h1Male = tf.tanh(linear(h0Male, self.hidden_size, 'c_h1M'))
-  #     h2Male = linear(h1Male, 1, 'c_h2M')
-  #     #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-
-  #     # cMale_sym = tf.sign(h2Male)
-  #     # cMale = 0.5*(cMale_sym+1)
-  #     if self.intervene_on == "Male":
-  #       h2Male = intervention
-  #       print "intervene_on successfully set to Male"
-  #     cMale = tf.sigmoid(h2Male)
-  #     cMale_sym = 2*(cMale-0.5) 
-
-  #     # a nn from zYoung to cYoung
-  #     h0Young = tf.tanh(linear(tf.concat([zYoung,h2Male],1), self.hidden_size, 'c_h0Y'))
-  #     #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     h1Young = tf.tanh(linear(h0Young, self.hidden_size, 'c_h1Y'))
-  #     h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-
-  #     # cYoung_sym = tf.sign(h2Young)
-  #     # cYoung = 0.5*(cYoung_sym+1)
-  #     if self.intervene_on == "Young":
-  #       h2Young = intervention
-  #       print "intervene_on successfully set to Young"
-  #     cYoung = tf.sigmoid(h2Young)
-  #     cYoung_sym = 2*(cYoung-0.5) 
-  #     # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     #TODO 3xhidden_size -> hidden_size in one layer
-  #     zSmilingTotal = tf.concat([h2Male, h2Young, zSmiling], 1)
-  #     h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     h1Smiling = tf.tanh(linear(h0Smiling, self.hidden_size, 'c_h1S'))
-  #     h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-
-  #     # cSmiling_sym = tf.sign(h2Smiling)
-  #     # cSmiling = 0.5*(cSmiling_sym+1)
-  #     if self.intervene_on == "Smiling":
-  #       h2Smiling = intervention
-  #       print "intervene_on successfully set to Smiling"
-  #     cSmiling = tf.sigmoid(h2Smiling)
-  #     cSmiling_sym = 2*(cSmiling-0.5) 
-
-  #     fake_labels=concat([cMale, cYoung, cSmiling],axis=1)
-  #     fake_labels_logits = concat([h2Male,h2Young,h2Smiling], axis = 1)
-  #     z_fake_labels = fake_labels_logits
-  #     z = concat( [z_gen,z_fake_labels], axis=1)
-      
-  #     # scope.reuse_variables()
-  #     # # a nn from zMale to cMale
-  #     # h0Male = tf.tanh(linear(zMale, self.hidden_size, 'c_h0M'))
-  #     # #self.h1Male = tf.tanh(linear(self.h0Male, self.hidden_size, 'c_h1M'))
-  #     # #self.h1Male = linear(self.h0Male, self.hidden_size, 'c_h1M')
-  #     # h1Male = linear(h0Male, 1, 'c_h1M')
-  #     # #self.cMale = tf.tanh(linear(self.h1Male, 1, 'c_M'))
-  #     # cMale = tf.sigmoid(h1Male)
-
-  #     # # a nn from zYoung to cYoung
-  #     # h0Young = tf.tanh(linear(zYoung, self.hidden_size, 'c_h0Y'))
-  #     # #self.h1Young = tf.tanh(linear(self.h0Young, self.hidden_size, 'c_h1Y'))
-  #     # #self.h1Young = linear(self.h0Young, self.hidden_size, 'c_h1Y')
-  #     # #self.h1Young = linear(self.h0Young, 1, 'c_h1Y')
-  #     # h1Young = linear(h0Young, 1, 'c_h1Y')
-  #     # #h2Young = linear(h1Young, 1, 'c_h2Y')
-  #     # #self.cYoung = tf.tanh(linear(self.h1Young, 1, 'c_Y'))
-  #     # cYoung = tf.sigmoid(h1Young)
-      
-  #     # # a nn to generate cSmiling from cYoung, cMale and zSmiling
-  #     # #TODO 3xhidden_size -> hidden_size in one layer
-  #     # zSmilingTotal = tf.concat([zSmiling, cYoung, cMale],1)
-  #     # h0Smiling = tf.tanh(linear(zSmilingTotal, self.hidden_size, 'c_h0S'))
-  #     # #self.h1Smiling = tf.tanh(linear(self.h0Smiling, self.hidden_size, 'c_h1S'))
-  #     # #self.h1Smiling = linear(self.h0Smiling, self.hidden_size, 'c_h1S')
-  #     # #self.h1Smiling = linear(self.h0Smiling, 1, 'c_h1S')
-  #     # h1Smiling = linear(h0Smiling, 1, 'c_h1S')
-  #     # #h2Smiling = linear(h1Smiling, 1, 'c_h2S')
-  #     # #self.cSmiling = tf.tanh(linear(self.h1Smiling,1, 'c_S'))
-  #     # cSmiling = tf.sigmoid(h1Smiling)
-
-  #     # fakeLabels = tf.concat([cMale,cYoung,cSmiling],axis=1)
-  #     # z_fake_labels = tf.concat([h0Male,h0Young,h0Smiling],axis=1)
-  #     # z = concat( [z_gen,z_fake_labels], axis=1)
-
-  #   with tf.variable_scope("generator") as scope:
-  #     scope.reuse_variables()
-  
-  #     s_h, s_w = self.output_height, self.output_width
-  #     s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
-  #     s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
-  #     s_h8, s_w8 = conv_out_size_same(s_h4, 2), conv_out_size_same(s_w4, 2)
-  #     s_h16, s_w16 = conv_out_size_same(s_h8, 2), conv_out_size_same(s_w8, 2)
-  
-  #      # project `z` and reshape
-  #     h0 = tf.reshape(linear(z, self.gf_dim*8*s_h16*s_w16, 'g_h0_lin'),[-1, s_h16, s_w16, self.gf_dim * 8])
-  #     h0 = tf.nn.relu(self.g_bn0(h0, train=False))
-  
-  #     h1 = deconv2d(h0, [self.batch_size, s_h8, s_w8, self.gf_dim*4], name='g_h1')
-  #     h1 = tf.nn.relu(self.g_bn1(h1, train=False))
-  
-  #     h2 = deconv2d(h1, [self.batch_size, s_h4, s_w4, self.gf_dim*2], name='g_h2')
-  #     h2 = tf.nn.relu(self.g_bn2(h2, train=False))
-  
-  #     h3 = deconv2d(h2, [self.batch_size, s_h2, s_w2, self.gf_dim*1], name='g_h3')
-  #     h3 = tf.nn.relu(self.g_bn3(h3, train=False))
-  
-  #     h4 = deconv2d(h3, [self.batch_size, s_h, s_w, self.c_dim], name='g_h4')
-
-  #   return tf.nn.tanh(h4)    
 
   def load_mnist(self):
     data_dir = os.path.join("./data", self.dataset_name)
