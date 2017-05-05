@@ -71,14 +71,12 @@ class DCGAN(object):
     self.dataset_name = dataset_name
     self.input_fname_pattern = input_fname_pattern
 
-    #TODO does this work?/is it needed here?
     self.attributes = pd.read_csv("./data/list_attr_celeba.txt",delim_whitespace=True)
 
     self.checkpoint_dir = checkpoint_dir
     self.build_model()
 
   def build_model(self):
-    # this part is modified to add a causal controller
 
     if self.is_crop:
       image_dims = [self.output_height, self.output_width, self.c_dim]
@@ -93,7 +91,6 @@ class DCGAN(object):
     inputs = self.inputs
     sample_inputs = self.sample_inputs
     self.causal_labels_dim=3 
-    self.prev_loss = tf.get_variable(name='prev_loss',initializer=0.,trainable=False)
     self.realLabels = tf.placeholder(tf.float32,[None, self.causal_labels_dim],
                                      name='causal_labels')
 
@@ -176,12 +173,10 @@ class DCGAN(object):
     self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
 
     self.d_labelLossReal = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))    #self.d_labelLossFake = tf.reduce_mean(
-    self.d_labelLossFake = tf.maximum(0.5*self.prev_loss-self.g_lossLabels,0)
 
     self.d_loss_real_sum = scalar_summary("d_loss_real", self.d_loss_real)
     self.d_loss_fake_sum = scalar_summary("d_loss_fake", self.d_loss_fake)
     self.d_loss_real_label_sum = scalar_summary("d_loss_real_label", self.d_labelLossReal)
-    self.d_loss_fake_label_sum = scalar_summary("d_loss_fake_label", self.d_labelLossFake)
     self.d_loss = self.d_loss_real + self.d_loss_fake
 
     self.g_loss_sum = scalar_summary("g_loss", self.g_loss)
@@ -210,7 +205,6 @@ class DCGAN(object):
               .minimize(self.c_loss, var_list=self.c_vars)
     dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.dcc_loss, var_list=self.dcc_vars)
-    update_prev_loss = tf.assign(self.prev_loss, self.d_labelLossReal)
     try:
       tf.global_variables_initializer().run()
     except:
@@ -223,7 +217,7 @@ class DCGAN(object):
     self.g_sum = merge_summary([self.G_sum, self.g_loss_sum, self.g_loss_labels_sum, self.g_lossGAN_sum,\
       self.g_lossLabels_Male_sum, self.g_lossLabels_Young_sum,self.g_lossLabels_Smiling_sum])
     self.d_sum = merge_summary([self.d_loss_real_sum, self.d_loss_fake_sum, self.d_loss_sum])
-    self.dl_sum = merge_summary([self.d_loss_real_label_sum, self.d_loss_fake_label_sum])
+    self.dl_sum = merge_summary([self.d_loss_real_label_sum])
     self.writer = SummaryWriter("./logs", self.sess.graph)
 
     sample_z= np.random.uniform(-1, 1, size=(self.sample_num, self.z_gen_dim))
@@ -352,7 +346,6 @@ class DCGAN(object):
 
             _, summary_str = self.sess.run([d_label_optim, self.dl_sum], feed_dict=fd)
             self.writer.add_summary(summary_str, counter)
-            _ = self.sess.run(update_prev_loss,feed_dict = fd)
             _, summary_str = self.sess.run([d_optim, self.d_sum], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.d_sum],
             #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
