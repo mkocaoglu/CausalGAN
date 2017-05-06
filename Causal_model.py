@@ -674,13 +674,32 @@ class DCGAN(object):
       #h3 = linear(h2, 1, 'dCC_3')
       #return tf.nn.sigmoid(h3), h3
 
-      #Suggested replacement:
-      h0 = lrelu(labels, self.hidden_size, 'dCC_0')
-      h1 = lrelu(h0, self.hidden_size,'dCC_1')
-      h1 = add_minibatch_features_for_labels(h1, self.batch_size)
-      h2 = lrelu(h1, self.hidden_size, 'dCC_2')
-      h3 = linear(h2, 1, 'dCC_3')
-      return tf.nn.sigmoid(h3), h3
+      #Old WARNING: BUG FOUND HERE
+      #(no matrix multiplication or bias; only nonlinearity)
+      ##Suggested replacement:
+      #h0 = lrelu(labels, self.hidden_size, 'dCC_0')
+      #h1 = lrelu(h0, self.hidden_size,'dCC_1')
+      #h1 = add_minibatch_features_for_labels(h1, self.batch_size)
+      #h2 = lrelu(h1, self.hidden_size, 'dCC_2')
+      #h3 = linear(h2, 1, 'dCC_3')
+      #return tf.nn.sigmoid(h3), h3
+
+      #New BugFree code
+      def lrelu(x,leak=0.2,name='lrelu'):
+          with tf.variable_scope(name):
+              f1=0.5 * (1+leak)#halves memory footprint
+              f2=0.5 * (1-leak)#relative to tf.maximum(leak*x,x)
+              return f1*x + f2*tf.abs(x)
+      h0 = slim.fully_connected(labels,self.n_hidden,activation_fn=lrelu,scope='dCC_0')
+      h1 = slim.fully_connected(labels,self.n_hidden,activation_fn=lrelu,scope='dCC_1')
+      h1 = lrelu(add_minibatch_features_for_labels(h1,self.batch_size))
+      h2 = slim.fully_connected(labels,self.n_hidden,activation_fn=lrelu,scope='dCC_2')
+      h3 = slim.fully_connected(labels,self.n_hidden,activation_fn=None,scope='dCC_3')
+      return tf.nn.sigmoid(h3),h3
+
+
+
+
 #==============================================================================
 #       yb = tf.reshape(Labels, [self.batch_size, 1, 1, self.realLabelsDim])
 #       x = conv_cond_concat(image, yb)
