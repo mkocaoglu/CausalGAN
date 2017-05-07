@@ -188,7 +188,7 @@ class DCGAN(object):
     #     #self.g_lossLabels = (self.g_lossLabels_Male + self.g_lossLabels_Young + self.g_lossLabels_Smiling)
 
     #New
-    self.g_lossLabels= tf.reduce_sum(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
+    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
 
     #self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
@@ -370,7 +370,7 @@ class DCGAN(object):
 
     #New. Draw fixed z to use during evaluation
     # DO: Fix the following
-    # sample_z = self.sess.run(self.z_fd)#string dict
+    # z_fixed = self.sess.run(self.z_fd)#string dict
     # sample_fd={self.z_fd[k]:val for k,val in z_fixed.items()}#tensor dict
     # sample_fd.update({self.inputs: sample_inputs})
          #    ,
@@ -426,6 +426,7 @@ class DCGAN(object):
     counter = 1
     start_time = time.time()
     name_list = self.cc.node_names
+    print name_list
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
         "./data", config.dataset, self.input_fname_pattern))
@@ -479,7 +480,7 @@ class DCGAN(object):
         #I changed self.dl_sum, g_sum etc for just summary_op, which has all the summaries
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
-        if counter < 10:
+        if counter > 10:
           _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
           #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
@@ -521,7 +522,7 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG))
 
 
-        if np.mod(counter, 2000) == 2:
+        if np.mod(counter, 3) == 0:
           self.save(config.checkpoint_dir, counter)
   def regularizer(self, m_logit, y_logit, s_logit):
     p1 = 0.023134
