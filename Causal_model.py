@@ -13,6 +13,7 @@ import scipy.stats as stats
 from ops import *
 from utils import *
 from tensorflow.core.framework import summary_pb2
+from tensorflow.contrib import slim
 
 from causal_model import CausalController
 def conv_out_size_same(size, stride):
