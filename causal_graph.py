@@ -87,6 +87,10 @@ standard_graph=[
        ['Smiling', ['Male','Young']]
        ]
 
+male_causes_beard=[
+        ['Male',[]],
+        ['No_Beard',['Male']],
+    ]
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
@@ -94,6 +98,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph=standard_graph
     elif causal_model == 'subset1':
         graph=subset1_nodes
+    elif causal_model == 'male_causes_beard':
+        graph = male_causes_beard
 
     if causal_model is 'empty':
         graph=[[],[]]
