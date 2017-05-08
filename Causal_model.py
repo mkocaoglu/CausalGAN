@@ -155,6 +155,10 @@ class DCGAN(object):
 
     self.G = self.generator(self.z)
 
+
+    print 'inputs:',inputs.get_shape().as_list()
+    print 'G:',self.G.get_shape().as_list()
+
     self.D, self.D_logits = self.discriminator(inputs)
     self.D_labels_for_real, self.D_labels_for_real_logits = self.discriminator_labeler(inputs)
 
