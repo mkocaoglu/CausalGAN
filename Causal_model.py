@@ -402,9 +402,9 @@ class DCGAN(object):
       # elif u == 0:
       #   u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
       if u == 1:
-        u = 0.5 + np.random.uniform(0, 0.25, 1).astype(np.float32)
+        u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       elif u == 0:
-        u = 0.5 - np.random.uniform(0, 0.25, 1).astype(np.float32)
+        u = 0.5 - np.random.uniform(0, 0.3, 1).astype(np.float32)
       return u
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
@@ -483,7 +483,7 @@ class DCGAN(object):
         #I changed self.dl_sum, g_sum etc for just summary_op, which has all the summaries
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
-        if counter > 10:
+        if epoch < 1:
           _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
           #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
@@ -491,8 +491,8 @@ class DCGAN(object):
           self.writer.add_summary(summary_str, counter)
           _, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
-        elif counter == 1*3165+500:
-          label_sampler(self)
+        # elif counter == 1*3165+500:
+        #   label_sampler(self)
         else:
 
           if np.mod(counter+random_shift, 3) == 0:
@@ -668,8 +668,8 @@ class DCGAN(object):
         scope.reuse_variables()
       # add minibatch features here to get fake labels with high variation
       def add_minibatch_features_for_labels(labels,batch_size):
-        n_kernels = 50
-        dim_per_kernel = 20
+        n_kernels = 15
+        dim_per_kernel = 10
         shape = labels.get_shape().as_list()
         dim = np.prod(shape[1:])            # dim = prod(9,2) = 18
         input_ = tf.reshape(labels, [-1, dim])           # -1 means "all"  
