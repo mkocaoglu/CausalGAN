@@ -395,7 +395,7 @@ class DCGAN(object):
       # elif s=='smiling':
       #   p = 0.482080
 
-      # u = 0.5*(np.array(u)+1)
+      u = 0.5*(np.array(u)+1)
 
       # if u == 1:
       #   u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
@@ -404,7 +404,7 @@ class DCGAN(object):
       if u == 1:
         u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       elif u == 0:
-        u = 0.5 - np.random.uniform(0, 0.3, 1).astype(np.float32)
+        u = 0.2 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       return u
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
