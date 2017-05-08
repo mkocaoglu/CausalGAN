@@ -91,6 +91,23 @@ male_causes_beard=[
         ['Male',[]],
         ['No_Beard',['Male']],
     ]
+male_causes_mustache=[
+        ['Male',[]],
+        ['Mustache',['Male']],
+    ]
+
+big_causal_graph=[
+        ['Young',[]],
+        ['Male',[]],
+        ['Eyeglasses',['Young']],
+        ['Bald',            ['Male','Young']],
+        ['Mustache',        ['Male','Young']],
+        ['Smiling',         ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young']],
+        ['Mouth_Slightly_Open',['Smiling']],
+        ['Narrow_Eyes',        ['Smiling']],
+    ]
+
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
@@ -100,6 +117,10 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph=subset1_nodes
     elif causal_model == 'male_causes_beard':
         graph = male_causes_beard
+    elif causal_model == 'male_causes_mustache':
+        graph = male_causes_mustache
+    elif causal_model == 'big_causal_graph':
+        graph = big_causal_graph
 
     if causal_model is 'empty':
         graph=[[],[]]

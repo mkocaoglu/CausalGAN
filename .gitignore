@@ -1,4 +1,15 @@
 data/
-.swp*
+.*.swp
 logs/
 checkpoint/
+*.pyc
+.DS_Store
+.ipynb_checkpoints
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-v][a-z]
+[._]sw[a-p]
+
+samples
+outputs
+

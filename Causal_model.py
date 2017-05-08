@@ -22,7 +22,9 @@ def conv_out_size_same(size, stride):
 
 ##Use this graph if no graph argument is passed in
 #from causal_graph import standard_graph #This is the Male->Smiling<-Young
-from causal_graph import male_causes_beard
+#from causal_graph import male_causes_beard
+
+from causal_graph import get_causal_graph
 
 class DCGAN(object):
   def __init__(self, sess, input_height=108, input_width=108, is_crop=True,
@@ -31,7 +33,7 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
-               z_dim_Image=100, intervene_on = None,graph=male_causes_beard):
+               z_dim_Image=100, intervene_on = None,graph='big_causal_graph'):
 
     self.sess = sess
     self.is_crop = is_crop
@@ -46,7 +48,7 @@ class DCGAN(object):
     self.output_width = output_width
 
     self.intervene_on = intervene_on
-    self.graph=graph
+    self.graph=get_causal_graph(graph)
 
     self.y_dim = 3
     self.TINY = 10**-8
@@ -259,7 +261,7 @@ class DCGAN(object):
 
 
     self.dcc_vars = [var for var in t_vars if 'dCC_' in var.name ]
-    self.saver = tf.train.Saver()
+    self.saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1)
 
 
     #New: Causal summaries:
@@ -346,7 +348,8 @@ class DCGAN(object):
     self.summary_op=tf.summary.merge_all()
 
 
-    self.writer = SummaryWriter("./logs", self.sess.graph)
+    self.writer = SummaryWriter(self.checkpoint_dir, self.sess.graph)
+    #self.writer = SummaryWriter("./logs", self.sess.graph)
 
     sample_files = data[0:self.sample_num]
     sample = [
@@ -522,7 +525,7 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG))
 
 
-        if np.mod(counter, 3) == 0:
+        if np.mod(counter, 3000) == 0:
           self.save(config.checkpoint_dir, counter)
   def regularizer(self, m_logit, y_logit, s_logit):
     p1 = 0.023134
