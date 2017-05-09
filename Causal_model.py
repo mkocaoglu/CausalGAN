@@ -16,9 +16,9 @@ from tensorflow.core.framework import summary_pb2
 from tensorflow.contrib import slim
 
 from Causal_controller import CausalController
+#from figure_scripts import pairwise
 def conv_out_size_same(size, stride):
   return int(math.ceil(float(size) / float(stride)))
-
 
 ##Use this graph if no graph argument is passed in
 #from causal_graph import standard_graph #This is the Male->Smiling<-Young
@@ -33,7 +33,7 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
-               z_dim_Image=100, intervene_on = None,graph='big_causal_graph'):
+               z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = False):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
@@ -48,8 +48,8 @@ class DCGAN(object):
     self.output_width = output_width
 
     self.intervene_on = intervene_on
-    self.graph=get_causal_graph(graph)
-
+    self.graph = get_causal_graph(graph)
+    self.label_specific_noise = label_specific_noise
     self.y_dim = 3
     self.TINY = 10**-8
     #noise post causal controller
@@ -84,7 +84,8 @@ class DCGAN(object):
     self.input_fname_pattern = input_fname_pattern
 
     self.attributes = pd.read_csv("./data/list_attr_celeba.txt",delim_whitespace=True)
-
+    self.means = pd.read_csv("./data/means",header = None)
+    self.means = dict(zip(self.means[0],self.means[1]))  
     self.checkpoint_dir = checkpoint_dir
     self.build_model()
 
@@ -390,28 +391,32 @@ class DCGAN(object):
 
     def clamp(x, lower, upper):
       return max(min(upper, x), lower)
-    def label_mapper(u,s):
-      # DO: Implement the following based on the marginal label statistics
-      # if s=='male':
-      #   p = 0.416754 #bias
-      # elif s == 'young':
-      #   p = 0.773617
-      # elif s=='smiling':
-      #   p = 0.482080
-
+    
+    def p_dependent_noise(u,name):
+      p = self.means[name]
       u = 0.5*(np.array(u)+1)
-
-      # if u == 1:
-      #   u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
-      # elif u == 0:
-      #   u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
+      if u == 1:
+        u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
+      elif u == 0:
+        u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
+      return u 
+    def p_independent_noise(u):
+      u = 0.5*(np.array(u)+1)
       if u == 1:
         u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       elif u == 0:
         u = 0.2 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       return u
+
+    def label_mapper(u,name):
+      if self.label_specific_noise:
+        return p_dependent_noise(u,name)
+      else:
+        return p_independent_noise(u)
+
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
+
     def label_sampler(self):
       nmbr = 100000
       batch_zMale = np.random.uniform(-1, 1, [nmbr, self.MaleDim]).astype(np.float32)
@@ -496,7 +501,7 @@ class DCGAN(object):
           _, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
         # elif counter == 1*3165+500:
-        #   label_sampler(self)
+        #   pairwise(self)
         else:
 
           if np.mod(counter+random_shift, 3) == 0:
@@ -1035,7 +1040,6 @@ class DCGAN(object):
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
     checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
