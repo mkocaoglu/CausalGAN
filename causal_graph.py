@@ -109,8 +109,8 @@ big_causal_graph=[
         ['Mustache',        ['Male','Young']],
         ['Smiling',         ['Male','Young']],
         ['Wearing_Lipstick',['Male','Young']],
-        ['Mouth_Slightly_Open',['Smiling']],
-        ['Narrow_Eyes',        ['Smiling']],
+        ['Mouth_Slightly_Open',['Young','Smiling']],
+        ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
 
 male_ind_mustache = [
