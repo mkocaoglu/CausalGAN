@@ -31,6 +31,7 @@ flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [Fa
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
 FLAGS = flags.FLAGS
 
+
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
 
