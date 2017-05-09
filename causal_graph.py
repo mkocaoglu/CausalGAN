@@ -109,8 +109,13 @@ big_causal_graph=[
         ['Mustache',        ['Male','Young']],
         ['Smiling',         ['Male','Young']],
         ['Wearing_Lipstick',['Male','Young']],
-        ['Mouth_Slightly_Open',['Smiling']],
-        ['Narrow_Eyes',        ['Smiling']],
+        ['Mouth_Slightly_Open',['Young','Smiling']],
+        ['Narrow_Eyes',        ['Male','Young','Smiling']],
+    ]
+
+male_ind_mustache = [
+        ['Male',[]],
+        ['Mustache',[]]
     ]
 
 def get_causal_graph(causal_model=None,*args,**kwargs):
@@ -128,7 +133,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = mustache_causes_male
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
-
+    elif causal_model == 'male_ind_mustache':
+        graph = male_ind_mustache
     if causal_model is 'empty':
         graph=[[],[]]
 

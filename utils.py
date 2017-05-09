@@ -761,16 +761,24 @@ def visualize(sess, dcgan, config, option):
 
   elif option == 11:
     causal_controller = dcgan.cc
-    twologtwo = 1.386
+    means = dcgan.means
     alpha = np.linspace(0,1,image_frame_dim)
-    int_begin = twologtwo
-    int_end = -twologtwo
-    intervention = int_begin
-    for index in range(1,image_frame_dim):
-      dum = int_begin*(1-alpha[index])+int_end*(alpha[index])
-      intervention=np.vstack((intervention,dum))
-    intervention = np.repeat(intervention, image_frame_dim ,axis = 0)
+
     for node in causal_controller.nodes:
+
+      if dcgan.label_specific_noise:
+        int_begin = 2*p*np.ones((1,1))
+        int_end = -2*(1-p)*np.ones((1,1))
+      else:
+        r = 1.386
+        int_begin = r
+        int_end = -r
+      intervention = int_begin
+      for index in range(1,image_frame_dim):
+        dum = int_begin*(1-alpha[index])+int_end*(alpha[index])
+        intervention=np.vstack((intervention,dum))
+      intervention = np.repeat(intervention, image_frame_dim ,axis = 0)
+
       if not os.path.exists(config.sample_dir+node.name):
         os.makedirs(config.sample_dir+node.name)
         ## Following is changing each coordinate at a time
