@@ -33,7 +33,7 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
-               z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = False, is_train = True):#'big_causal_graph'
+               z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = True, is_train = True):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop

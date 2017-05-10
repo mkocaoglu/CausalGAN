@@ -118,6 +118,12 @@ male_ind_mustache = [
         ['Mustache',[]]
     ]
 
+male_smiling_lipstick=[
+       ['Male'   , []],
+       ['Wearing_Lipstick'  , ['Male']],
+       ['Smiling', ['Male']]
+       ]
+
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
@@ -135,6 +141,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = big_causal_graph
     elif causal_model == 'male_ind_mustache':
         graph = male_ind_mustache
+    elif causal_model == 'male_smiling_lipstick':
+        graph = male_smiling_lipstick
     if causal_model is 'empty':
         graph=[[],[]]
 

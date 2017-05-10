@@ -763,9 +763,8 @@ def visualize(sess, dcgan, config, option):
     causal_controller = dcgan.cc
     means = dcgan.means
     alpha = np.linspace(0,1,image_frame_dim)
-
     for node in causal_controller.nodes:
-
+      p = means[node.name]
       if dcgan.label_specific_noise:
         int_begin = 2*p*np.ones((1,1))
         int_end = -2*(1-p)*np.ones((1,1))
@@ -789,6 +788,11 @@ def visualize(sess, dcgan, config, option):
         z_sample = dcgan.sess.run(dcgan.z_fd)
         z_sample = {key:np.tile(val[:image_frame_dim],[image_frame_dim,1]) for key,val in z_sample.items()}
         fd={dcgan.z_fd[k]:val for k,val in z_sample.items()}
+        for nodeAll in causal_controller.nodes:
+          p = means[nodeAll.name]
+          nodeIntervention = np.random.uniform(-2*(1-p), 2*p, size=(1,1))
+          nodeIntervention = np.tile(nodeIntervention,[image_frame_dim**2,1])
+          fd.update({nodeAll.label_logit:nodeIntervention})
         fd.update({node.label_logit: intervention})
         samples = sess.run(dcgan.G,feed_dict = fd)  
         save_images(samples, [image_frame_dim, image_frame_dim], './samples'+str(node.name)+'/test_arange_%s.png' % (idx))
