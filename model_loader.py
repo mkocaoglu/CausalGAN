@@ -6,7 +6,10 @@ import numpy as np
 from model import DCGAN
 from Causal_model import DCGAN as CausalGAN
 
-from utils import pp, visualize, to_json#, show_all_variables
+import pprint
+pp = pprint.PrettyPrinter()
+
+from utils import visualize, to_json#, show_all_variables
 from main import FLAGS
 
 

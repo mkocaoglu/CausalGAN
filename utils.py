@@ -10,7 +10,7 @@ import scipy.misc
 import numpy as np
 from time import gmtime, strftime
 from six.moves import xrange
-import os 
+import os
 
 pp = pprint.PrettyPrinter()
 
