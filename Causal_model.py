@@ -33,11 +33,12 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
-         z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = False):#'big_causal_graph'
+               z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = False, is_train = True):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
     self.is_grayscale = (c_dim == 1)
+    self.is_train = is_train
 
     self.batch_size = batch_size
     self.sample_num = sample_num
@@ -114,7 +115,7 @@ class DCGAN(object):
     self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
 
     #CC (New)
-    self.cc=CausalController(self.graph,self.batch_size)
+    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
     self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
     self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
 

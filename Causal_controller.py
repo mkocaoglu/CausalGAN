@@ -7,7 +7,7 @@ slim = tf.contrib.slim
 
 
 class CausalController(object):
-    def __init__(self, graph,batch_size,indep_causal=False,n_hidden=10):
+    def __init__(self, graph,batch_size,indep_causal=False,n_hidden=10, train = True):
         '''a causal graph is specified as follows:
             just supply a list of pairs (node, node_parents)
 
@@ -37,7 +37,7 @@ class CausalController(object):
         with tf.variable_scope('CC') as vs:
             self.graph=graph
             self.n_hidden=n_hidden
-
+            self.train = train
             if indep_causal:
                 NodeClass=UniformNode
             else:
@@ -45,7 +45,7 @@ class CausalController(object):
 
             NodeClass.batch_size=batch_size
             self.node_names, self.parent_names=zip(*graph)
-            self.nodes=[NodeClass(name=n) for n in self.node_names]
+            self.nodes=[NodeClass(name=n,train=self.train) for n in self.node_names]
 
             #={n:CausalNode(n) for n in self.node_names}
             for node,rents in zip(self.nodes,self.parent_names):
@@ -88,6 +88,7 @@ class CausalNode(object):
 
     Uniform[-1,1] + other causes pases through 2 fully connected layers. 
     '''
+    train = True
     batch_size=1#class variable. set all at once
     name=None
     #logit is going to be 1 dim with sigmoid
@@ -96,17 +97,22 @@ class CausalNode(object):
     _label=None
     parents=[]#list of CausalNodes
 
-    def __init__(self,name=None,n_hidden=10):
+    def __init__(self,train=True,name=None,n_hidden=10):
         self.name=name
         self.n_hidden=n_hidden#also is z_dim
+        self.train = train
 
         #Use tf.random_uniform instead of placeholder for noise
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
     def setup_tensor(self):
         with tf.variable_scope(self.name):
-            self.z = tf.random_uniform(
-                    (self.batch_size, self.n_hidden), minval=-1.0, maxval=1.0)
+            if self.train:
+                self.z = tf.random_uniform(
+                        (self.batch_size, self.n_hidden), minval=-1.0, maxval=1.0)
+            else:
+                self.z = tf.random_uniform(
+                        (self.batch_size, self.n_hidden), minval=-0.5, maxval=0.5)                
             tf_parents=[self.z]+[node.label_logit for node in self.parents]
             vec_parents=tf.concat(tf_parents,-1)
             h0=slim.fully_connected(vec_parents,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer0')
