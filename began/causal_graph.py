@@ -108,6 +108,19 @@ big_causal_graph=[
         ['Narrow_Eyes',        ['Smiling']],
     ]
 
+
+new_big_causal_graph=[
+        ['Young',[]],
+        ['Male',[]],
+        ['Eyeglasses',['Young']],
+        ['Bald',            ['Male','Young']],
+        ['Mustache',        ['Male','Young']],
+        ['Smiling',         ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young']],
+        ['Mouth_Slightly_Open',['Young','Smiling']],
+        ['Narrow_Eyes',        ['Male','Young','Smiling']],
+    ]
+
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
     if causal_model is 'male.young.smiling':
@@ -120,6 +133,13 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_causes_mustache
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
+
+    elif causal_model == 'new_big_causal_graph':
+        graph = new_big_causal_graph
+
+
+
+
 
     if causal_model is 'empty':
         graph=[[],[]]

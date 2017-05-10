@@ -1,8 +1,16 @@
 import os
+import numpy as np
 import pandas as pd
 from PIL import Image
 from glob import glob
 import tensorflow as tf
+
+from IPython.core import debugger
+debug = debugger.Pdb().set_trace
+
+
+def logodds(p):
+    return np.log(p/(1.-p))
 
 def get_loader(config, root, batch_size, scale_size, data_format,
                split=None,do_shuffle=True,num_worker=4,is_crop=False,
@@ -29,7 +37,8 @@ def get_loader(config, root, batch_size, scale_size, data_format,
     #and the indices should be filenames
     #and the columns should be labels
     attr_file= glob("{}/*.{}".format(root, 'txt'))[0]
-    attributes = pd.read_csv(attr_file,delim_whitespace=True)
+    attributes = pd.read_csv(attr_file,delim_whitespace=True) #+-1
+    attributes = 0.5*(attributes+1)
 
     #shuffle here especilly if multigpu
     #if do_shuffle or config.num_gpu>1:
@@ -37,9 +46,8 @@ def get_loader(config, root, batch_size, scale_size, data_format,
 
     image_dir=os.path.join(root,'images')
     filenames=[os.path.join(image_dir,j) for j in attributes.index]
-    real_labels= (attributes+1)*0.5
-    label_names=attributes.columns
 
+    label_names=attributes.columns
     num_examples_per_epoch=len(filenames)
 
     #-----------
@@ -52,7 +60,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
     min_queue_examples=int(num_examples_per_epoch*min_fraction_of_examples_in_queue)
 
     image_files = tf.convert_to_tensor(filenames, dtype=tf.string)
-    tf_labels = tf.convert_to_tensor(real_labels.values, dtype=tf.uint8)
+    tf_labels = tf.convert_to_tensor(attributes.values, dtype=tf.uint8)
 
     with tf.name_scope('filename_queue'):
         #must be list
@@ -78,6 +86,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
         #image=tf.image.resize_bilinear(image,[scale_size,scale_size])#must be 4D
         image=tf.image.resize_images(image,[scale_size,scale_size],
                 method=tf.image.ResizeMethod.BILINEAR)
+        image=tf.image.random_flip_left_right(image)
 
         ##carpedm-began crops to 128x128 starting at (50,25), then resizes to 64x64
         #image=tf.image.crop_to_bounding_box(image, 50, 25, 128, 128)
@@ -91,12 +100,43 @@ def get_loader(config, root, batch_size, scale_size, data_format,
     else:
         raise Exception("[!] Unkown data_format: {}".format(data_format))
 
-    label=tf.to_float(uint_label)
-    if config.noisy_labels:
-        label_means=attributes.mean()
-        p=label_means.values
+    label_means=attributes.mean()# attributes is 0,1
+    p=label_means.values
 
-        ##Original Murat Noise model
+    label=tf.to_float(uint_label)
+
+
+    if config.noisy_labels:
+
+        #(fixed)Original Murat Noise model
+        N=tf.random_uniform([len(p)],-.25,.25,)
+        def label_mapper(p,label,N):
+            '''
+            P \in {1-p, p}
+            L \in {-1, +1}
+            N \in [-1/4,1/4]
+            '''
+            P = 1-(label+p-2*label*p)#l=0 -> (1-p) or l=1 -> p
+            L = 2*label-1# -1 or +1   :for label=0,1
+            return 0.5+ .25*P*L + P*N
+
+        min_label= label_mapper(label_means,0,-.25)
+        max_label= label_mapper(label_means,+1,0.25)
+        min_logit= logodds(min_label)
+        max_logit= logodds(max_label)
+
+        #needed for visualization range
+        label_stats=pd.DataFrame({
+            'mean':label_means,
+            'min_label':min_label,
+            'max_label':max_label,
+            'max_logit':max_logit,
+            'min_logit':min_logit,
+             })
+        label=label_mapper(label_means.values,label,N)
+
+
+        ##(BUG!kept for historical reasons)Original Murat Noise model
         #noise=tf.random_uniform([len(p)],-.25,.25,)
         #P = label+p-2*label*p #p or (1-p):for label=0,1
         #L = 1-2*label# +1 or -1   :for label=0,1
@@ -108,11 +148,11 @@ def get_loader(config, root, batch_size, scale_size, data_format,
         #pos_noise=noise+0.5
         #label= (1-label)*neg_noise + label*pos_noise
 
-        #simple [0.2,1/2] or [1/2,0.8]
-        noise=tf.random_uniform([len(p)],0.2,0.5)
-        neg_noise=noise
-        pos_noise=1.0-noise
-        label= (1-label)*neg_noise + label*pos_noise
+        ##simple [0.2,1/2] or [1/2,0.8]
+        #noise=tf.random_uniform([len(p)],0.2,0.5)
+        #neg_noise=noise
+        #pos_noise=1.0-noise
+        #label= (1-label)*neg_noise + label*pos_noise
 
         #neg_noise=noise*p#U[0,p]
         #pos_noise=1-noise*(1-p)
@@ -146,4 +186,4 @@ def get_loader(config, root, batch_size, scale_size, data_format,
     #TODO: doesn't quite work because depends on whether is NCHW.Better elsewhere
     #tf.summary.image('real_images', data_batch['x'])
 
-    return data_batch
+    return data_batch, label_stats

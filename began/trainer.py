@@ -52,10 +52,12 @@ def slerp(val, low, high):
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
 
 class Trainer(object):
-    def __init__(self, config, data_loader):
+    def __init__(self, config, data_loader,label_stats):
+
         self.config = config
         self.dataset = config.dataset
         self.graph=config.graph
+        self.label_stats=label_stats
 
         self.beta1 = config.beta1
         self.beta2 = config.beta2
@@ -124,7 +126,8 @@ class Trainer(object):
                                 global_step=self.step,
                                 ready_for_local_init_op=None)
 
-        gpu_options = tf.GPUOptions(allow_growth=True)
+        gpu_options = tf.GPUOptions(allow_growth=True,
+                                  per_process_gpu_memory_fraction=0.333)
         sess_config = tf.ConfigProto(allow_soft_placement=True,
                                     gpu_options=gpu_options)
 
@@ -771,18 +774,16 @@ class Trainer(object):
             z_sample=inputs
 
         #make 8x8 image 2 columns(?rows) at a time
-        #interp_label=np.linspace(0,1,8).reshape([8,1])
-
-        interp_label=np.linspace(0.2,0.8,8).reshape([8,1])
-        interp_logit=np.linspace(-2*np.log(2),2*np.log(2),8).reshape([8,1])
-
-        setval=np.tile(interp_label,[2,1])
-        setlogit=np.tile(interp_logit,[2,1])
-
         for node in self.cc.nodes:
             all_images=None
-            for a in range(4):
 
+            stats=self.label_stats.loc[node.name]
+            interp_label=np.linspace(stats['min_label'],stats['max_label'],8).reshape([8,1])
+            interp_logit=np.linspace(stats['min_logit'],stats['max_logit'],8).reshape([8,1])
+            setval=np.tile(interp_label,[2,1])
+            setlogit=np.tile(interp_logit,[2,1])
+
+            for a in range(4):
                 #print(z_sample)
                 z_fixed  = {key:np.tile(val[a::8],[1,1,8]).reshape(16,-1) for key,val in z_sample.items()}
                 feed_fixed_z={self.z_fd[k]:val for k,val in z_fixed.items()}
@@ -803,15 +804,5 @@ class Trainer(object):
             save_image(all_images,intv_path,nrow=8)
             #save_image(images,'{}/G_itv_{}{}.png'.format(root_path,node.name,step),nrow=4)
 
-
-##This is some code from dcgan.utils
-#def merge(images, size):
-#  h, w = images.shape[1], images.shape[2]
-#  img = np.zeros((h * size[0], w * size[1], 3))
-#  for idx, image in enumerate(images):
-#    i = idx % size[1]
-#    j = idx // size[1]
-#    img[j*h:j*h+h, i*w:i*w+w, :] = image
-#  return img
 
 

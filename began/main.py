@@ -15,62 +15,115 @@ debug = debugger.Pdb().set_trace
 Some notes on each version of the model:
 
 
-#Maybe should encorporate this kind of code to reduce gpu memory footprint:
-  #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
-  run_config = tf.ConfigProto()
-  run_config.gpu_options.allow_growth=True
+Previous model worked really well.
+Everything except for bald, wearing eyeglasses, and mustache was captured
+really pretty well.
+
+murat wants new causal graph:
+
+#Old
+    #big_causal_graph=[
+    #        ['Young',[]],
+    #        ['Male',[]],
+    #        ['Eyeglasses',['Young']],
+    #        ['Bald',            ['Male','Young']],
+    #        ['Mustache',        ['Male','Young']],
+    #        ['Smiling',         ['Male','Young']],
+    #        ['Wearing_Lipstick',['Male','Young']],
+    #        ['Mouth_Slightly_Open',['Smiling']],
+    #        ['Narrow_Eyes',        ['Smiling']],
+    #    ]
 
 
----
+#New
+    new_big_causal_graph=[
+            ['Young',[]],
+            ['Male',[]],
+            ['Eyeglasses',['Young']],
+            ['Bald',            ['Male','Young']],
+            ['Mustache',        ['Male','Young']],
+            ['Smiling',         ['Male','Young']],
+            ['Wearing_Lipstick',['Male','Young']],
+            ['Mouth_Slightly_Open',['Young','Smiling']],
+            ['Narrow_Eyes',        ['Male','Young','Smiling']],
+        ]
 
-Bugfix: by intervening on labels: I neglected the causal graph, which passes
-logits from node to node
-
-------------
-Previous model did not have balance_l functional but still pretty much worked.
-
-d_loss_real label > d_loss_fake_label but not by much. Increase gamma_l
-
-train_arg.add_argument('--gamma_label', type=float, default=1.0)
-#train_arg.add_argument('--gamma_label', type=float, default=0.5)
-
-
-also increase pretrain iter to 5000
-
-            #if step < 3000:#PRETRAIN CC
-            if step < 5000:#PRETRAIN CC
+Also let's go back to old noise model.
+Disadvantage is have to control range of intervention for each label,
+as it depends on the mean
 
 
-#Change real noise method again:
-        #simple [0.2,1/2] or [1/2,0.8]
-        noise=tf.random_uniform([len(p)],0.2,0.5)
-        neg_noise=noise
-        pos_noise=1.0-noise
-        label= (1-label)*neg_noise + label*pos_noise
-        ##Original Murat Noise model
-        #noise=tf.random_uniform([len(p)],-.25,.25,)
-        #P = label+p-2*label*p #p or (1-p):for label=0,1
-        #L = 1-2*label# +1 or -1   :for label=0,1
-        #label=0.5 + L*.25*P + P*noise
+BUG!!!!!!
+how long was this here for. In old noise model:
+        label_means=attributes.mean()
+        p=label_means.values
+    used labes in -1 to +1 to calculate mean
+soln: just don't have any -1 +1 male
 
-#Also added ability to model labels separately with separate labeler
+    attributes = 0.5*(attributes+1)
+    #real_labels= (attributes+1)*0.5
 
-        net_arg.add_argument('--separate_labeler', type=str2bool, default=False)
+    tf_labels = tf.convert_to_tensor(attributes.values, dtype=tf.uint8)
+    #tf_labels = tf.convert_to_tensor(real_labels.values, dtype=tf.uint8)
 
-        if not self.separate_labeler:
-            self.D_fake_labels_logits=tf.slice(self.D_encode_G,[0,0],[-1,n_labels])
-            self.D_real_labels_logits=tf.slice(self.D_encode_x,[0,0],[-1,n_labels])
-        else:
 
-            label_logits,self.DL_var=Discriminator_labeler(
-                    tf.concat([G, x], 0), len(self.cc.nodes), self.repeat_num,
-                    self.conv_hidden_num, self.data_format)
-            self.D_fake_labels_logits,self.D_real_labels_logits=tf.split(label_logits,2)
-            self.D_var += self.DL_var
 
-#changed default graph
-        #data_arg.add_argument('--causal_model', type=str, default='male.young.smiling')
-        data_arg.add_argument('--causal_model', type=str, default='big_causal_graph')
+Added this extra flip left/right noise because cycling through data so much
+        image=tf.image.random_flip_left_right(image)
+
+
+New noise method:
+    label=tf.to_float(uint_label)
+    if config.noisy_labels:
+        #(fixed)Original Murat Noise model
+        N=tf.random_uniform([len(p)],-.25,.25,)
+        def label_mapper(p,label,N):
+            #P \in {1-p, p}
+            #L \in {-1, +1}
+            #N \in [-1/4,1/4]
+            P = 1-(label+p-2*label*p)#l=0 -> (1-p) or l=1 -> p
+            L = 2*label-1# -1 or +1   :for label=0,1
+            return 0.5+ .25*P*L + P*N
+
+        min_label= label_mapper(label_means,0,-.25)
+        max_label= label_mapper(label_means,+1,0.25)
+        min_logit= logodds(min_label)
+        max_logit= logodds(max_label)
+
+        #needed for visualization range
+        label_stats=pd.DataFrame({
+            'mean':label_means,
+            'min_label':min_label,
+            'max_label':max_label,
+            'max_logit':max_logit,
+            'min_logit':min_logit,
+             })
+        label=label_mapper(label_means.values,label,N)
+
+
+
+
+
+visualization:
+
+        stats=self.config.label_stats.loc[node.name]
+        interp_label=np.linspace(stats['min_label'],stats['max_label'],8).reshape([8,1])
+        interp_logit=np.linspace(stats['min_logit'],stats['max_logit'],8).reshape([8,1])
+        #interp_label=np.linspace(0.2,0.8,8).reshape([8,1])
+        #interp_logit=np.linspace(-2*np.log(2),2*np.log(2),8).reshape([8,1])
+
+
+Changed noisylabels to default True
+    train_arg.add_argument('--noisy_labels', type=str2bool, default=True)
+    #train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
+
+added
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
+
+Changed a number of default config options to be more reasonable:
+    new cmd to run:
+
+%run main.py --dataset=celebA  --is_train=True --causal_model=new_big_causal_graph
 
 '''
 
@@ -96,7 +149,7 @@ def get_trainer(config):
         batch_size = config.sample_per_image
         do_shuffle = False
 
-    data_loader = get_loader(config,
+    data_loader, label_stats= get_loader(config,
             data_path,config.batch_size,config.input_scale_size,
             config.data_format,config.split,
             do_shuffle,config.num_worker,config.is_crop)
@@ -106,7 +159,7 @@ def get_trainer(config):
     print 'Config:'
     print config
 
-    trainer = Trainer(config, data_loader)
+    trainer = Trainer(config, data_loader, label_stats)
     return trainer
 
 
