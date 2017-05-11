@@ -74,8 +74,8 @@ misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 
 misc_arg.add_argument('--log_dir', type=str, default='logs')
 misc_arg.add_argument('--test_data_path', type=str, default=None,
                       help='directory with images which will be used in test sample generation')
-misc_arg.add_argument('--sample_per_image', type=int, default=64,
-                      help='# of sample per image during test sample generation')
+#misc_arg.add_argument('--sample_per_image', type=int, default=64,
+#                      help='# of sample per image during test sample generation')
 misc_arg.add_argument('--random_seed', type=int, default=123)
 
 #Doesn't do anything atm

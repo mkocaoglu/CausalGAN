@@ -1,6 +1,3 @@
-
-
-
 import numpy as np
 
 
@@ -19,8 +16,6 @@ intervention_dicts={
                     'Male':'model_default',
                     'Wearing_Lipstick':'model_default',
                     },
-
-
 
 
 

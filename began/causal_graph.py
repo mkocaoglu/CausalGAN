@@ -107,7 +107,7 @@ big_causal_graph=[
         ['Mouth_Slightly_Open',['Smiling']],
         ['Narrow_Eyes',        ['Smiling']],
     ]
-
+#old_big_causal_graph=big_causal_graph#fyi
 
 new_big_causal_graph=[
         ['Young',[]],
@@ -153,14 +153,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = new_big_causal_graph
 
 
-
-
-
     if causal_model is 'empty':
         graph=[[],[]]
-
-
-
 
 
     return graph

@@ -28,14 +28,14 @@ def add_argument_group(name):
 #sample_arg = add_argument_group('Sample')
 #sample_arg.add_argument('--do_dict', type=str, help='pass as \'{"key1":"value')
 
-visualize_arg = add_argument_group('Visualize')
+visualize_arg = add_argument_group('visualize')
 visualize_arg.add_argument('--model_name', type=str,default=None)
 
 #Which visualizations to do?
 visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,\
                           help='Tabulates pairwise marginal distributions\
                           and saves them to text files')
-visualize_arg.add_argument('--sample', type=str2bool,default=False,\
+visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
                           help='Tells program to do sampling for do_dict and\
                            other arguments provided. Run this to do\
                            intervention2d for example')
@@ -55,56 +55,36 @@ if __name__=='__main__':
 
     To run intervention2d, the following works:
 
-python visualize.py --model_name dcgan --sample True
---do_dict_name second_example_dict --dataset celebA --input_height 108
---is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
-./checkpoint/male_c_mustache
+    #Tested
+    python visualize.py --model_name dcgan --sample_model True
+    --do_dict_name second_example_dict --dataset celebA --input_height 108
+    --is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
+    ./checkpoint/male_c_mustache
 
 
-    to run crosstab, run --cross_tab True
-python visualize.py --model_name dcgan --sample True --cross_tab True
---do_dict_name second_example_dict --dataset celebA --input_height 108
---is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
-./checkpoint/male_c_mustache
+    to run crosstab, in addition provide --cross_tab True:
+    python visualize.py --model_name dcgan --sample_model True --cross_tab True
+    --do_dict_name second_example_dict --dataset celebA --input_height 108
+    --is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
+    ./checkpoint/male_c_mustache
 
 
 
     This can also be run from ipython:
     ipython:
-    %run visualize.py --model_name 'dcgan' --sample True --dataset 'celebA' --input_height=108
+    %run visualize.py --model_name 'dcgan' --sample_model True --dataset 'celebA' --input_height=108
     --is_train=False --is_crop True --graph 'big_causal_graph' --checkpoint_dir
     './checkpoint/big_causal1'
 
 
-
-    old instructions:
-
-    ###If you're running this directly from the commandline or from ipython
-    Usage for this section:
-    (first word is the preferred model)
-
-    %run visualize.py 'dcgan' --dataset 'celebA' --input_height=108
-    --is_train=False --is_crop True --graph 'big_causal_graph' --checkpoint_dir
-    './checkpoint/big_causal1'
-
-#Works:
-In [6]: %run visualize 'dcgan' --dataset 'celebA' --input_height=108 --is_train False
-        --is_crop True --graph 'big_causal_graph' --checkpoint_dir './checkpoint/big_causal1'
-
-    #or
-
-    %run visualize.py 'began' --dataset 'celebA' --num_gpu=1 --num_worker=30
-    --load_path 'celebA_0507_222545' --noisy_labels=True
-    --indep_causal=False --separate_labeler=True --causal_model='big_causal_graph'
-
-#Works:
-In [17]: %run visualize.py 'began' --dataset 'celebA' --input_height=108
-        --is_train Fals e --is_crop True --causal_model 'big_causal_graph' --num_gpu=1
-        --num_worker=30 --load_path 'celebA_0507_222545' --separate_labeler=True
-        --indep_causal=False --noisy_labels=True
-
+    #Tested
+    %run visualize.py --model_name 'began' --sample_model True  --do_dict_name
+    'gender_lipstick_default' --causal_graph 'big_causal_graph' --is_train False
+    --load_path 'celebA_0507_222545'
 
     '''
+
+
     config, unparsed = parser.parse_known_args()
     print 'The config you passed to visualize:',config
 
@@ -117,7 +97,7 @@ In [17]: %run visualize.py 'began' --dataset 'celebA' --input_height=108
     if config.cross_tab:
         crosstab(model)
 
-    if config.sample:
+    if config.sample_model:
         if config.do_dict_name:
             do_dict=get_do_dict( config.do_dict_name )
             intervention2d( model, fetch=model.G, do_dict=do_dict, on_logits=True)

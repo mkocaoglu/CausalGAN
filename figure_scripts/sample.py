@@ -9,8 +9,7 @@ import pandas as pd
 from itertools import combinations, product
 import sys
 
-
-from utils import save_image#makes grid image plots
+from utils import save_figure_images#makes grid image plots
 
 
 def take_product(do_dict):
@@ -38,6 +37,9 @@ def chunks(input_dict, chunk_size):
     Takes a dictionary of iterables and makes an
     iterable of dictionaries
     """
+    if len(input_dict)==0:
+        return [{}]
+
     n=chunk_size
     batches=[]
 
@@ -78,7 +80,14 @@ def do2feed( do_dict, model, on_logits=True):
 
     #Make sure [64,] isn't passed to [64,1] for example
     for tensor,value in feed_dict.items():
-        feed_dict[tensor]=np.reshape(value,tensor.get_shape().as_list())
+        #Make last dims line up:
+        tf_shape=tensor.get_shape().as_list()
+        shape=[len(value)]+tf_shape[1:]
+        try:
+            feed_dict[tensor]=np.reshape(value,shape)
+        except Exception,e:
+            print 'Unexpected difficulty reshaping inputs:',tensor, tf_shape, np.size(value)
+            raise e
 
     return feed_dict
 
@@ -102,7 +111,11 @@ def sample(model, fetch=None, do_dict=None, on_logits=True):
     p_do_dict=take_product(do_dict)
 
     ##Need divisible batch_size for most models
-    L=len(p_do_dict.values()[0])
+    if len(p_do_dict)>0:
+        L=len(p_do_dict.values()[0])
+    else:
+        L=0
+
     if not L % model.batch_size == 0:
         raise ValueError('do_dict must be dividable by batch_size\
                          but instead product of inputs was of length',L)
@@ -123,11 +136,16 @@ def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
     In this function, the do_dict is assumed to have only two varying
     parameters on which a 2d interventions plot can be made.
     '''
+    if not on_logits:
+        raise ValueError('on_logits=False not implemented')
 
     #Interpret defaults:
-    n_defaults=len( filter(lambda l:l is 'model_default', do_dict.values() ))
+    #n_defaults=len( filter(lambda l:l == 'model_default', do_dict.values() ))
+    #accept any string for now
+    n_defaults=len( filter(lambda l: isinstance(l,str), do_dict.values() ))
 
-    print(n_defaults,' default values given..using 8 for each of them')
+    if n_defaults>0:
+        print n_defaults,' default values given..using 8 for each of them'
 
     try:
         for key,value in do_dict.items():
@@ -152,7 +170,10 @@ def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
 
     if not 1<=len(gt_one)<=2:
         raise ValueError('for visualizing intervention, must have 1 or 2 parameters varying')
-    nrows=gt_one[0]
+    if len(gt_one)==1:
+        size=[gt_one[0],1]
+    elif len(gt_one)==2:
+        size=[gt_one[0],gt_one[1]]
 
 
     #Terminology
@@ -161,22 +182,25 @@ def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
     elif model.model_name=='dcgan':
+        print 'DCGAN'
         result_dir=model.checkpoint_dir
-
 
     sample_dir=os.path.join(result_dir,'sample_figures')
     if not os.path.exists(sample_dir):
         os.mkdir(sample_dir)
 
+    #print 'do_dict DEBUG:',do_dict
     images, feed_dict= sample(model,fetch=model.G, do_dict=do_dict,on_logits=on_logits)
 
+    #print 'DEBUG,shape:',images.shape
+    images, feed_dict= sample(model,fetch=model.G, do_dict={},on_logits=on_logits)
 
     itv_file=os.path.join(sample_dir, str_step+'intervention2d.png')
     #if os.path.exists(itv_file):
     #    itv_file='new'+itv_file #don't overwrite
 
     print '[*] saving intervention2d:',itv_file
-    save_image(images,itv_file,nrow=nrows)
+    save_figure_images(model.model_name,images,itv_file,size=size)
 
 
 
