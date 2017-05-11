@@ -12,7 +12,7 @@ import tensorflow as tf
 flags = tf.app.flags
 flags.DEFINE_string("model", "causal", "dcgan to use the original model")
 flags.DEFINE_string("graph", "big_causal_graph", "causal graph defined in causal_graph.py to use")
-flags.DEFINE_integer("epoch", 25, "Epoch to train [25]")
+flags.DEFINE_integer("epoch", 30, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
 flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
@@ -31,7 +31,6 @@ flags.DEFINE_boolean("is_crop", False, "True for training, False for testing [Fa
 flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
 flags.DEFINE_boolean("label_specific_noise", True, "If True, noise added to real labels are adjusted to require uniform logits")
 FLAGS = flags.FLAGS
-
 
 def main(_):
   pp.pprint(flags.FLAGS.__flags)
@@ -84,6 +83,7 @@ def main(_):
           dataset_name=FLAGS.dataset,
           input_fname_pattern=FLAGS.input_fname_pattern,
           is_crop=FLAGS.is_crop,
+          is_train = FLAGS.is_train,
           checkpoint_dir=FLAGS.checkpoint_dir,
           sample_dir=FLAGS.sample_dir,
           graph=FLAGS.graph)

@@ -1,5 +1,7 @@
 import numpy as np
-
+import pandas as pd
+means = pd.read_csv("./data/means",header = None)
+means = dict(zip(means[0],means[1]))
 
 intervention_dicts={
     'example_dict':{
@@ -10,7 +12,17 @@ intervention_dicts={
                      'Male':np.linspace(-1.38,1.38,8),
                      'Mustache':np.linspace(-1.38,1.38,8)
                     },
-
+    'Eyeglasses':{'Eyeglasses':[0.12,-1] #~2*p}
+                    },
+    'Narrow_Eyes':{'Narrow_Eyes':[0.22,-1.5]
+                    },
+    'Mustache':{'Mustache':[0.2,-2]},
+    'Big_Eyes':{'Narrow_Eyes':-1.6,
+                    'Male':np.random.uniform(-1,1,8),
+                    'Smiling':np.random.uniform(-1,1,8)
+                    },
+    'Young':{'Young':[1.5,-0.5]},
+    'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1],'Male':-1},
     #Third example: (only began implemented)
     'gender_lipstick_default':{
                     'Male':'model_default',

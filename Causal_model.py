@@ -16,7 +16,7 @@ from tensorflow.core.framework import summary_pb2
 from tensorflow.contrib import slim
 
 from Causal_controller import CausalController
-#from figure_scripts import pairwise
+from figure_scripts import pairwise
 def conv_out_size_same(size, stride):
   return int(math.ceil(float(size) / float(stride)))
 
@@ -494,7 +494,7 @@ class DCGAN(object):
         #I changed self.dl_sum, g_sum etc for just summary_op, which has all the summaries
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
-        if epoch < 1:
+        if epoch < 5:
           _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
           #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
@@ -502,14 +502,14 @@ class DCGAN(object):
           self.writer.add_summary(summary_str, counter)
           _, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
-        # elif counter == 1*3165+500:
+        # elif counter == 30: #1*3165+500:
         #   pairwise(self)
         else:
 
           if np.mod(counter+random_shift, 3) == 0:
 
             _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
             #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
@@ -517,12 +517,12 @@ class DCGAN(object):
             #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
             # Update G network
             _, summary_str = self.sess.run([ g_optim, self.summary_op], feed_dict=fd)
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             self.writer.add_summary(summary_str, counter)
           else:
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             self.writer.add_summary(summary_str, counter)
 

@@ -100,7 +100,7 @@ if __name__=='__main__':
     if config.sample_model:
         if config.do_dict_name:
             do_dict=get_do_dict( config.do_dict_name )
-            intervention2d( model, fetch=model.G, do_dict=do_dict, on_logits=True)
+            intervention2d( model, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
         else:
             raise ValueError('need do_dict_name')
 
