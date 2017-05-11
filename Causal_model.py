@@ -86,7 +86,8 @@ class DCGAN(object):
 
     self.attributes = pd.read_csv("./data/list_attr_celeba.txt",delim_whitespace=True)
     self.means = pd.read_csv("./data/means",header = None)
-    self.means = dict(zip(self.means[0],self.means[1]))  
+    self.means = dict(zip(self.means[0],self.means[1]))
+    self.intervention_range = {key:[-2*(1-val),2*val] for key,val in self.means.iteritems()}
     self.checkpoint_dir = checkpoint_dir
     self.build_model()
 
