@@ -115,11 +115,18 @@ def sample(model, fetch=None, do_dict=None, on_logits=True):
         L=len(p_do_dict.values()[0])
     else:
         L=0
-
-    if not L % model.batch_size == 0:
-        raise ValueError('do_dict must be dividable by batch_size\
-                         but instead product of inputs was of length',L)
-    feed_dict= do2feed(p_do_dict, model, on_logits=on_logits)
+    print "L is " + str(L)
+    print p_do_dict
+    if L>=model.batch_size:
+        if not L % model.batch_size == 0:
+            raise ValueError('do_dict must be dividable by batch_size\
+                             but instead product of inputs was of length',L)
+        feed_dict = do2feed(p_do_dict, model, on_logits=on_logits)
+    elif model.batch_size % L == 0:
+        p_do_dict = {key:np.repeat(value,model.batch_size/L,axis=0) for key,value in p_do_dict.items()}
+        feed_dict = do2feed(p_do_dict, model, on_logits=on_logits)
+    else:
+        raise ValueError('No. of intervened values must divide batch_size.')
 
     fds=chunks(feed_dict,model.batch_size)
 
@@ -130,12 +137,13 @@ def sample(model, fetch=None, do_dict=None, on_logits=True):
 
     return np.vstack(outputs), feed_dict
 
-def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
+def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits=True, step=''):
     '''
     This function is a wrapper around the more general function "sample".
     In this function, the do_dict is assumed to have only two varying
     parameters on which a 2d interventions plot can be made.
     '''
+    image_dim = np.sqrt(model.batch_size).astype(int)
     if not on_logits:
         raise ValueError('on_logits=False not implemented')
 
@@ -168,10 +176,14 @@ def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
 
     gt_one = filter(lambda l:l>1,lengths)
 
-    if not 1<=len(gt_one)<=2:
-        raise ValueError('for visualizing intervention, must have 1 or 2 parameters varying')
-    if len(gt_one)==1:
+    if not 0<=len(gt_one)<=2:
+        raise ValueError('for visualizing intervention, must have < 3 parameters varying')
+    if len(gt_one) == 0:
+        size = [image_dim,image_dim]
+    if len(gt_one)==1 and lengths[0]>=model.batch_size:
         size=[gt_one[0],1]
+    elif len(gt_one)==1 and lengths[0]<model.batch_size:
+        size = [image_dim,image_dim]
     elif len(gt_one)==2:
         size=[gt_one[0],gt_one[1]]
 
@@ -193,9 +205,9 @@ def intervention2d(model, fetch=None, do_dict=None, on_logits=True, step=''):
     images, feed_dict= sample(model,fetch=model.G, do_dict=do_dict,on_logits=on_logits)
 
     #print 'DEBUG,shape:',images.shape
-    images, feed_dict= sample(model,fetch=model.G, do_dict={},on_logits=on_logits)
+    #images, feed_dict= sample(model,fetch=model.G, do_dict={},on_logits=on_logits)
 
-    itv_file=os.path.join(sample_dir, str_step+'intervention2d.png')
+    itv_file=os.path.join(sample_dir, str_step+str(do_dict_name)+'.png')
     #if os.path.exists(itv_file):
     #    itv_file='new'+itv_file #don't overwrite
 
