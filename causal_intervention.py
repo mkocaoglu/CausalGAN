@@ -23,7 +23,7 @@ intervention_dicts={
                     },
     'Young':{'Young':[1.5,-0.5]},
     'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1],'Male':-1},
-    #Third example: (only began implemented)
+
     'gender_lipstick_default':{
                     'Male':'model_default',
                     'Wearing_Lipstick':'model_default',
