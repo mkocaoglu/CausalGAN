@@ -59,6 +59,11 @@ class Trainer(object):
         self.graph=config.graph
         self.label_stats=label_stats
 
+        #Standardize encapsulation of intervention range
+        ml=self.label_stats['min_logit'].to_dict()
+        Ml=self.label_stats['max_logit'].to_dict()
+        self.intervention_range={name:[ml[name],Ml[name]] for name in ml.keys()}
+
         self.beta1 = config.beta1
         self.beta2 = config.beta2
         self.optimizer = config.optimizer
