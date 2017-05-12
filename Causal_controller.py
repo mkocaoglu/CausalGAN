@@ -34,7 +34,7 @@ class CausalController(object):
             model.cc.Male
 
         '''
-        with tf.variable_scope('CC') as vs:
+        with tf.variable_scope('causal_controller') as vs:
             self.graph=graph
             self.n_hidden=n_hidden
             self.train = train
