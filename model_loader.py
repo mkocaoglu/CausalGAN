@@ -87,7 +87,7 @@ def get_model(name):
             dcgan.train(FLAGS)
         else:
             if not dcgan.load(FLAGS.checkpoint_dir):
-                raise Exception("[!] Train a model first, then run test mode")
+                print ("Warning: [!] Train a model first, then run test mode")
 
         return dcgan
 
