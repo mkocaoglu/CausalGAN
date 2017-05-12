@@ -261,10 +261,7 @@ class DCGAN(object):
     self.dl_vars = [var for var in t_vars if 'disc_labeler' in var.name ]
     self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
     self.g_vars = [var for var in t_vars if 'generator' in var.name ]
-
-    #NEW
-    #self.c_vars = tf.get_collection(t_vars,scope='CC')
-    #above didn't work
+    self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
     self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
     #make sure working:(delete later)
     print 'you have ',len(self.c_vars),' many causal weights'
@@ -272,7 +269,6 @@ class DCGAN(object):
     #self.c_vars = [var for var in t_vars if 'c_' in var.name ]
 
 
-    self.dcc_vars = [var for var in t_vars if 'dCC_' in var.name ]
     self.saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1)
 
 
@@ -679,7 +675,7 @@ class DCGAN(object):
     return tf.reduce_mean(tf.abs(tf.reduce_mean((ic2_-ic2__mean)*(D_logits_ - pr_fake),0))/(ic2__std*std_fake+self.TINY)), tf.reduce_mean(tf.abs(tf.reduce_mean((ic2-ic2_mean)*(D_logits - pr_real),0)/(ic2_std*std_real+self.TINY)))#tf.abs(tf.reduce_mean((v-v_mean)*(D_logits - pr_real)))
 
   def discriminator_CC(self, labels, reuse=False):
-    with tf.variable_scope("discriminator_CC") as scope:
+    with tf.variable_scope("disc_CC") as scope:
       if reuse:
         scope.reuse_variables()
       # add minibatch features here to get fake labels with high variation
