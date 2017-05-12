@@ -149,9 +149,14 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_smiling_lipstick
     elif causal_model == 'male_smiling_lipstick_complete':
         graph = male_smiling_lipstick_complete
-    if causal_model is 'empty':
+    elif causal_model is 'empty':
         graph=[[],[]]
 
+
+    #no more #UnboundLocalError: local variable 'graph' referenced before assignment
+    else:
+        raise ValueError('the specified graph:',causal_model,' was not one of\
+                         those listed in ',__file__)
 
 
 
