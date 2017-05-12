@@ -23,7 +23,7 @@ def crosstab(model,step=None):
 
     n_labels=len(model.cc.nodes)
 
-    N=10*n_labels*64 #N may need to scale higher than this
+    N=50*n_labels*64 #N may need to scale higher than this
     #N=100#to go quicker
 
     print 'Calculating joint distribution with',
