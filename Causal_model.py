@@ -558,7 +558,8 @@ class DCGAN(object):
 
 
         if np.mod(counter, 5000) == 0:
-          self.save(config.checkpoint_dir, counter)
+          #self.save(config.checkpoint_dir, counter)
+          self.save(self.checkpoint_dir, counter)
 
 
 
@@ -1053,8 +1054,6 @@ class DCGAN(object):
         self.output_height, self.output_width)
 
   def save(self, checkpoint_dir, step):
-    model_name = "DCGAN.model"
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
 
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
@@ -1065,7 +1064,7 @@ class DCGAN(object):
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
