@@ -77,6 +77,10 @@ class DCGAN(object):
     self.d_bn2 = batch_norm(name='d_bn2')
     self.d_bn3 = batch_norm(name='d_bn3')
 
+    self.dl_bn1 = batch_norm(name='dl_bn1')
+    self.dl_bn2 = batch_norm(name='dl_bn2')
+    self.dl_bn3 = batch_norm(name='dl_bn3')
+
     self.g_bn0 = batch_norm(name='g_bn0')
     self.g_bn1 = batch_norm(name='g_bn1')
     self.g_bn2 = batch_norm(name='g_bn2')
@@ -254,14 +258,14 @@ class DCGAN(object):
 
     t_vars = tf.trainable_variables()
 
-    self.dl_vars = [var for var in t_vars if 'dl_' in var.name ]
-    self.d_vars = [var for var in t_vars if 'd_' in var.name ]
-    self.g_vars = [var for var in t_vars if 'g_' in var.name ]
+    self.dl_vars = [var for var in t_vars if 'disc_labeler' in var.name ]
+    self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
+    self.g_vars = [var for var in t_vars if 'generator' in var.name ]
 
     #NEW
     #self.c_vars = tf.get_collection(t_vars,scope='CC')
     #above didn't work
-    self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='CC')
+    self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
     #make sure working:(delete later)
     print 'you have ',len(self.c_vars),' many causal weights'
     #OLD
@@ -640,14 +644,14 @@ class DCGAN(object):
       return tf.nn.sigmoid(h4), h4 #, D_labels, D_labels_logits
 
   def discriminator_labeler(self, image, reuse=False):
-    with tf.variable_scope("discriminator_labeler") as scope:
+    with tf.variable_scope("disc_labeler") as scope:
       if reuse:
         scope.reuse_variables()
 
       h0 = lrelu(conv2d(image, self.df_dim, name='dl_h0_conv'))#16,32,32,64
-      h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='dl_h1_conv')))#16,16,16,128
-      h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='dl_h2_conv')))#16,16,16,248
-      h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, name='dl_h3_conv')))
+      h1 = lrelu(self.dl_bn1(conv2d(h0, self.df_dim*2, name='dl_h1_conv')))#16,16,16,128
+      h2 = lrelu(self.dl_bn2(conv2d(h1, self.df_dim*4, name='dl_h2_conv')))#16,16,16,248
+      h3 = lrelu(self.dl_bn3(conv2d(h2, self.df_dim*8, name='dl_h3_conv')))
       h3_flat=tf.reshape(h3, [self.batch_size, -1])
       D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'dl_h3_Label')
       D_labels = tf.nn.sigmoid(D_labels_logits)
