@@ -1,4 +1,5 @@
 from __future__ import division
+from figure_scripts.pairwise import crosstab
 import os
 import time
 import math
@@ -27,6 +28,7 @@ def conv_out_size_same(size, stride):
 from causal_graph import get_causal_graph
 
 class DCGAN(object):
+  model_name='dcgan'
   def __init__(self, sess, input_height=108, input_width=108, is_crop=True,
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
          y_dim=None, z_dim=100, gf_dim=64, df_dim=64, #z_dim=100,  
@@ -327,9 +329,11 @@ class DCGAN(object):
               .minimize(self.d_loss, var_list=self.d_vars)
     g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.g_loss, var_list=self.g_vars)
-    c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    c_optim = tf.train.AdamOptimizer(0.00008) \
               .minimize(self.c_loss, var_list=self.c_vars)
-    dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    dcc_optim = tf.train.AdamOptimizer(0.00008) \
               .minimize(self.dcc_loss, var_list=self.dcc_vars)
     try:
       tf.global_variables_initializer().run()
@@ -495,16 +499,24 @@ class DCGAN(object):
         #I changed self.dl_sum, g_sum etc for just summary_op, which has all the summaries
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
-        if epoch < 1:
-          _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
-          #self.writer.add_summary(summary_str, counter)
-          #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
-          _, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
-          #self.writer.add_summary(summary_str, counter)
-          _, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+        #if epoch < 1:
+        #if counter < 5001:
+        if counter < 50001:
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim,d_label_optim,dcc_optim, self.summary_op], feed_dict=fd)
+
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+
           self.writer.add_summary(summary_str, counter)
         # elif counter == 30: #1*3165+500:
         #   pairwise(self)
+          if counter%1000==0:
+            crosstab(self,counter)#display results
+
         else:
 
           if np.mod(counter+random_shift, 3) == 0:
@@ -537,8 +549,11 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
 
-        if np.mod(counter, 3000) == 0:
+        if np.mod(counter, 5000) == 0:
           self.save(config.checkpoint_dir, counter)
+
+
+
   def regularizer(self, m_logit, y_logit, s_logit):
     p1 = 0.023134
     p2 = 0.050301
@@ -680,8 +695,8 @@ class DCGAN(object):
         scope.reuse_variables()
       # add minibatch features here to get fake labels with high variation
       def add_minibatch_features_for_labels(labels,batch_size):
-        n_kernels = 15
-        dim_per_kernel = 10
+        n_kernels = 50
+        dim_per_kernel = 20
         shape = labels.get_shape().as_list()
         dim = np.prod(shape[1:])            # dim = prod(9,2) = 18
         input_ = tf.reshape(labels, [-1, dim])           # -1 means "all"  
