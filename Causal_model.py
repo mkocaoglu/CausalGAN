@@ -96,6 +96,14 @@ class DCGAN(object):
     self.means = dict(zip(self.means[0],self.means[1]))
     self.intervention_range = {key:[-2*(1-val),2*val] for key,val in self.means.iteritems()}
     self.checkpoint_dir = checkpoint_dir
+
+    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    checkpoint_dir=os.path.join(checkpoint_dir, model_name),
+    if not os.path.exists(checkpoint_dir):
+      os.makedirs(checkpoint_dir)
+    self.checkpoint_dir=checkpoint_dir
+
+
     self.build_model()
 
   def build_model(self):
