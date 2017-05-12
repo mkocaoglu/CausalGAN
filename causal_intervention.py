@@ -17,11 +17,13 @@ intervention_dicts={
     'Narrow_Eyes':{'Narrow_Eyes':[0.22,-1.5]
                     },
     'Mustache':{'Mustache':[0.2,-2]},
-    'Big_Eyes':{'Narrow_Eyes':-1.6,
-                    'Male':np.random.uniform(-1,1,8),
-                    'Smiling':np.random.uniform(-1,1,8)
-                    },
+    'Smiling':{'Smiling':[1,-1]},
+    # 'Big_Eyes':{'Narrow_Eyes':-1.6,
+    #                 'Male':np.random.uniform(-1,1,8),
+    #                 'Smiling':np.random.uniform(-1,1,8)
+    #                 },
     'Young':{'Young':[1.5,-0.5]},
+    'Male':{'Male':[1,-1]},
     'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1],'Male':-1},
     #Third example: (only began implemented)
     'gender_lipstick_default':{

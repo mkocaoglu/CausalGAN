@@ -28,7 +28,7 @@ def conv_out_size_same(size, stride):
 from causal_graph import get_causal_graph
 
 class DCGAN(object):
-  model_name='dcgan'
+  
   def __init__(self, sess, input_height=108, input_width=108, is_crop=True,
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
          y_dim=None, z_dim=100, gf_dim=64, df_dim=64, #z_dim=100,  
@@ -49,7 +49,6 @@ class DCGAN(object):
     self.input_width = input_width
     self.output_height = output_height
     self.output_width = output_width
-
     self.graph_name = graph
     self.intervene_on = intervene_on
     self.graph = get_causal_graph(graph)
@@ -98,7 +97,7 @@ class DCGAN(object):
     self.checkpoint_dir = checkpoint_dir
 
     checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-    checkpoint_dir=os.path.join(checkpoint_dir, model_name),
+    checkpoint_dir=os.path.join(checkpoint_dir)
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
     self.checkpoint_dir=checkpoint_dir
@@ -509,7 +508,7 @@ class DCGAN(object):
         # once every 50 iterations or so, not 6 times per iteration.
         #if epoch < 1:
         #if counter < 5001:
-        if counter < 50001:
+        if counter < 5001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
@@ -1059,7 +1058,7 @@ class DCGAN(object):
       os.makedirs(checkpoint_dir)
 
     self.saver.save(self.sess,
-            os.path.join(checkpoint_dir, model_name),
+            os.path.join(checkpoint_dir),
             global_step=step)
 
   def load(self, checkpoint_dir):

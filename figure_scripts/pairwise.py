@@ -31,7 +31,6 @@ def crosstab(model,step=None):
 
     n_batches=N/model.batch_size
     labels, d_fake_labels= [],[]
-
     #Terminology
     if model.model_name=='began':
         fake_labels=model.fake_labels
