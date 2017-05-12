@@ -43,6 +43,8 @@ visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
 
+visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
+
 if __name__=='__main__':
     '''
     Current instructions:
@@ -92,8 +94,6 @@ if __name__=='__main__':
     model_name= config.model_name
     model=get_model(model_name)
     model.model_name=model_name
-
-
     if config.cross_tab:
         crosstab(model)
 

@@ -51,6 +51,7 @@ def get_model(name):
     elif name == 'dcgan':
         pp.pprint(FLAGS.__flags)
 
+        print "WhatSUP:"+ str(FLAGS.checkpoint_dir)
         if FLAGS.input_width is None:
             FLAGS.input_width = FLAGS.input_height
         if FLAGS.output_width is None:
