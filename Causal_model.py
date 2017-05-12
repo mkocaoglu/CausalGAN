@@ -48,6 +48,7 @@ class DCGAN(object):
     self.output_height = output_height
     self.output_width = output_width
 
+    self.graph_name = graph
     self.intervene_on = intervene_on
     self.graph = get_causal_graph(graph)
     self.label_specific_noise = label_specific_noise
@@ -494,12 +495,12 @@ class DCGAN(object):
         #I changed self.dl_sum, g_sum etc for just summary_op, which has all the summaries
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
-        if epoch < 5:
+        if epoch < 1:
           _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
-          self.writer.add_summary(summary_str, counter)
+          #self.writer.add_summary(summary_str, counter)
           #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
           _, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
-          self.writer.add_summary(summary_str, counter)
+          #self.writer.add_summary(summary_str, counter)
           _, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
         # elif counter == 30: #1*3165+500:
@@ -513,27 +514,27 @@ class DCGAN(object):
             _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
             #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
             #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
             # Update G network
             _, summary_str = self.sess.run([ g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
           else:
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
-            self.writer.add_summary(summary_str, counter)
+            #self.writer.add_summary(summary_str, counter)
 
         #do this instead
         errD_fake,errD_real,errG= self.sess.run(
             [self.d_loss_fake,self.d_loss_real,self.g_loss], feed_dict=fd)
 
         counter += 1
-        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f" \
+        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s" \
           % (epoch, idx, batch_idxs,
-            time.time() - start_time, errD_fake+errD_real, errG))
+            time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
 
         if np.mod(counter, 3000) == 0:
@@ -684,7 +685,7 @@ class DCGAN(object):
         shape = labels.get_shape().as_list()
         dim = np.prod(shape[1:])            # dim = prod(9,2) = 18
         input_ = tf.reshape(labels, [-1, dim])           # -1 means "all"  
-        x = linear(input_, n_kernels * dim_per_kernel,'d_mbLabelLinear')
+        x = linear(input_, n_kernels * dim_per_kernel,'dCC_mbLabelLinear')
         activation = tf.reshape(x, (batch_size, n_kernels, dim_per_kernel))
         big = np.zeros((batch_size, batch_size), dtype='float32')
         big += np.eye(batch_size)
