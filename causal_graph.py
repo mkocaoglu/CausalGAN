@@ -128,6 +128,16 @@ male_smiling_lipstick_complete=[
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male','Wearing_Lipstick']]
        ]
+
+Smiling_MSO = [
+        ['Smiling',[]],
+        ['Mouth_Slightly_Open',['Smiling']]
+       ]
+       
+MSO_smiling = [
+        ['Smiling',['Mouth_Slightly_Open']],
+        ['Mouth_Slightly_Open',[]]
+       ] 
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
@@ -149,10 +159,13 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_smiling_lipstick
     elif causal_model == 'male_smiling_lipstick_complete':
         graph = male_smiling_lipstick_complete
+    elif causal_model == 'Smiling_MSO':
+        graph = Smiling_MSO
+    elif causal_model == 'MSO_smiling':
+        graph = MSO_smiling
+
     elif causal_model is 'empty':
         graph=[[],[]]
-
-
     #no more #UnboundLocalError: local variable 'graph' referenced before assignment
     else:
         raise ValueError('the specified graph:',causal_model,' was not one of\
