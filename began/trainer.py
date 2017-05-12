@@ -8,6 +8,7 @@ from glob import glob
 from tqdm import trange
 from itertools import chain
 from collections import deque
+from figure_scripts.pairwise import crosstab
 
 from models import *
 from utils import save_image,distribute_input_data
@@ -184,6 +185,9 @@ class Trainer(object):
 
                     print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}".\
                           format(step, self.max_step, c_loss, dcc_loss))
+
+                if step+1 %1000==0:
+                    crosstab(self)
 
 
             else:#NORMAL TRAINING

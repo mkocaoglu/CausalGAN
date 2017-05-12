@@ -6,6 +6,9 @@ data/*
 samples
 outputs
 
+#This is because this is a symlink
+figure_scripts
+
 # ipython checkpoints
 .ipynb_checkpoints
 
