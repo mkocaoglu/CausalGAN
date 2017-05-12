@@ -87,7 +87,6 @@ class CausalNode(object):
     _label_logit=None
     _label=None
     parents=[]#list of CausalNodes
-
     def __init__(self,name=None,n_hidden=10):
         self.name=name
         self.n_hidden=n_hidden#also is z_dim
@@ -95,16 +94,20 @@ class CausalNode(object):
         #Use tf.random_uniform instead of placeholder for noise
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
-    def setup_tensor(self):
         with tf.variable_scope(self.name):
             self.z = tf.random_uniform(
                     (self.batch_size, self.n_hidden), minval=-1.0, maxval=1.0)
-            tf_parents=[self.z]+[node.label_logit for node in self.parents]
+    def setup_tensor(self):
+        if self._label is not None:#already setup
+            return
+        tf_parents=[self.z]+[node.label_logit for node in self.parents]
+        with tf.variable_scope(self.name):
             vec_parents=tf.concat(tf_parents,-1)
             h0=slim.fully_connected(vec_parents,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer0')
             h1=slim.fully_connected(h0,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer1')
             self._label_logit = slim.fully_connected(h1,1,activation_fn=None,scope='proj')
             self._label=tf.nn.sigmoid( self._label_logit )
+
     @property
     def label_logit(self):
         if self._label_logit is not None:

@@ -105,15 +105,18 @@ class CausalNode(object):
         #Use tf.random_uniform instead of placeholder for noise
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
-    def setup_tensor(self):
         with tf.variable_scope(self.name):
             if self.train:
                 self.z = tf.random_uniform(
                         (self.batch_size, self.n_hidden), minval=-1.0, maxval=1.0)
             else:
                 self.z = tf.random_uniform(
-                        (self.batch_size, self.n_hidden), minval=-0.5, maxval=0.5)                
-            tf_parents=[self.z]+[node.label_logit for node in self.parents]
+                        (self.batch_size, self.n_hidden), minval=-0.5, maxval=0.5)
+    def setup_tensor(self):
+        if self._label is not None:#already setup
+            return
+        tf_parents=[self.z]+[node.label_logit for node in self.parents]
+        with tf.variable_scope(self.name):
             vec_parents=tf.concat(tf_parents,-1)
             h0=slim.fully_connected(vec_parents,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer0')
             h1=slim.fully_connected(h0,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer1')
