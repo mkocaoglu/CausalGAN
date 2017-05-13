@@ -41,7 +41,7 @@ class DCGAN(object):
     self.is_crop = is_crop
     self.is_grayscale = (c_dim == 1)
     self.is_train = is_train
-
+    self.model_name = 'dcgan'
     self.batch_size = batch_size
     self.sample_num = sample_num
 
