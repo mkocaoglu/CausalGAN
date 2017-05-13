@@ -53,6 +53,7 @@ def slerp(val, low, high):
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
 
 class Trainer(object):
+    model_name='began'
     def __init__(self, config, data_loader,label_stats):
 
         self.config = config
@@ -186,7 +187,8 @@ class Trainer(object):
                     print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}".\
                           format(step, self.max_step, c_loss, dcc_loss))
 
-                if step+1 %1000==0:
+                if (step+1) %1000==0:
+                    print('crosstab')
                     crosstab(self)
 
 
