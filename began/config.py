@@ -26,7 +26,7 @@ net_arg.add_argument('--z_num', type=int, default=64, choices=[64, 128])
 # Data
 data_arg = add_argument_group('Data')
 #data_arg.add_argument('--causal_model', type=str, default='male.young.smiling')
-data_arg.add_argument('--causal_model', type=str, default='big_causal_graph')
+data_arg.add_argument('--causal_model', type=str)
 data_arg.add_argument('--dataset', type=str, default='celebA')
 data_arg.add_argument('--split', type=str, default='train')
 data_arg.add_argument('--batch_size', type=int, default=16)

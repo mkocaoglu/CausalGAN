@@ -148,11 +148,11 @@ Smiling_MSO = [
 MSO_smiling = [
         ['Smiling',['Mouth_Slightly_Open']],
         ['Mouth_Slightly_Open',[]]
-       ] 
+       ]
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
-    if causal_model is 'male.young.smiling':
+    if causal_model == 'male.young.smiling':
         graph=standard_graph
     elif causal_model == 'subset1':
         graph=subset1_nodes

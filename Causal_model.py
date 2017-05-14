@@ -28,7 +28,7 @@ def conv_out_size_same(size, stride):
 from causal_graph import get_causal_graph
 
 class DCGAN(object):
-  
+
   def __init__(self, sess, input_height=108, input_width=108, is_crop=True,
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
          y_dim=None, z_dim=100, gf_dim=64, df_dim=64, #z_dim=100,  
@@ -725,35 +725,17 @@ class DCGAN(object):
 
         minibatch_features = tf.concat([labels, f1],1)
         return minibatch_features
-      #Old code (5-2-17):
-      #labels_= add_minibatch_features_for_labels(labels,self.batch_size)
-      #h0 = lrelu(labels_, self.hidden_size, 'dCC_0')
-      #h1 = lrelu(h0, self.hidden_size,'dCC_1')
-      #h2 = lrelu(h1, self.hidden_size, 'dCC_2')
-      #h3 = linear(h2, 1, 'dCC_3')
-      #return tf.nn.sigmoid(h3), h3
 
-      #Old WARNING: BUG FOUND HERE
-      #(no matrix multiplication or bias; only nonlinearity)
-      ##Suggested replacement:
-      #h0 = lrelu(labels, self.hidden_size, 'dCC_0')
-      #h1 = lrelu(h0, self.hidden_size,'dCC_1')
-      #h1 = add_minibatch_features_for_labels(h1, self.batch_size)
-      #h2 = lrelu(h1, self.hidden_size, 'dCC_2')
-      #h3 = linear(h2, 1, 'dCC_3')
-      #return tf.nn.sigmoid(h3), h3
-
-      #New BugFree code
       def lrelu(x,leak=0.2,name='lrelu'):
           with tf.variable_scope(name):
               f1=0.5 * (1+leak)#halves memory footprint
               f2=0.5 * (1-leak)#relative to tf.maximum(leak*x,x)
               return f1*x + f2*tf.abs(x)
       h0 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_0')
-      h1 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
+      h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1 = lrelu(add_minibatch_features_for_labels(h1,self.batch_size))
-      h2 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(labels,self.hidden_size,activation_fn=None,scope='dCC_3')
+      h2 = slim.fully_connected(h1,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
+      h3 = slim.fully_connected(h2,self.hidden_size,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
 

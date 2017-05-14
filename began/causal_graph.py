@@ -134,7 +134,7 @@ male_smiling_lipstick=[
 
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
-    if causal_model is 'male.young.smiling':
+    if causal_model == 'male.young.smiling':
         graph=standard_graph
     elif causal_model == 'subset1':
         graph=subset1_nodes
@@ -153,8 +153,11 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = new_big_causal_graph
 
 
-    if causal_model is 'empty':
+    elif causal_model is 'empty':
         graph=[[],[]]
+    else:
+        raise ValueError('the specified graph:',causal_model,' was not one of\
+                         those listed in ',__file__)
 
 
     return graph
