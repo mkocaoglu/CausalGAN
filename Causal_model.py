@@ -28,6 +28,7 @@ def conv_out_size_same(size, stride):
 from causal_graph import get_causal_graph
 
 class DCGAN(object):
+  model_type='dcgan'
 
   def __init__(self, sess, input_height=108, input_width=108, is_crop=True,
          batch_size=64, sample_num = 64, output_height=64, output_width=64,
@@ -35,7 +36,8 @@ class DCGAN(object):
          gfc_dim=1024, dfc_dim=1024, c_dim=3, dataset_name='default',
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
-               z_dim_Image=100, intervene_on = None, graph = None, label_specific_noise = True, is_train = True):#'big_causal_graph'
+               z_dim_Image=100, intervene_on = None, graph = None,
+               label_specific_noise = None, is_train = None):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
@@ -97,7 +99,6 @@ class DCGAN(object):
     self.checkpoint_dir = checkpoint_dir
 
     checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-    checkpoint_dir=os.path.join(checkpoint_dir)
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
     self.checkpoint_dir=checkpoint_dir
@@ -248,7 +249,7 @@ class DCGAN(object):
     self.d_loss_fake = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
     self.g_lossGAN = tf.reduce_mean(
-      sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
+      -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
     self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
@@ -415,11 +416,16 @@ class DCGAN(object):
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
       return u 
     def p_independent_noise(u):
-      u = 0.5*(np.array(u)+1)
-      if u == 1:
-        u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
-      elif u == 0:
-        u = 0.2 + np.random.uniform(0, 0.3, 1).astype(np.float32)
+      u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
+      lower, upper, scale = 0, 0.2, 1/2.0
+      t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
+      s = t.rvs(1)
+      u = u + ((0.5-u)/0.2)*s
+      # u = 0.5*(np.array(u)+1)
+      # if u == 1:
+      #   u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
+      # elif u == 0:
+      #   u = 0.2 + np.random.uniform(0, 0.3, 1).astype(np.float32)
       return u
 
     def label_mapper(u,name):
@@ -545,6 +551,9 @@ class DCGAN(object):
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
+          #Unclear if indentation is correct#I changed it:
+          #self.writer.add_summary(summary_str, counter)
+        self.writer.add_summary(summary_str, counter)
 
         #do this instead
         errD_fake,errD_real,errG= self.sess.run(
@@ -556,7 +565,7 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
 
-        if np.mod(counter, 5000) == 0:
+        if np.mod(counter, 4000) == 0:
           #self.save(config.checkpoint_dir, counter)
           self.save(self.checkpoint_dir, counter)
 
@@ -733,8 +742,8 @@ class DCGAN(object):
               return f1*x + f2*tf.abs(x)
       h0 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_0')
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
-      h1 = lrelu(add_minibatch_features_for_labels(h1,self.batch_size))
-      h2 = slim.fully_connected(h1,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
+      h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
+      h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
       h3 = slim.fully_connected(h2,self.hidden_size,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
@@ -1035,18 +1044,17 @@ class DCGAN(object):
         self.output_height, self.output_width)
 
   def save(self, checkpoint_dir, step):
-
+    model_name = "DCGAN.model"
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
 
     self.saver.save(self.sess,
-            #os.path.join(checkpoint_dir),#This line makes no sense
-            checkpoint_dir,
+            os.path.join(checkpoint_dir,model_name),
             global_step=step)
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)

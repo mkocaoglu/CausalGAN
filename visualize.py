@@ -29,7 +29,7 @@ def add_argument_group(name):
 #sample_arg.add_argument('--do_dict', type=str, help='pass as \'{"key1":"value')
 
 visualize_arg = add_argument_group('visualize')
-visualize_arg.add_argument('--model_name', type=str,default=None)
+visualize_arg.add_argument('--model_type', type=str,default=None)
 
 #Which visualizations to do?
 visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,\
@@ -53,7 +53,7 @@ if __name__=='__main__':
     Current instructions:
 
     In addition to whatever flags you would normally use to run the model, use
-    flags to specify model_name, do_dict (if applicable), and whatever figures
+    flags to specify model_type, do_dict (if applicable), and whatever figures
     you would like to produce (followed by True)
 
     Examples:
@@ -61,14 +61,14 @@ if __name__=='__main__':
     To run intervention2d, the following works:
 
     #Tested
-    python visualize.py --model_name dcgan --sample_model True
+    python visualize.py --model_type dcgan --sample_model True
     --do_dict_name second_example_dict --dataset celebA --input_height 108
     --is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
     ./checkpoint/male_c_mustache
 
 
     to run crosstab, in addition provide --cross_tab True:
-    python visualize.py --model_name dcgan --sample_model True --cross_tab True
+    python visualize.py --model_type dcgan --sample_model True --cross_tab True
     --do_dict_name second_example_dict --dataset celebA --input_height 108
     --is_train False --is_crop True --graph male_causes_mustache --checkpoint_dir
     ./checkpoint/male_c_mustache
@@ -77,13 +77,13 @@ if __name__=='__main__':
 
     This can also be run from ipython:
     ipython:
-    %run visualize.py --model_name 'dcgan' --sample_model True --dataset 'celebA' --input_height=108
+    %run visualize.py --model_type 'dcgan' --sample_model True --dataset 'celebA' --input_height=108
     --is_train=False --is_crop True --graph 'big_causal_graph' --checkpoint_dir
     './checkpoint/big_causal1'
 
 
     #Tested
-    %run visualize.py --model_name 'began' --sample_model True  --do_dict_name
+    %run visualize.py --model_type 'began' --sample_model True  --do_dict_name
     'gender_lipstick_default' --causal_graph 'big_causal_graph' --is_train False
     --load_path 'celebA_0507_222545'
 
@@ -94,9 +94,9 @@ if __name__=='__main__':
     print 'The config you passed to visualize:',config
 
     #Get model
-    model_name= config.model_name
-    model=get_model(model_name)
-    model.model_name=model_name
+    model_type= config.model_type
+    model=get_model(model_type)
+    model.model_type=model_type
     if config.cross_tab:
         crosstab(model)
 
