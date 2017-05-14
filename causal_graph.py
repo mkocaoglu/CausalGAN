@@ -103,6 +103,16 @@ mustache_causes_male=[
 
 young_causes_gray=[
         ['Young',[]],
+        ['Gray_Hair',['Young']],
+        ]
+
+gray_causes_young=[
+        ['Young',['Gray_Hair']],
+        ['Gray_Hair',[]],
+        ]
+
+young_ind_gray=[
+        ['Young',[]],
         ['Gray_Hair',[]],
         ]
 
