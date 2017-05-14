@@ -102,7 +102,7 @@ mustache_causes_male=[
     ]
 
 young_causes_gray=[
-        ['Young',[]]
+        ['Young',[]],
         ['Gray_Hair',[]],
         ]
 
