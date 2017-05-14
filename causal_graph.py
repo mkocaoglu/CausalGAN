@@ -100,6 +100,12 @@ mustache_causes_male=[
         ['Male',['Mustache']],
         ['Mustache',[]],
     ]
+
+young_causes_gray=[
+        ['Young',[]]
+        ['Gray_Hair',[]],
+        ]
+
 old_big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
@@ -176,9 +182,11 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = Smiling_MSO
     elif causal_model == 'MSO_smiling':
         graph = MSO_smiling
-
+    elif causal_model == 'young_causes_gray':
+        graph = young_causes_gray
     elif causal_model is 'empty':
         graph=[[],[]]
+
     #no more #UnboundLocalError: local variable 'graph' referenced before assignment
     else:
         raise ValueError('the specified graph:',causal_model,' was not one of\

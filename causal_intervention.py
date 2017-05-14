@@ -31,8 +31,6 @@ intervention_dicts={
                     'Wearing_Lipstick':'model_default',
                     },
 
-
-
 }
 
 
