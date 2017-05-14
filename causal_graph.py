@@ -194,6 +194,10 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = MSO_smiling
     elif causal_model == 'young_causes_gray':
         graph = young_causes_gray
+    elif causal_model == 'gray_causes_young':
+        graph = gray_causes_young
+    elif causal_model == 'young_ind_gray':
+        graph = young_ind_gray
     elif causal_model is 'empty':
         graph=[[],[]]
 
