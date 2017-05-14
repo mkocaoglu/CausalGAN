@@ -22,14 +22,19 @@ intervention_dicts={
     #                 'Male':np.random.uniform(-1,1,8),
     #                 'Smiling':np.random.uniform(-1,1,8)
     #                 },
-    'Young':{'Young':[1.5,-0.5]},
-    'Male':{'Male':[1,-1]},
-    'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1],'Male':-1},
+    'Young':{'Young':[1.,-1.]},
+    'Gray':{'Gray':[1.,-1.]},
+    'Male':{'Male':[1.,-1.]},
+    'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1]},
+    'MSO':{'Mouth_Slightly_Open':[1,-1]},
+
     #Third example: (only began implemented)
     'gender_lipstick_default':{
                     'Male':'model_default',
                     'Wearing_Lipstick':'model_default',
                     },
+
+
 
 }
 
