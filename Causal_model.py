@@ -1040,7 +1040,8 @@ class DCGAN(object):
       os.makedirs(checkpoint_dir)
 
     self.saver.save(self.sess,
-            os.path.join(checkpoint_dir),
+            #os.path.join(checkpoint_dir),#This line makes no sense
+            checkpoint_dir,
             global_step=step)
 
   def load(self, checkpoint_dir):

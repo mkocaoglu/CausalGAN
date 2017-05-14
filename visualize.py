@@ -43,7 +43,10 @@ visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
 
-visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
+#I'm strongly worried this line will override flags in main.py so I commented it out
+#visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
+#Ref: flags:
+#flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
 
 if __name__=='__main__':
     '''

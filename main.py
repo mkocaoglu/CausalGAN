@@ -11,7 +11,7 @@ import tensorflow as tf
 
 flags = tf.app.flags
 flags.DEFINE_string("model", "causal", "dcgan to use the original model")
-flags.DEFINE_string("graph", "big_causal_graph", "causal graph defined in causal_graph.py to use")
+flags.DEFINE_string("graph", "Provide a graph argument", "causal graph defined in causal_graph.py to use")
 flags.DEFINE_integer("epoch", 30, "Epoch to train [25]")
 flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
 flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
