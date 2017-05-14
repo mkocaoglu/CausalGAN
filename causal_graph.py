@@ -100,6 +100,17 @@ mustache_causes_male=[
         ['Male',['Mustache']],
         ['Mustache',[]],
     ]
+old_big_causal_graph=[
+        ['Young',[]],
+        ['Male',[]],
+        ['Eyeglasses',['Young']],
+        ['Bald',            ['Male','Young']],
+        ['Mustache',        ['Male','Young']],
+        ['Smiling',         ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young']],
+        ['Mouth_Slightly_Open',['Smiling']],
+        ['Narrow_Eyes',        ['Smiling']],
+    ]
 
 big_causal_graph=[
         ['Young',[]],
@@ -151,6 +162,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_causes_mustache
     elif causal_model == 'mustache_causes_male':
         graph = mustache_causes_male
+    elif causal_model == 'old_big_causal_graph':
+        graph = old_big_causal_graph
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
     elif causal_model == 'male_ind_mustache':
