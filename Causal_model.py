@@ -406,7 +406,7 @@ class DCGAN(object):
 
     def clamp(x, lower, upper):
       return max(min(upper, x), lower)
-
+    
     def p_dependent_noise(u,name):
       p = self.means[name]
       u = 0.5*(np.array(u)+1)
@@ -414,7 +414,7 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u
+      return u 
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
       lower, upper, scale = 0, 0.2, 1/2.0
@@ -513,9 +513,8 @@ class DCGAN(object):
         #If it takes appreciably longer, you only have to run summary_op
         # once every 50 iterations or so, not 6 times per iteration.
         #if epoch < 1:
-
-        if counter < 5001:
-        #if counter < 5:
+        #if counter < 5001:
+        if counter < 10001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
