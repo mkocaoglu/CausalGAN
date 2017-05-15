@@ -42,6 +42,7 @@ visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
 
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
+visualize_arg.add_argument('--cond_dict_name',type=str, default=None)
 
 #I'm strongly worried this line will override flags in main.py so I commented it out
 #visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
@@ -104,6 +105,11 @@ if __name__=='__main__':
         if config.do_dict_name:
             do_dict=get_do_dict( config.do_dict_name )
             intervention2d( model, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
+
+        elif config.cond_dict_name:
+            cond_dict=get_cond_dict( config.cond_dict_name )
+            condition2d( model, fetch=model.G, cond_dict=cond_dict, cond_dict_name=config.cond_dict_name, on_logits=True)
+
         else:
             raise ValueError('need do_dict_name')
 

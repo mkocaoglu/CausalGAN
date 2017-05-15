@@ -97,45 +97,116 @@ def once_sample(model, fetch, do_dict=None, step=None):
     pass
 
 
-def sample(model, fetch=None, do_dict=None, on_logits=True):
+def interpret_dict( a_dict, model, on_logits):
+    '''
+    pass either a do_dict or a cond_dict.
+    The rules for converting arguments to numpy arrays to pass
+    to tensorflow are identical
+    '''
+    p_a_dict=take_product(a_dict)
+
+    ##Need divisible batch_size for most models
+    if len(p_a_dict)>0:
+        L=len(p_a_dict.values()[0])
+    else:
+        L=0
+    print "L is " + str(L)
+    print p_a_dict
+    if L>=model.batch_size:
+        if not L % model.batch_size == 0:
+            raise ValueError('a_dict must be dividable by batch_size\
+                             but instead product of inputs was of length',L)
+        feed_dict = do2feed(p_a_dict, model, on_logits=on_logits)
+    elif model.batch_size % L == 0:
+        p_a_dict = {key:np.repeat(value,model.batch_size/L,axis=0) for key,value in p_a_dict.items()}
+        feed_dict = do2feed(p_a_dict, model, on_logits=on_logits)
+    else:
+        raise ValueError('No. of intervened values must divide batch_size.')
+    return feed_dict
+
+def slice_dict(feed_dict, rows):
+    '''
+    conditional sampling requires doing only certain indicies depending
+    on the result of the previous iteration.
+    This function takes a feed_dict and "slices" it,
+    returning a dictionary with the same keys, but with values[rows,:]
+    '''
+    fd_out={}
+    for key,value in feed_dict.iteritems():
+        fd_out[key]=value[rows]
+    return fd_out
+
+
+#def get_remaining(rows, batch_size):
+#    '''
+#    this function takes a list/array of rows and returns
+#    some subset of them of size batch_size
+#
+#    '''
+
+
+def sample(model, fetch=None, cond_dict=None, do_dict=None, on_logits=True):
     '''
     fetch should be a list of tensors to do sess.run on
     do_dict is a list of strings or tensors of the form:
     {'Male':1, model.z_gen:[0,1], model.cc.Smiling:[0.1,0.9]}
     '''
 
+    if cond_dict and do_dict:
+        raise ValueError('simultaneous condition and intervention not
+                         supported')
+    a_dict= cond_dict or do_dict
+    print('sampler recieved dictionary:',a_dict)
+
     if fetch==None:
         #assume images
         fetch=model.G
 
-    p_do_dict=take_product(do_dict)
+    feed_dict = interpret_dict( a_dict, model, on_logits=on_logits)
 
-    ##Need divisible batch_size for most models
-    if len(p_do_dict)>0:
-        L=len(p_do_dict.values()[0])
+    if not cond_dict and do_dict:
+        print('sampler mode:Interventional')
+
+        fds=chunks(feed_dict,model.batch_size)
+
+        outputs=[]
+        for fd in fds:
+            out=model.sess.run(fetch, fd)
+            outputs.append(out)
+        return np.vstack(outputs), feed_dict
+
+    elif cond_dict and not do_dict:
+        ##Implements rejection sampling
+        print('sampler mode:Conditional')
+
+        rows=range( len(feed_dict.values()[0]))#what idx do we need
+        assert(len(rows)>=model.batch_size)#should already be true.
+
+        #init
+        remaining_rows=rows[:model.batch_size]
+        completed_rows=[]
+
+
+        #loop
+        remaining_rows=remaining_rows[:batch_size]
+        iter_rows=
+
+
+
+
+        slice_dict(feed_dict, rows)
+        ##construction: slice dictionary by what is missing:
+
+        outputs=[]
+
+
+
     else:
-        L=0
-    print "L is " + str(L)
-    print p_do_dict
-    if L>=model.batch_size:
-        if not L % model.batch_size == 0:
-            raise ValueError('do_dict must be dividable by batch_size\
-                             but instead product of inputs was of length',L)
-        feed_dict = do2feed(p_do_dict, model, on_logits=on_logits)
-    elif model.batch_size % L == 0:
-        p_do_dict = {key:np.repeat(value,model.batch_size/L,axis=0) for key,value in p_do_dict.items()}
-        feed_dict = do2feed(p_do_dict, model, on_logits=on_logits)
-    else:
-        raise ValueError('No. of intervened values must divide batch_size.')
+        raise Exception('This should not happen')
 
-    fds=chunks(feed_dict,model.batch_size)
 
-    outputs=[]
-    for fd in fds:
-        out=model.sess.run(fetch, fd)
-        outputs.append(out)
 
-    return np.vstack(outputs), feed_dict
+    #return np.vstack(outputs), feed_dict
 
 def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits=True, step=''):
     '''
@@ -217,5 +288,7 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
 
 
 
+####
+            condition2d( model, fetch=model.G, cond_dict=cond_dict, cond_dict_name=config.cond_dict_name, on_logits=True)
 
 
