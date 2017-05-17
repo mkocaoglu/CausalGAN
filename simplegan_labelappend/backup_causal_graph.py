@@ -101,33 +101,6 @@ mustache_causes_male=[
         ['Mustache',[]],
     ]
 
-young_causes_gray=[
-        ['Young',[]],
-        ['Gray_Hair',['Young']],
-        ]
-
-gray_causes_young=[
-        ['Young',['Gray_Hair']],
-        ['Gray_Hair',[]],
-        ]
-
-young_ind_gray=[
-        ['Young',[]],
-        ['Gray_Hair',[]],
-        ]
-
-old_big_causal_graph=[
-        ['Young',[]],
-        ['Male',[]],
-        ['Eyeglasses',['Young']],
-        ['Bald',            ['Male','Young']],
-        ['Mustache',        ['Male','Young']],
-        ['Smiling',         ['Male','Young']],
-        ['Wearing_Lipstick',['Male','Young']],
-        ['Mouth_Slightly_Open',['Smiling']],
-        ['Narrow_Eyes',        ['Smiling']],
-    ]
-
 big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
@@ -155,20 +128,10 @@ male_smiling_lipstick_complete=[
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male','Wearing_Lipstick']]
        ]
-
-Smiling_MSO = [
-        ['Smiling',[]],
-        ['Mouth_Slightly_Open',['Smiling']]
-       ]
-
-MSO_smiling = [
-        ['Smiling',['Mouth_Slightly_Open']],
-        ['Mouth_Slightly_Open',[]]
-       ]
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
-    if causal_model == 'male.young.smiling':
+    if causal_model is 'male.young.smiling':
         graph=standard_graph
     elif causal_model == 'subset1':
         graph=subset1_nodes
@@ -178,8 +141,6 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_causes_mustache
     elif causal_model == 'mustache_causes_male':
         graph = mustache_causes_male
-    elif causal_model == 'old_big_causal_graph':
-        graph = old_big_causal_graph
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
     elif causal_model == 'male_ind_mustache':
@@ -188,18 +149,9 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_smiling_lipstick
     elif causal_model == 'male_smiling_lipstick_complete':
         graph = male_smiling_lipstick_complete
-    elif causal_model == 'Smiling_MSO':
-        graph = Smiling_MSO
-    elif causal_model == 'MSO_smiling':
-        graph = MSO_smiling
-    elif causal_model == 'young_causes_gray':
-        graph = young_causes_gray
-    elif causal_model == 'gray_causes_young':
-        graph = gray_causes_young
-    elif causal_model == 'young_ind_gray':
-        graph = young_ind_gray
     elif causal_model is 'empty':
         graph=[[],[]]
+
 
     #no more #UnboundLocalError: local variable 'graph' referenced before assignment
     else:

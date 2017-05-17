@@ -164,7 +164,7 @@ class Trainer(object):
 
         for step in trange(self.start_step, self.max_step):
 
-            if step < 5000:#PRETRAIN CC
+            if step < 15000:#PRETRAIN CC
                 fetch_dict = {
                     "pretrain_op": self.pretrain_op,
                 }

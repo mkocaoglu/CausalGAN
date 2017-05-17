@@ -14,6 +14,9 @@ debug = debugger.Pdb().set_trace
 '''
 Some notes on each version of the model:
 
+smiling->MSO did not work so inc pretrain
+            if step < 15000:#PRETRAIN CC
+
 
 !!!BUG!!! Previous models all ran setup_tensor twice, which effectvely left them
 independent in causal structure.
