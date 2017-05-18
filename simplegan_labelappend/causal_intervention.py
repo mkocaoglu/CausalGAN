@@ -12,34 +12,32 @@ intervention_dicts={
                      'Male':np.linspace(-1.38,1.38,8),
                      'Mustache':np.linspace(-1.38,1.38,8)
                     },
-    'Eyeglasses':{'Eyeglasses':[0.12,-1] #~2*p}
+    'Eyeglasses':{'Eyeglasses':[0.6,-0.6] #~2*p}
                     },
-    'Narrow_Eyes':{'Narrow_Eyes':[0.22,-1.5]
+    'Narrow_Eyes':{'Narrow_Eyes':[0.6,-0.6]
                     },
-    'Mustache':{'Mustache':[0.2,-2]},
-    'Smiling':{'Smiling':[1,-1]},
+    'Narrow_Eyes_Eyeglasses1':{'Narrow_Eyes':[0.6,-0.6],'Eyeglasses':[0.6] #~2*p}
+                    },
+    'Bald':{'Bald':[0.6,-0.6]},
+    'No_Beard':{'No_Beard':[0.6,-0.6]},
+    'Mustache':{'Mustache':[0.6,-0.6]},
+    'Mustache_Male1':{'Mustache':[0.6,-0.6], 'Male':[0.6]},
+    'Mustache_Male0':{'Mustache':[0.6,-0.6], 'Male':[-0.6]},
+    'Mustache_Wearing_Lipstick1':{'Mustache':[0.6,-0.6], 'Wearing_Lipstick':[0.6]},
+    'Smiling':{'Smiling':[0.6,-0.6]},
+    'Smiling_Young0':{'Smiling':[0.6,-0.6], 'Young':[-0.6]},
     # 'Big_Eyes':{'Narrow_Eyes':-1.6,
     #                 'Male':np.random.uniform(-1,1,8),
     #                 'Smiling':np.random.uniform(-1,1,8)
     #                 },
-    'd_Young':{'Young':'model_default'},
-    'd_Gray':{'Gray_Hair':'model_default'},
-    'd_Male':{'Male':'model_default'},
-    'd_Mustache':{'Mustache':'model_default'},
-    'd_MSO':{'Mouth_Slightly_Open':'model_default'},
-    'd_Smiling':{'Smiling':'model_default'},
-    'd_Eyeglasses':{'Eyeglasses':'model_default'},
-    'd_Bald':{'Bald':'model_default'},
-    'd_Narrow_Eyes':{'Narrow_Eyes':'model_default'},
-
-    'Eyeglasses':{'Eyeglasses':[0.11,-1.7]},
-
-    'Young':{'Young':[1.5,-0.5]},#lab spec
-    #'Young':{'Young':[1.,-1.]},
-    'Gray':{'Gray_Hair':[0.2,-2.]},
-    'Male':{'Male':[1.,-1.]},
-    'Wearing_Lipstick':{'Wearing_Lipstick':[1,-1]},
-    'MSO':{'Mouth_Slightly_Open':[1,-1]},
+    'Young':{'Young':[0.6,-0.6]},
+    'Gray':{'Gray':[0.8,-0.8]},
+    'Male':{'Male':[0.6,-0.6]},
+    'Wearing_Lipstick':{'Wearing_Lipstick':[0.8,-0.8]},
+    'Lipstick_Male1':{'Wearing_Lipstick':[0.6,-0.6], 'Male':[0.6]},
+    'Lipstick_Male0':{'Wearing_Lipstick':[0.6,-0.6], 'Male':[-0.6]},
+    'Male_Lipstick1':{'Wearing_Lipstick':[0.6], 'Male':[0.6,-0.6]},
+    'MSO':{'Mouth_Slightly_Open':[0.8,-0.8]},
 
     #Third example: (only began implemented)
     'gender_lipstick_default':{

@@ -155,10 +155,10 @@ class DCGAN(object):
 
     def concat_labels(image,labels):
         #concat labels with generator
-        yb = tf.reshape(labels, [self.batch_size, 1, 1, -1])
+        yb = tf.reshape(labels, [self.batch_size, 1, 1, len(self.cc.node_names)])
         return conv_cond_concat(self.G, yb)
 
-    self.G_aug      = concat_labels(self.G,self.z_fake_labels)
+    self.G_aug      = concat_labels(self.G, self.fake_labels)
     self.inputs_aug = concat_labels(self.inputs, self.realLabels)
 
 
@@ -168,7 +168,7 @@ class DCGAN(object):
     self.sampler=self.G
     self.sampler_label=self.fake_labels_logits
 
-    self.D, self.D_logits = self.discriminator(inputs_aug)
+    self.D, self.D_logits = self.discriminator(self.inputs_aug)
     self.D_, self.D_logits_ = self.discriminator(self.G_aug, reuse=True)
     #self.D, self.D_logits = self.discriminator(inputs)
     #self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
@@ -219,7 +219,7 @@ class DCGAN(object):
 #      -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
 
-    self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
+    #self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
     #self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     #self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
     #self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
@@ -404,7 +404,7 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    counter = 1
+    counter = 0
     start_time = time.time()
     name_list = self.cc.node_names
     print name_list
@@ -448,6 +448,7 @@ class DCGAN(object):
             }
 
         if counter%1000==0:
+          self.save(self.checkpoint_dir, counter)
           crosstab(self,counter)#display results
 
         _,_,summary_str = self.sess.run([g_optim,d_optim, self.summary_op], feed_dict=fd)
@@ -465,9 +466,6 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
 
-        if np.mod(counter, 4000) == 0:
-          #self.save(config.checkpoint_dir, counter)
-          self.save(self.checkpoint_dir, counter)
 
 
 
