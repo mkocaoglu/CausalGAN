@@ -1,4 +1,6 @@
 from __future__ import division
+
+from figure_scripts.sample import intervention2d
 from figure_scripts.pairwise import crosstab
 import os
 import time
@@ -467,6 +469,8 @@ class DCGAN(object):
     start_time = time.time()
     name_list = self.cc.node_names
     print name_list
+
+
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
         "./data", config.dataset, self.input_fname_pattern))
@@ -561,10 +565,14 @@ class DCGAN(object):
           if counter%1000==0:
             crosstab(self,counter)#display results
           self.writer.add_summary(summary_str, counter)
+
+
+
+
+
             #self.writer.add_summary(summary_str, counter)
           #Unclear if indentation is correct#I changed it:
           #self.writer.add_summary(summary_str, counter)
-        
 
         #do this instead
         errD_fake,errD_real,errG= self.sess.run(
@@ -578,6 +586,12 @@ class DCGAN(object):
         if np.mod(counter, 4000) == 0:
           #self.save(config.checkpoint_dir, counter)
           self.save(self.checkpoint_dir, counter)
+          for name in self.cc.node_names:
+            do_dict={name:[-.6,0.6]}
+            do_dict_name=name
+            intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
+            #reference:
+            #intervention2d( model, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name)
 
   # def regularizer(self, m_logit, y_logit, s_logit):
   #   p1 = 0.023134
