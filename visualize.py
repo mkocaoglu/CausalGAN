@@ -37,6 +37,15 @@ visualize_arg.add_argument('--model_type', type=str,default=None)
 visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,\
                           help='Tabulates pairwise marginal distributions\
                           and saves them to text files')
+
+visualize_arg.add_argument('--record_interventional', type=str2bool,default=False,\
+                          help='records samples from the joint distribution for
+                           each intervening node for each intervening value.
+                           Also d_fake_labels and g_labels each get their own
+                           csv that should be loaded with pd.read_csv().
+                           Therefore, this makes n_labels*2*2 many csv files')
+
+
 visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
                           help='Tells program to do sampling for do_dict and\
                            other arguments provided. Run this to do\
@@ -106,10 +115,9 @@ if __name__=='__main__':
     if config.cross_tab:
         crosstab(model)
 
-        #if in addition to cross_tab, a do_dict is passed
+    if config.record_interventional
         print('Recording csv of interventional distribution')
         record_interventional(model)
-
 
     if config.sample_model:
         if config.cond_dict_name and config.do_dict_name:

@@ -3,6 +3,7 @@ import numpy as np
 import os
 import scipy.misc
 import numpy as np
+import pandas as pd
 from tqdm import trange,tqdm
 import pandas as pd
 from itertools import combinations, product
@@ -42,10 +43,16 @@ def record_interventional(model,step=''):
 
             joint=get_joint(model, do_dict=None, N=5,return_discrete=True,step='')
 
-            lab_fname=str_step+str(name)+str(int_val)
-            dfl_fname=str_step+str(name)+str(int_val)
+            lab_df=pd.DataFrame(data=joint['g_fake_label'])
+            dfl_df=pd.DataFrame(data=joint['d_fake_label'])
 
-with open(dfl_xtab_fn,'w') as dlf_f
+            lab_fname=str_step+str(name)+str(int_val)+'.csv'
+            dfl_fname=str_step+str(name)+str(int_val)+'.csv'
+
+            lab_df.to_csv(lab_fname)
+            dfl_df.to_csv(dfl_fname)
+
+    #with open(dfl_xtab_fn,'w') as dlf_f, open(lab_xtab_fn,'w') as lab_f:
 
 
 

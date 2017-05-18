@@ -38,16 +38,11 @@ def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
     lengths = [ len(v) for v in p_do_dict.values() if hasattr(v,'__len__') ]
     print 'lengths',lengths
 
-
-
     n_batches=len(p_do_dict[token]/N)
     print 'len product_do_dict',len(p_do_dict[token])
 
-
-
     #print('WARNING! using only N=100 samples:DEBUG mode')
     #N=100#to go quicker
-
 
     print 'Calculating joint distribution'
 
@@ -221,7 +216,7 @@ def once_sample(model, fetch, do_dict=None, step=None):
     pass
 
 
-def interpret_dict( a_dict, model,n_times=1, on_logits):
+def interpret_dict( a_dict, model,n_times=1, on_logits=True):
     '''
     pass either a do_dict or a cond_dict.
     The rules for converting arguments to numpy arrays to pass
