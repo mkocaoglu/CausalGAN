@@ -3,7 +3,7 @@ import numpy as np
 import os
 import scipy.misc
 import numpy as np
-from tqdm import trange
+from tqdm import trange,tqdm
 
 import pandas as pd
 from itertools import combinations, product
@@ -11,6 +11,100 @@ import sys
 
 from utils import save_figure_images#makes grid image plots
 
+
+
+
+
+def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
+    '''
+    do_dict is intended to be a distribution of interventions. Pass a
+    distribution to get the average (discrete) g/fake label joint over that
+    distribution
+
+    Ex: if intervention=+1 corresponds to logits uniform in [0,0.6], pass
+    np.linspace(0,0.6,n)
+
+    N is number of batches to sample at each location in logitspace (num_labels
+    dimensional)
+    '''
+    print 'do_dict:',do_dict
+
+    p_do_dict=interpret_dict( model,p_do_dict, n_times=N,on_logits=True)
+
+    print 'interpreted p_do_dict:',p_do_dict
+
+
+    str_step=str(step)
+    lengths = [ len(v) for v in p_do_dict.values() if hasattr(v,'__len__') ]
+    print 'lengths',lengths
+
+
+
+    n_batches=len(p_do_dict[token]/N)
+    print 'len product_do_dict',len(p_do_dict[token])
+
+
+
+    #print('WARNING! using only N=100 samples:DEBUG mode')
+    #N=100#to go quicker
+
+
+    print 'Calculating joint distribution'
+
+    labels, d_fake_labels= [],[]
+    #Terminology
+    if model.model_name=='began':
+        fake_labels=model.fake_labels
+        D_fake_labels=model.D_fake_labels
+    elif model.model_name=='dcgan':
+        fake_labels=model.fake_labels
+        D_fake_labels=model.D_labels_for_fake
+
+
+
+#        fds=chunks(feed_dict,model.batch_size)
+#        outputs=[]
+#        for fd in fds:
+#            out=model.sess.run(fetch_dict, fd)
+#            outputs.append(out['G'])
+#        return np.vstack(outputs), feed_dict
+
+    #for n in range(n_batches):
+
+    for step in trange(n_batches):
+        fd=next(fds)
+        if step==0:
+            print 'FD',fd
+
+        lab,dfl=model.sess.run([fake_labels,D_fake_labels],feed_dict=fd)
+
+        labels.append(lab)
+        d_fake_labels.append(dfl)
+
+    list_labels=np.split( np.vstack(labels),n_labels, axis=1)
+    list_d_fake_labels=np.split( np.vstack(d_fake_labels),n_labels, axis=1)
+
+    joint={}
+    for name, lab, dfl in zip(model.cc.node_names,list_labels,list_d_fake_labels):
+        #Create dictionary:
+            #node_name -> 
+                        #'g_fake_label'->val
+                        #'d_fake_label'->val
+
+        if return_discrete:
+            lab_val=(lab>0.5).astype('int')
+            dfl_val=(dfl>0.5).astype('int')
+
+        joint[name]={
+                'g_fake_label':lab_val,
+                'd_fake_label':dfl_val
+                }
+
+    return joint
+
+
+
+#__________
 
 def take_product(do_dict):
     '''
@@ -127,7 +221,7 @@ def once_sample(model, fetch, do_dict=None, step=None):
     pass
 
 
-def interpret_dict( a_dict, model, on_logits):
+def interpret_dict( a_dict, model,n_times=1, on_logits):
     '''
     pass either a do_dict or a cond_dict.
     The rules for converting arguments to numpy arrays to pass
@@ -138,6 +232,9 @@ def interpret_dict( a_dict, model, on_logits):
     elif len(a_dict)==0:
         return {}
 
+    if n_times>1:
+        token=tf.placeholder_with_default(2.22)
+        a_dict[token]=-2.22
 
     p_a_dict=take_product(a_dict)
 

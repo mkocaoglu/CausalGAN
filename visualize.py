@@ -11,6 +11,7 @@ import sys
 from model_loader import get_model
 import json
 from figure_scripts.pairwise import crosstab
+from figure_scripts.distributions import record_interventional
 from figure_scripts.sample import intervention2d,condition2d
 from causal_intervention import get_do_dict
 from causal_conditioning import get_cond_dict
@@ -99,8 +100,16 @@ if __name__=='__main__':
     model_type= config.model_type
     model=get_model(model_type)
     model.model_type=model_type
+
+
+
     if config.cross_tab:
         crosstab(model)
+
+        #if in addition to cross_tab, a do_dict is passed
+        print('Recording csv of interventional distribution')
+        record_interventional(model)
+
 
     if config.sample_model:
         if config.cond_dict_name and config.do_dict_name:
@@ -115,6 +124,18 @@ if __name__=='__main__':
 
         else:
             raise ValueError('need do_dict_name xor cond_dict_name')
+
+
+
+    #Interventional Joint
+    ##This considers trunc exponential labels
+
+    #If one were to get interventional joint: do so in python like so
+
+
+
+
+
 
 
 
