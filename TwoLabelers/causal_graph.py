@@ -140,6 +140,18 @@ big_causal_graph=[
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
 
+big_causal_graph_indep=[
+        ['Young',[]],
+        ['Male',[]],
+        ['Eyeglasses',[]],
+        ['Bald',            []],
+        ['Mustache',        []],
+        ['Smiling',         []],
+        ['Wearing_Lipstick',[]],
+        ['Mouth_Slightly_Open',[]],
+        ['Narrow_Eyes',        []],
+    ]
+
 male_ind_mustache = [
         ['Male',[]],
         ['Mustache',[]]
