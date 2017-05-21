@@ -96,7 +96,7 @@ male_causes_mustache=[
         ['Mustache',['Male']],
     ]
 
-big_causal_graph=[
+old_big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],
@@ -109,7 +109,7 @@ big_causal_graph=[
     ]
 #old_big_causal_graph=big_causal_graph#fyi
 
-new_big_causal_graph=[
+big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],

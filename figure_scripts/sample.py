@@ -12,10 +12,12 @@ import sys
 from utils import save_figure_images#makes grid image plots
 
 
+from IPython.core import debugger
+debug = debugger.Pdb().set_trace
 
 
 
-def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
+def get_joint(model, do_dict=None, N=50,return_discrete=True,step=''):
     '''
     do_dict is intended to be a distribution of interventions. Pass a
     distribution to get the average (discrete) g/fake label joint over that
@@ -27,24 +29,34 @@ def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
     N is number of batches to sample at each location in logitspace (num_labels
     dimensional)
     '''
-    print 'do_dict:',do_dict
-
-    p_do_dict=interpret_dict( model,p_do_dict, n_times=N,on_logits=True)
-
-    print 'interpreted p_do_dict:',p_do_dict
-
-
     str_step=str(step)
-    lengths = [ len(v) for v in p_do_dict.values() if hasattr(v,'__len__') ]
-    print 'lengths',lengths
 
-    n_batches=len(p_do_dict[token]/N)
-    print 'len product_do_dict',len(p_do_dict[token])
+    if do_dict is not None:
+
+        print 'do_dict:',do_dict
+        p_do_dict=interpret_dict( do_dict, model, n_times=N,on_logits=True)
+        print 'interpreted p_do_dict:',p_do_dict
+
+        lengths = [ len(v) for v in p_do_dict.values() if hasattr(v,'__len__') ]
+        print 'lengths',lengths
+
+        #n_batches=len(p_do_dict[token]/N)
+        print 'len product_do_dict',len(p_do_dict[token])
+
+        feed_dict = do2feed(p_do_dict, model)#{tensor:array}
+        fds=chunks(feed_dict,model.batch_size)
+    else:
+        def gen_fd():
+            while True:
+                yield None
+        fds=gen_fd()
+
 
     #print('WARNING! using only N=100 samples:DEBUG mode')
     #N=100#to go quicker
 
     print 'Calculating joint distribution'
+    n_batches=N
 
     labels, d_fake_labels= [],[]
     #Terminology
@@ -55,9 +67,6 @@ def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
 
-
-
-#        fds=chunks(feed_dict,model.batch_size)
 #        outputs=[]
 #        for fd in fds:
 #            out=model.sess.run(fetch_dict, fd)
@@ -69,13 +78,15 @@ def get_joint(model, do_dict=None, N=5,return_discrete=True,step=''):
     for step in trange(n_batches):
         fd=next(fds)
         if step==0:
-            print 'FD',fd
+            if fd is not None:
+                print 'FD',fd
 
         lab,dfl=model.sess.run([fake_labels,D_fake_labels],feed_dict=fd)
 
         labels.append(lab)
         d_fake_labels.append(dfl)
 
+    n_labels=len(model.cc.node_names)
     list_labels=np.split( np.vstack(labels),n_labels, axis=1)
     list_d_fake_labels=np.split( np.vstack(d_fake_labels),n_labels, axis=1)
 
@@ -283,13 +294,29 @@ def did_succeed( output_dict, cond_dict ):
     than the condition specified
     '''
     test_key=cond_dict.keys()[0]
-    print('output_dict:',output_dict[test_key])
+    print('output_dict:',np.squeeze(output_dict[test_key]))
     print('cond_dict:',cond_dict[test_key])
 
 
+    print('WARNING:using hardcoded success condition')
     #definition success:
-    is_win = lambda key:np.abs(output_dict[key])>np.sign(cond_dict[key])*np.abs(cond_dict[key])
+    def is_win(key):
+        cond=np.squeeze(cond_dict[key])
+        val=np.squeeze(output_dict[key])
+        cond1=np.sign(val)==np.sign(cond)
+        cond2=np.abs(val)>np.abs(cond)
+
+        cond1=val<0.8
+        cond2=val>0.6
+
+        #cond1=val<0.6
+        #cond2=val>0.0
+
+        return cond1*cond2
+
+
     scoreboard=[is_win(key) for key in cond_dict]
+    print('scoreboard', scoreboard)
     all_victories_bool=np.logical_and.reduce(scoreboard)
     return all_victories_bool.flatten()
 
@@ -354,7 +381,9 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
         print('nrows:',len(rows))
 
         #init
-        max_fail=100
+        print('WARNING: max_fail too high')
+        #max_fail=100
+        max_fail=10000
         n_fails=np.zeros_like(rows)
         remaining_rows=rows.copy()
         completed_rows=[]
@@ -363,9 +392,11 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
         outputs={key:[-1 for r in rows]for key in fetch_dict}
         print('n keys in outputs:',len(outputs.keys()))
 
+        #debug()
 
         ii=0
         while( len(remaining_rows)>0 ):
+            #debug()
             ii+=1
             print('Iter:',ii)
             #loop
@@ -389,6 +420,12 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
             pass_idx=iter_rows[bool_pass]
             fail_idx=iter_rows[~bool_pass]
 
+
+            good_rows=set( iter_rows[bool_pass] )
+            print('good_rows',good_rows)
+            bad_rows=set( rows[ n_fails>=max_fail ] )
+            print('bad_rows',bad_rows)
+
             #yuck
             for key in out:
                 for i,row_pass in enumerate(bool_pass):
@@ -397,14 +434,16 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
                         outputs[key][idx]=out[key][i]
                     else:
                         n_fails[idx]+=1
+                for idx_giveup in bad_rows:
+                    shape=fetch_dict[key].get_shape().as_list()[1:]
+                    outputs[key][idx_giveup]=np.zeros(shape)
+                    print('key:',key,' shape giveup:',shape)
+
 
             ##Remove rows
-            good_rows=set( iter_rows[bool_pass] )
-            print('good_rows',good_rows)
-            bad_rows=set( rows[ n_fails>=max_fail ] )
-            print('bad_rows',bad_rows)
-
             remaining_rows=list( set(remaining_rows)-good_rows-bad_rows )
+
+            #debug()
 
             print('n_fails:10',n_fails[:10])
 
@@ -447,6 +486,23 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
                 #cond_dict[key]=np.linspace(cond_min,cond_max,8)
                 cond_dict[key]=[0.5*cond_min,0.5*cond_max]
                 print('Condition dict used:',cond_dict)
+
+            elif value=='percentile':
+
+                #fetch=cond2fetch(cond_dict)
+
+                print('...calculating percentile')
+                data=[]
+                for _ in range(30):
+                    data.append(model.sess.run(model.cc.node_dict[key].label_logit))
+                D=np.vstack(data)
+                print('dat',D.flatten())
+                #cond_dict[key]=[np.percentile(D,90),np.percentile(D,10)]
+                cond_dict[key]=np.repeat([np.percentile(D,90),np.percentile(D,10)],64)
+                print('percentiles for',key,'are',[np.percentile(D,10),np.percentile(D,90)])
+
+
+
             else:
                 #otherwise pass a number, list, or array
                 assert(not isinstance(value,str))
@@ -468,13 +524,25 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     if len(gt_one) == 0:
         image_dim = np.sqrt(model.batch_size).astype(int)
         size = [image_dim,image_dim]
-    if len(gt_one)==1 and lengths[0]>=model.batch_size:
-        size=[gt_one[0],1]
-    elif len(gt_one)==1 and lengths[0]<model.batch_size:
-        image_dim = np.sqrt(model.batch_size).astype(int)
-        size = [image_dim,image_dim]
+#    if len(gt_one)==1 and lengths[0]>=model.batch_size:
+#        size=[gt_one[0],1]
+#    elif len(gt_one)==1 and lengths[0]<model.batch_size:
+#        image_dim = np.sqrt(model.batch_size).astype(int)
+#        size = [image_dim,image_dim]
+#    elif len(gt_one)==2:
+#        size=[gt_one[0],gt_one[1]]
+#
+
     elif len(gt_one)==2:
         size=[gt_one[0],gt_one[1]]
+
+    else:
+        N=np.prod(lengths)
+        if N%8==0:
+            size=[N/8,8]
+        else:
+            size=[8,8]
+
 
 
     #Terminology
@@ -495,11 +563,13 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     print 'Images shape:',images.shape
 
 
-    cond_file=os.path.join(sample_dir, str_step+str(cond_dict_name)+'_cond'+'.png')
+    #cond_file=os.path.join(sample_dir, str_step+str(cond_dict_name)+'_cond'+'.png')
+    cond_file=os.path.join(sample_dir,str_step+str(cond_dict_name)+'_cond'+'.pdf')
+
     #if os.path.exists(cond_file):
     #    cond_file='new'+cond_file #don't overwrite
 
-    print '[*] saving intervention2d:',cond_file
+    print '[*] saving condition2d:',cond_file
     save_figure_images(model.model_name,images,cond_file,size=size)
 
 
@@ -549,15 +619,25 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     if not 0<=len(gt_one)<=2:
         raise ValueError('for visualizing intervention, must have < 3 parameters varying')
     if len(gt_one) == 0:
-        image_dim = np.sqrt(model.batch_size).astype(int)
+        #image_dim = np.sqrt(model.batch_size).astype(int)
+        image_dim = np.sqrt(64).astype(int)
         size = [image_dim,image_dim]
-    if len(gt_one)==1 and lengths[0]>=model.batch_size:
-        size=[gt_one[0],1]
-    elif len(gt_one)==1 and lengths[0]<model.batch_size:
-        image_dim = np.sqrt(model.batch_size).astype(int)
-        size = [image_dim,image_dim]
+
+    #if len(gt_one)==1 and lengths[0]>=model.batch_size:
+    #    size=[gt_one[0],1]
+    #elif len(gt_one)==1 and lengths[0]<model.batch_size:
+    #    #image_dim = np.sqrt(model.batch_size).astype(int)
+    #    image_dim = np.sqrt(64).astype(int)
+    #    size = [image_dim,image_dim]
     elif len(gt_one)==2:
         size=[gt_one[0],gt_one[1]]
+
+    else:
+        N=np.prod(lengths)
+        if N%8==0:
+            size=[N/8,8]
+        else:
+            size=[8,8]
 
 
     #Terminology
@@ -577,7 +657,9 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     images, feed_dict= sample(model, do_dict=do_dict,on_logits=on_logits)
 
 
-    itv_file=os.path.join(sample_dir, str_step+str(do_dict_name)+'_intv'+'.png')
+    itv_file=os.path.join(sample_dir, str_step+str(do_dict_name)+'_intv'+'.pdf')
+    #itv_file=os.path.join(sample_dir, str_step+str(do_dict_name)+'_intv'+'.png')
+
     #if os.path.exists(itv_file):
     #    itv_file='new'+itv_file #don't overwrite
 

@@ -21,12 +21,29 @@ condition_dicts={
                     },
     'Mustache':{'Mustache':[0.2,-2]},
 
+
+    'perEyeglasses':{'Eyeglasses':'percentile'},
+    'perNarrow':{'Narrow_Eyes':'percentile'},
+
+    'perLipstick':{'Wearing_Lipstick':'percentile'},
+    'perMustache':{'Mustache':'percentile'},
+    'perBald':{'Bald':'percentile'},
+    'perSmiling':{'Smiling':'percentile'},
+
+    'MSO':{'Mouth_Slightly_Open':[1,-1]},
+
+    'NarrowEyeglasses':{'Eyeglasses'  :np.repeat([0.6,-0.6],4),
+                         'Narrow_Eyes': np.repeat([0.6,-0.6],4)},
+
     'Smiling':{'Smiling':[1,-1]},
     # 'Big_Eyes':{'Narrow_Eyes':-1.6,
     #                 'Male':np.random.uniform(-1,1,8),
     #                 'Smiling':np.random.uniform(-1,1,8)
     #                 },
-    'Young':{'Young':[1.5,-0.5]},
+    #'Young':{'Young':[1.5,-0.5]},#interv
+
+    'repYoung':{'Young':np.repeat([1.5,-0.3],64)},
+
 
     'Male':{'Male':[1,-1]},
     'd_Male':{'Male':'model_default'},
@@ -39,7 +56,6 @@ condition_dicts={
                     'Male':'model_default',
                     'Wearing_Lipstick':'model_default',
                     },
-
 }
 
 

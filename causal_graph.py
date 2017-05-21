@@ -145,6 +145,11 @@ male_ind_mustache = [
         ['Mustache',[]]
     ]
 
+Male_Young_Eyeglasses=[
+    ['Male',[]],
+    ['Young',[]],
+    ['Eyeglasses',['Male','Young']]]
+
 male_smiling_lipstick=[
        ['Male'   , []],
        ['Wearing_Lipstick'  , ['Male']],
@@ -198,6 +203,9 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = gray_causes_young
     elif causal_model == 'young_ind_gray':
         graph = young_ind_gray
+    elif causal_model=='Male_Young_Eyeglasses':
+        graph=Male_Young_Eyeglasses
+
     elif causal_model is 'empty':
         graph=[[],[]]
 

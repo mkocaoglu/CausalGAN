@@ -1,5 +1,6 @@
 from __future__ import division
 from figure_scripts.pairwise import crosstab
+from tqdm import trange
 from figure_scripts.sample import intervention2d,get_joint
 import os
 import time
@@ -19,6 +20,8 @@ from tensorflow.contrib import slim
 
 from Causal_controller import CausalController
 from figure_scripts import pairwise
+
+import time
 
 def lrelu(x,leak=0.2,name='lrelu'):
   with tf.variable_scope(name):
@@ -40,61 +43,63 @@ Graphs={
         ['Narrow_Eyes',[]],
         ],
 
-    'McS':[
-        ['Young',[]],
+    'ScY':[
+        ['Young',['Smiling']],
         ['Male',[]],
-        ['Smiling',['Male']],
+        ['Smiling',[]],
         ['Narrow_Eyes',[]],
         ],
 
-#    'YcS':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',['Young']],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
-#    'YcScNE':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',['Young']],
-#        ['Narrow_Eyes',['Smiling']],
-#        ],
-#
-#    'NEcScY':[
-#        ['Young',['Smiling']],
-#        ['Male',[]],
-#        ['Smiling',['Narrow_Eyes']],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
-##    'MxYcScNE':[
-##        ['Young',[]],
-##        ['Male',[]],
-##        ['Smiling',['Male','Young']],
-##        ['Narrow_Eyes',['Smiling']],
-##        ],
-#
-#    'MxYcS_SxMxYcNE':[
+    'YcS':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Young']],
+        ['Narrow_Eyes',[]],
+        ],
+
+    'YcScNE':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Young']],
+        ['Narrow_Eyes',['Smiling']],
+        ],
+
+    'NEcScY':[
+        ['Young',['Smiling']],
+        ['Male',[]],
+        ['Smiling',['Narrow_Eyes']],
+        ['Narrow_Eyes',[]],
+        ],
+
+#    'MxYcScNE':[
 #        ['Young',[]],
 #        ['Male',[]],
 #        ['Smiling',['Male','Young']],
-#        ['Narrow_Eyes',['Male','Young','Smiling']],
+#        ['Narrow_Eyes',['Smiling']],
 #        ],
-#
-#    'NEcSxMxY_ScYxM':[
-#        ['Young',['Narrow_Eyes','Smiling']],
-#        ['Male',['Narrow_Eyes','Smiling']],
-#        ['Smiling',['Narrow_Eyes']],
-#        ['Narrow_Eyes',[]],
-#        ],
+
+    'MxYcS_SxMxYcNE':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Male','Young']],
+        ['Narrow_Eyes',['Male','Young','Smiling']],
+        ],
+
+    'NEcSxMxY_ScYxM':[
+        ['Young',['Narrow_Eyes','Smiling']],
+        ['Male',['Narrow_Eyes','Smiling']],
+        ['Smiling',['Narrow_Eyes']],
+        ['Narrow_Eyes',[]],
+        ],
 
 }
 
 
+
+
+
 hidden_size=10
 batch_size=64
-
 
 def discriminator_CC( labels, reuse=False):
     with tf.variable_scope("disc_CC") as scope:
@@ -129,7 +134,7 @@ def discriminator_CC( labels, reuse=False):
       h1 = slim.fully_connected(h0,hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,hidden_size,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
 
@@ -140,23 +145,46 @@ def sxe(logits,labels):
     return tf.nn.sigmoid_cross_entropy_with_logits(
         logits=logits,labels=labels)
 
-#def build_model():
-#class trainer():
-#    def __init__(self):
 
 if __name__=='__main__':
     tf.reset_default_graph()
     print 'Resetting tf graph!'
 
-    attr=0.5*(1+pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True))
 
 
     ccs={}
     c_vars,d_vars=[],[]
 
-    label_names,_ = zip(*(Graphs.values()[0]))
+    #label_names,_ = zip(*[Graphs.values()[0]])
+    label_names,_ = zip(*Graphs.values()[0])
+    label_names=list(label_names)
+    print 'label_names:',label_names
     n_labels=len(label_names)
     realLabels = tf.placeholder(tf.float32,[None, n_labels],name='real_labels')
+
+    attr=0.5*(1+pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True))
+    attr=attr[label_names]
+
+    ####Calculate Total Variation####
+    df2=attr.drop_duplicates()
+    df2 = df2.reset_index(drop = True).reset_index()
+    df2=df2.rename(columns = {'index':'ID'})
+    real_data_id=pd.merge(attr,df2)
+    real_counts = pd.value_counts(real_data_id['ID'])
+    real_pdf=real_counts/len(attr)
+    def calc_tvd(data):
+        data=np.round(data)
+        df_dat=pd.DataFrame(columns=label_names,data=data)
+        dat_id=pd.merge(df_dat,df2,on=label_names,how='left')
+        dat_counts=pd.value_counts(dat_id['ID'])
+        dat_pdf = dat_counts / dat_counts.sum()
+
+        #diff=real_pdf-dat_pdf
+        diff=real_pdf.subtract(dat_pdf, fill_value=0)
+        tvd=0.5*diff.abs().sum()
+
+        return tvd
+
 
 
 
@@ -179,10 +207,11 @@ if __name__=='__main__':
             d_loss=dcc_loss_real + dcc_loss_fake
 
             ccs[graph_name]={}
+            ccs[graph_name]['fake_labels']=fake_labels
             ccs[graph_name]['cc']=cc
             ccs[graph_name]['c_loss']=c_loss
             ccs[graph_name]['d_loss']=d_loss
-            ccs[graph_name]['D_on_fake']=DCC_fake
+            ccs[graph_name]['D_on_fake']=tf.reduce_mean(DCC_fake)
 
             c_vars.extend(cc.var)
             total_c_loss+=c_loss
@@ -203,16 +232,15 @@ if __name__=='__main__':
                 tf.summary.scalar(graph_name, ccs[graph_name][key])
 
 
-
-
-
-
     sess=tf.Session()
     sess.run(tf.global_variables_initializer())
 
 
     summary_op=tf.summary.merge_all()
-    writer = SummaryWriter("./checkpoint/pretrainlogs", sess.graph)
+    model_dir="./checkpoint/pretrainlogs"
+    writer = SummaryWriter(model_dir, sess.graph)
+    saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1)
+
 
     #if load( checkpoint_dir ):
     #  print(" [*] Load SUCCESS")
@@ -233,7 +261,7 @@ if __name__=='__main__':
         return noise(u)
 
     def make_summary(name, val):
-      return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
+        return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
 
     counter = 0
     start_time = time.time()
@@ -246,7 +274,7 @@ if __name__=='__main__':
     for epoch in xrange(400):
         data = glob(os.path.join(
           "./data", 'celebA', "*.jpg"))
-          #"./data", config.dataset, self.input_fname_pattern))
+          #"./data", config.dataset, input_fname_pattern))
         #batch_idxs = min(len(data), config.train_size) // config.batch_size
         batch_idxs = min(len(data), np.inf) // batch_size
         #batch_idxs = min(len(data), config.train_size) // config.batch_size
@@ -264,63 +292,52 @@ if __name__=='__main__':
             fd={realLabels:np_realLabels}
             fetch={'c_opt':c_optim,
                    'd_opt':d_optim}
-                    }
 
             T_summary=30
+            T_tvd=100
 
             if counter%T_summary==0:
                 fetch.update({'summary':summary_op,
-                              'c_loss'  :total_c_loss,
-                              'd_loss':total_d_loss,
+                              'c_loss' :total_c_loss,
+                              'd_loss' :total_d_loss,
                              })
 
-            out=sess.run(fetch, feed_dict=fd)
-            #out=sess.run([c_optim,d_optim, summary_op], feed_dict=fd)
+            result=sess.run(fetch, feed_dict=fd)
 
             if counter%T_summary==0:
-                summary_str=out['summary']
+                summary_str=result['summary']
                 writer.add_summary(summary_str, counter)
                 writer.flush()
 
                 c_loss = result['c_loss']
-                d_loss = result['dcc_loss']
+                d_loss = result['d_loss']
                 print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}"\
                       .format(counter, 50000, c_loss, d_loss))
 
+
+            if counter%T_tvd==0:
+                t0=time.time()
+                ckptsave=os.path.join(model_dir,'implicitgan.ckpt')
+                saver.save(sess,ckptsave, global_step=counter)
+
+                for graph_name in ccs.keys():
+                    print 'tvd on graph:',graph_name,
+                    tf_fake_labels=ccs[graph_name]['fake_labels']
+
+                    #Get enough data
+                    N=20
+                    fake_out=[]
+                    for i in range(N):
+                        fake_out.append(sess.run(tf_fake_labels))
+                    dat=np.vstack(fake_out)
+
+                    tvd=calc_tvd(dat)
+                    print 'tvd=:',tvd
+                    sum_tvd=make_summary('tvd/'+graph_name, tvd)
+                    writer.add_summary(sum_tvd,counter)
+
+                print 'tvd took:',time.time()-t0,'(s)'
+
+
             counter+=1
-
-
-
-
-
-
-#joint= get_joint
-
-
-
-#tvd
-
-
-
-
-
-
-
-#    def label_sampler(self):
-#      nmbr = 100000
-#      batch_zMale = np.random.uniform(-1, 1, [nmbr, self.MaleDim]).astype(np.float32)
-#      batch_zYoung = np.random.uniform(-1, 1, [nmbr, self.YoungDim]).astype(np.float32)
-#      batch_zSmiling = np.random.uniform(-1, 1, [nmbr, self.SmilingDim]).astype(np.float32)
-#      fd= {self.zMale:    batch_zMale,
-#          self.zYoung:   batch_zYoung,
-#          self.zSmiling: batch_zSmiling}
-#      fake_labels_logits = self.sess.run(self.sampler_label, feed_dict=fd)
-#      #_, fake_labels_logits, _ = sess.run(self.causalController(batch_zMale,batch_zYoung,batch_zSmiling))
-#      x = np.sign(fake_labels_logits)
-#      print x
-#      y = pd.DataFrame(data=x,index = np.arange(x.shape[0]),columns = ['Male','Young','Smiling'])
-#      print y
-#      a = pd.crosstab(index=y['Male'], columns=[y['Young'],y['Smiling']])/y.shape[0]
-#      print a
-#      a.to_csv('Joint')
 

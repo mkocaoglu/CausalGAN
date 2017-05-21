@@ -16,6 +16,30 @@ from sample import get_joint
 
 
 
+TINY=1e-6
+def get_interv_table(model,intrv=True):
+
+    n_batches=25
+    table_outputs=[]
+    d_vals=np.linspace(TINY,0.6,n_batches)
+    for name in model.cc.node_names:
+        outputs=[]
+        for d_val in d_vals:
+            do_dict={model.cc.node_dict[name].label_logit : d_val*np.ones((model.batch_size,1))}
+            outputs.append(model.sess.run(model.fake_labels,do_dict))
+
+        out=np.vstack(outputs)
+        table_outputs.append(out)
+
+    table=np.stack(table_outputs,axis=2)
+
+    np.mean(np.round(table),axis=0)
+
+    return table
+
+#dT=pd.DataFrame(index=p_names, data=T, columns=do_names)
+#T=np.mean(np.round(table),axis=0)
+#table=get_interv_table(model)
 
 
 

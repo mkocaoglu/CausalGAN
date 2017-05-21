@@ -9,8 +9,6 @@ from itertools import combinations
 import sys
 
 
-
-
 def crosstab(model,step=None):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs

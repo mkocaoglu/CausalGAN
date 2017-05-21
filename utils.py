@@ -17,20 +17,6 @@ pp = pprint.PrettyPrinter()
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
 
 
-def make_sample_dir(model):
-    #Terminology
-    if model.model_name=='began':
-        result_dir=model.model_dir
-    elif model.model_name=='dcgan':
-        print 'DCGAN'
-        result_dir=model.checkpoint_dir
-
-    sample_dir=os.path.join(result_dir,'sample_figures')
-    if not os.path.exists(sample_dir):
-        os.mkdir(sample_dir)
-
-
-
 def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,
               is_crop=True, is_grayscale=False):

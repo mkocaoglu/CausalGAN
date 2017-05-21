@@ -749,9 +749,8 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,self.hidden_size,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
-
 
 
 

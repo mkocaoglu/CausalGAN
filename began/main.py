@@ -61,7 +61,7 @@ def get_trainer(config):
     prepare_dirs_and_logger(config)
 
     rng = np.random.RandomState(config.random_seed)
-    tf.set_random_seed(config.random_seed)
+    #tf.set_random_seed(config.random_seed)
 
     if config.is_train:
         data_path = config.data_path

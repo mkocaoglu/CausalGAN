@@ -219,6 +219,7 @@ def Discriminator_CC(labels,batch_size, reuse=None, n_hidden=10):
         h1 = slim.fully_connected(h0,n_hidden,activation_fn=lrelu,scope='layer1')
         h1_aug = lrelu(add_minibatch_features_for_labels(h1,batch_size))
         h2 = slim.fully_connected(h1_aug,n_hidden,activation_fn=lrelu,scope='layer2')
+        print('WARNING: using n_hidden for im disc_CC output')
         h3 = slim.fully_connected(h2,n_hidden,activation_fn=None,scope='layer3')
 
     variables = tf.contrib.framework.get_variables(scope)
