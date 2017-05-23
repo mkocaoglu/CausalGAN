@@ -124,10 +124,9 @@ class DCGAN(object):
     inputs = self.inputs
     sample_inputs = self.sample_inputs
     self.causal_labels_dim=len(self.graph)
-    self.realLabels1 = tf.placeholder(tf.float32,[None, len(self.layer1)],name='causal_labels_layer1')
-    self.realLabels2 = tf.placeholder(tf.float32,[None, len(self.layer1) + len(self.layer2)],name='causal_labels_layer12')
-    self.realLabels3 = tf.placeholder(tf.float32,[None, len(self.layer1) + len(self.layer2) + len(self.layer3)],name='causal_labels_layer123')
-    self.realLabels = self.realLabels3
+    self.realLabels = tf.placeholder(tf.float32,[None, self.causal_labels_dim],
+                                     name='causal_labels')
+
     self.y= tf.placeholder(tf.float32, [self.batch_size, self.y_dim], name='y')
 
     #Old
@@ -141,19 +140,19 @@ class DCGAN(object):
     self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
     self.fake_labels1 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer1],-1)
     self.fake_labels_logits1 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer1 ] ,-1)
-    self.fake_labels2 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer1 or n.name in self.layer2],-1)
-    self.fake_labels_logits2 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer1 or n.name in self.layer2] ,-1)
-    self.fake_labels3 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer1 or n.name in self.layer2 or n.name in self.layer3],-1)
-    self.fake_labels_logits3 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer1 or n.name in self.layer2 or n.name in self.layer3] ,-1)
+    self.fake_labels2 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer2],-1)
+    self.fake_labels_logits2 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer2 ] ,-1)
+    self.fake_labels3 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer3],-1)
+    self.fake_labels_logits3 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer3 ] ,-1)
     #self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
-    self.fake_labels_logits= self.fake_labels_logits3#tf.concat([self.fake_labels_logits1, self.fake_labels_logits2 ,self.fake_labels_logits3],-1) #tf.concat( self.cc.list_label_logits(),-1 )
-    self.fake_labels = self.fake_labels3#tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1)
+    self.fake_labels_logits= tf.concat([self.fake_labels_logits1, self.fake_labels_logits2 ,self.fake_labels_logits3],-1) #tf.concat( self.cc.list_label_logits(),-1 )
+    self.fake_labels = tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1)
     #This part is to make it easy to sample all noise at once
     self.z_fd=self.cc.sample_z.copy()#a dictionary: {'Smiling:[0.2,.1,...]}
     self.z_fd.update({'z_gen':self.z_gen})
 
     #This is to match up with your notation:
-    self.z_fake_labels = self.fake_labels3#tf.concat([self.fake_labels1 , self.fake_labels2 , self.fake_labels3],-1)#=self.fake_labels_logits
+    self.z_fake_labels = tf.concat([self.fake_labels1 , self.fake_labels2 , self.fake_labels3],-1)#=self.fake_labels_logits
 
 
     ##Old causal section:
@@ -206,6 +205,7 @@ class DCGAN(object):
     self.d__sum = histogram_summary("d_", self.D_)
     self.G_sum = image_summary("G", self.G, max_outputs = 10)
 
+
     ### DO: Fix the following to get label loss per label.
     # if not self.cc.node_names ==['Male','Young','Smiling']:
     #     raise Exception('This part needs changed for general graph')
@@ -231,56 +231,38 @@ class DCGAN(object):
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
     #self.g_lossLabels_Smiling_sum = scalar_summary("g_loss_label_smiling", self.g_lossLabels_Smiling)
 
-    # self.DCC_real, self.DCC_real_logits = self.discriminator_CC(self.realLabels) # shuffle to avoid any correlated behavior with discriminator
-    # self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1), reuse=True)
+    self.DCC_real, self.DCC_real_logits = self.discriminator_CC(self.realLabels) # shuffle to avoid any correlated behavior with discriminator
+    self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1), reuse=True)
 
-    self.DCC_real1, self.DCC_real_logits1 = self.discriminator_CC_1(self.realLabels1) # shuffle to avoid any correlated behavior with discriminator
-    self.DCC_fake1, self.DCC_fake_logits1 = self.discriminator_CC_1(self.fake_labels1, reuse=True)
+    self.DCC_real1, self.DCC_real2, self.DCC_real3 = tf.split(self.DCC_real, [1,1,1],1)
+    self.DCC_real_logits1, self.DCC_real_logits2, self.DCC_real_logits3 = tf.split(self.DCC_real_logits, [1,1,1],1)
 
-    self.DCC_real2, self.DCC_real_logits2 = self.discriminator_CC_2(self.realLabels2) # shuffle to avoid any correlated behavior with discriminator
-    self.DCC_fake2, self.DCC_fake_logits2 = self.discriminator_CC_2(self.fake_labels2, reuse=True)
+    self.DCC_fake1, self.DCC_fake2, self.DCC_fake3 = tf.split(self.DCC_fake, [1, 1, 1],1)
+    self.DCC_fake_logits1, self.DCC_fake_logits2, self.DCC_fake_logits3 = tf.split(self.DCC_fake_logits, [1,1,1],1)
 
-    self.DCC_real3, self.DCC_real_logits3 = self.discriminator_CC_3(self.realLabels3) # shuffle to avoid any correlated behavior with discriminator
-    self.DCC_fake3, self.DCC_fake_logits3 = self.discriminator_CC_3(self.fake_labels3, reuse=True)
-    self.DCC_real_logits = self.DCC_real_logits3
-    self.DCC_fake_logits = self.DCC_fake_logits3
-    self.DCC_real = self.DCC_real3
-    self.DCC_fake = self.DCC_fake3
-
-    #self.DCC_real1, self.DCC_real2, self.DCC_real3 = tf.split(self.DCC_real, [1,1,1],1)
-    #self.DCC_real_logits1, self.DCC_real_logits2, self.DCC_real_logits3 = tf.split(self.DCC_real_logits, [1,1,1],1)
-    #self.DCC_fake1, self.DCC_fake2, self.DCC_fake3 = tf.split(self.DCC_fake, [1, 1, 1],1)
-    #self.DCC_fake_logits1, self.DCC_fake_logits2, self.DCC_fake_logits3 = tf.split(self.DCC_fake_logits, [1,1,1],1)
-
+    self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
     self.dcc_loss_real1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits1, tf.ones_like(self.DCC_real1)))
     self.dcc_loss_real2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits2, tf.ones_like(self.DCC_real2)))
     self.dcc_loss_real3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits3, tf.ones_like(self.DCC_real3)))
-    self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
     
     self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
     self.dcc_loss_fake1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits1, tf.zeros_like(self.DCC_fake1)))
     self.dcc_loss_fake2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits2, tf.zeros_like(self.DCC_fake2)))
     self.dcc_loss_fake3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits3, tf.zeros_like(self.DCC_fake3)))
 
-    # self.dcc_loss_phase1 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1)
-    # self.dcc_loss_phase2 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 )
-    # self.dcc_loss_phase3 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 +self.dcc_loss_real3 +self.dcc_loss_fake3)
-    self.dcc_loss_phase1 = tf.reduce_mean(self.dcc_loss_real1 + self.dcc_loss_fake1)
-    self.dcc_loss_phase2 = tf.reduce_mean(self.dcc_loss_real2 + self.dcc_loss_fake2)
-    self.dcc_loss_phase3 = tf.reduce_mean(self.dcc_loss_real3 + self.dcc_loss_fake3)
-
+    self.dcc_loss_phase1 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1)
+    self.dcc_loss_phase2 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 )
+    self.dcc_loss_phase3 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 +self.dcc_loss_real3 +self.dcc_loss_fake3)
 
     self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
     self.c_loss1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits1,tf.ones_like(self.DCC_fake1)))
     self.c_loss2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits2,tf.ones_like(self.DCC_fake2)))
     self.c_loss3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits3,tf.ones_like(self.DCC_fake3)))
 
-    # self.c_loss_phase1 = tf.reduce_mean(self.c_loss1)
-    # self.c_loss_phase2 = tf.reduce_mean(self.c_loss1 + self.c_loss2)
-    # self.c_loss_phase3 = tf.reduce_mean(self.c_loss1 + self.c_loss2 + self.c_loss3)
     self.c_loss_phase1 = tf.reduce_mean(self.c_loss1)
-    self.c_loss_phase2 = tf.reduce_mean(self.c_loss2)
-    self.c_loss_phase3 = tf.reduce_mean(self.c_loss3)
+    self.c_loss_phase2 = tf.reduce_mean(self.c_loss1 + self.c_loss2)
+    self.c_loss_phase3 = tf.reduce_mean(self.c_loss1 + self.c_loss2 + self.c_loss3)
+    
     #This is a better way to do summary
     #you don't have to assign them to a variable and group them later
     #the / helps organize them in tensorboard
@@ -327,11 +309,7 @@ class DCGAN(object):
     self.dl_vars = [var for var in t_vars if 'disc_labeler' in var.name ]
     self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
     self.g_vars = [var for var in t_vars if 'generator' in var.name ]
-    #self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
-    self.dcc_1_vars = [var for var in t_vars if 'disc_CC_1' in var.name ]
-    self.dcc_2_vars = [var for var in t_vars if 'disc_CC_2' in var.name ]
-    self.dcc_3_vars = [var for var in t_vars if 'disc_CC_3' in var.name ]
-    
+    self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
     self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
     #make sure working:(delete later)
     print 'you have ',len(self.c_vars),' many causal weights'
@@ -406,11 +384,11 @@ class DCGAN(object):
               .minimize(self.c_loss_phase3, var_list=self.c_vars)
     #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
     dcc_optim_phase1 = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.dcc_loss_phase1, var_list=self.dcc_1_vars)
+              .minimize(self.dcc_loss_phase1, var_list=self.dcc_vars)
     dcc_optim_phase2 = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.dcc_loss_phase2, var_list=self.dcc_2_vars)
+              .minimize(self.dcc_loss_phase2, var_list=self.dcc_vars)
     dcc_optim_phase3 = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.dcc_loss_phase3, var_list=self.dcc_3_vars)
+              .minimize(self.dcc_loss_phase3, var_list=self.dcc_vars)
     try:
       tf.global_variables_initializer().run()
     except:
@@ -554,11 +532,11 @@ class DCGAN(object):
             )\
            for i in fileNames])
         realLabels2 = np.array([np.hstack(\
-            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer1 or label_name in self.layer2])\
+            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer2])\
             )\
            for i in fileNames])
         realLabels3 = np.array([np.hstack(\
-            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer1 or label_name in self.layer2 or label_name in self.layer3])\
+            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer3])\
             )\
            for i in fileNames])
         #realLabels = 
@@ -582,9 +560,7 @@ class DCGAN(object):
 
         #New, z not needed
         fd= {self.inputs: batch_images,
-             self.realLabels1:realLabels1, 
-             self.realLabels2:realLabels2, 
-             self.realLabels3:realLabels3,
+             self.realLabels:np.hstack([realLabels1, realLabels2, realLabels3]),
              #self.z_gen:    batch_z,
              #self.zMale:    batch_zMale,
              #self.zYoung:   batch_zYoung,
@@ -598,7 +574,7 @@ class DCGAN(object):
         #if epoch < 1:
         #if counter < 5001:
         #if counter < 10001:
-        if counter < 30001:
+        if counter < 15001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
@@ -614,7 +590,7 @@ class DCGAN(object):
           if counter%1000==0:
             crosstab(self,counter)#display results
 
-        elif counter < 60001:
+        elif counter < 30001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
@@ -630,7 +606,7 @@ class DCGAN(object):
           if counter%1000==0:
             crosstab(self,counter)#display results
 
-        elif counter < 90001:
+        elif counter < 45001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
@@ -825,8 +801,8 @@ class DCGAN(object):
     std_real = tf.sqrt( tf.reduce_mean(D_logits**2 - pr_real**2) )
     return tf.reduce_mean(tf.abs(tf.reduce_mean((ic2_-ic2__mean)*(D_logits_ - pr_fake),0))/(ic2__std*std_fake+self.TINY)), tf.reduce_mean(tf.abs(tf.reduce_mean((ic2-ic2_mean)*(D_logits - pr_real),0)/(ic2_std*std_real+self.TINY)))#tf.abs(tf.reduce_mean((v-v_mean)*(D_logits - pr_real)))
 
-  def discriminator_CC_1(self, labels, reuse=False):
-    with tf.variable_scope("disc_CC_1") as scope:
+  def discriminator_CC(self, labels, reuse=False):
+    with tf.variable_scope("disc_CC") as scope:
       if reuse:
         scope.reuse_variables()
       # add minibatch features here to get fake labels with high variation
@@ -854,99 +830,19 @@ class DCGAN(object):
         minibatch_features = tf.concat([labels, f1],1)
         return minibatch_features
 
-      def lrelu1(x,leak=0.2,name='lrelu1'):
+      def lrelu(x,leak=0.2,name='lrelu'):
           with tf.variable_scope(name):
               f1=0.5 * (1+leak)#halves memory footprint
               f2=0.5 * (1-leak)#relative to tf.maximum(leak*x,x)
               return f1*x + f2*tf.abs(x)
       h0 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_0')
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
-      h1_aug = lrelu1(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
+      h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,3,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
-  def discriminator_CC_2(self, labels, reuse=False):
-    with tf.variable_scope("disc_CC_2") as scope:
-      if reuse:
-        scope.reuse_variables()
-      # add minibatch features here to get fake labels with high variation
-      def add_minibatch_features_for_labels(labels,batch_size):
-        n_kernels = 50
-        dim_per_kernel = 20
-        shape = labels.get_shape().as_list()
-        dim = np.prod(shape[1:])            # dim = prod(9,2) = 18
-        input_ = tf.reshape(labels, [-1, dim])           # -1 means "all"  
-        x = linear(input_, n_kernels * dim_per_kernel,'dCC_mbLabelLinear')
-        activation = tf.reshape(x, (batch_size, n_kernels, dim_per_kernel))
-        big = np.zeros((batch_size, batch_size), dtype='float32')
-        big += np.eye(batch_size)
-        big = tf.expand_dims(big, 1)
 
-        # the next step is very complicated. My best understanding is that 
-        # the expanded dimension is automatically replicated to 64 to make subtraction possible
-        abs_dif = tf.reduce_sum(tf.abs(tf.expand_dims(activation, 3) - tf.expand_dims(tf.transpose(activation, [1, 2, 0]), 0)), 2)
-        mask = 1. - big
-        masked = tf.exp(-abs_dif) * mask
-        f1 = tf.reduce_sum(masked, 2) / tf.reduce_sum(mask)
-        # sums over the third dimension, which is of size 64 (captures cross distance to other images in batch)
-        #f2 = tf.reduce_sum(half(masked, 1), 2) / tf.reduce_sum(half(mask, 1))
-
-        minibatch_features = tf.concat([labels, f1],1)
-        return minibatch_features
-
-      def lrelu2(x,leak=0.2,name='lrelu2'):
-          with tf.variable_scope(name):
-              f1=0.5 * (1+leak)#halves memory footprint
-              f2=0.5 * (1-leak)#relative to tf.maximum(leak*x,x)
-              return f1*x + f2*tf.abs(x)
-      h0 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_0')
-      h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
-      h1_aug = lrelu2(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
-      h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
-      return tf.nn.sigmoid(h3),h3
-
-  def discriminator_CC_3(self, labels, reuse=False):
-    with tf.variable_scope("disc_CC_3") as scope:
-      if reuse:
-        scope.reuse_variables()
-      # add minibatch features here to get fake labels with high variation
-      def add_minibatch_features_for_labels(labels,batch_size):
-        n_kernels = 50
-        dim_per_kernel = 20
-        shape = labels.get_shape().as_list()
-        dim = np.prod(shape[1:])            # dim = prod(9,2) = 18
-        input_ = tf.reshape(labels, [-1, dim])           # -1 means "all"  
-        x = linear(input_, n_kernels * dim_per_kernel,'dCC_mbLabelLinear')
-        activation = tf.reshape(x, (batch_size, n_kernels, dim_per_kernel))
-        big = np.zeros((batch_size, batch_size), dtype='float32')
-        big += np.eye(batch_size)
-        big = tf.expand_dims(big, 1)
-
-        # the next step is very complicated. My best understanding is that 
-        # the expanded dimension is automatically replicated to 64 to make subtraction possible
-        abs_dif = tf.reduce_sum(tf.abs(tf.expand_dims(activation, 3) - tf.expand_dims(tf.transpose(activation, [1, 2, 0]), 0)), 2)
-        mask = 1. - big
-        masked = tf.exp(-abs_dif) * mask
-        f1 = tf.reduce_sum(masked, 2) / tf.reduce_sum(mask)
-        # sums over the third dimension, which is of size 64 (captures cross distance to other images in batch)
-        #f2 = tf.reduce_sum(half(masked, 1), 2) / tf.reduce_sum(half(mask, 1))
-
-        minibatch_features = tf.concat([labels, f1],1)
-        return minibatch_features
-
-      def lrelu3(x,leak=0.2,name='lrelu3'):
-          with tf.variable_scope(name):
-              f1=0.5 * (1+leak)#halves memory footprint
-              f2=0.5 * (1-leak)#relative to tf.maximum(leak*x,x)
-              return f1*x + f2*tf.abs(x)
-      h0 = slim.fully_connected(labels,self.hidden_size,activation_fn=lrelu,scope='dCC_0')
-      h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
-      h1_aug = lrelu3(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
-      h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
-      return tf.nn.sigmoid(h3),h3
 
 #==============================================================================
 #       yb = tf.reshape(Labels, [self.batch_size, 1, 1, self.realLabelsDim])
