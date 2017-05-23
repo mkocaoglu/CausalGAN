@@ -36,6 +36,13 @@ def lrelu(x,leak=0.2,name='lrelu'):
 
 
 Graphs={
+    'W_int_indep':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',[]],
+        ['Narrow_Eyes',[]],
+        ],
+
     'W_indep':[
         ['Young',[]],
         ['Male',[]],
@@ -92,6 +99,13 @@ Graphs={
 #        ['Narrow_Eyes',[]],
 #        ],
 #
+    'W_int_MxYcS_SxMxYcNE':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Male','Young']],
+        ['Narrow_Eyes',['Male','Young','Smiling']],
+        ],
+
     'W_MxYcS_SxMxYcNE':[
         ['Young',[]],
         ['Male',[]],
@@ -184,25 +198,22 @@ def sxe(logits,labels):
     return tf.nn.sigmoid_cross_entropy_with_logits(
         logits=logits,labels=labels)
 
-def label_summary(labels,scope='label_summary')
+def label_summary(labels,scope='label_summary'):
     label_names,_ = zip(*Graphs.values()[0])
     label_names=list(label_names)
 
     tf_labels_list=tf.unstack(labels,axis=-1)
     with tf.name_scope(scope):
         for name,lab in zip( label_names,tf_labels_list):
-            with tf.name_scope(name)
-            tf.summary.histogram('hist',lab)
-            #tf.summary.scalar('mean',tf.reduce_mean(lab))
+            with tf.name_scope(name):
+                tf.summary.histogram('hist',lab)
+                #tf.summary.scalar('mean',tf.reduce_mean(lab))
 
 
 
 if __name__=='__main__':
     tf.reset_default_graph()
     print 'Resetting tf graph!'
-
-
-
     ccs={}
     c_vars,d_vars=[],[]
 
@@ -238,8 +249,6 @@ if __name__=='__main__':
         tvd=0.5*diff.abs().sum()
 
         return tvd
-
-
 
 
     c_vars=[]
@@ -327,10 +336,8 @@ if __name__=='__main__':
             for graph_name in ccs.keys():
                 tf.summary.scalar(graph_name, ccs[graph_name][key])
 
-
     sess=tf.Session()
     sess.run(tf.global_variables_initializer())
-
 
     summary_op=tf.summary.merge_all()
     model_dir="./checkpoint/pretrainlogs"
@@ -362,7 +369,6 @@ if __name__=='__main__':
     counter = 0
     start_time = time.time()
 
-
     #Make sure real labels are in the correct order
     name_list = ccs.values()[0]['cc'].node_names
     print name_list
@@ -375,7 +381,6 @@ if __name__=='__main__':
         #batch_idxs = min(len(data), config.train_size) // config.batch_size
         batch_idxs = min(len(data), np.inf) // batch_size
         #batch_idxs = min(len(data), config.train_size) // config.batch_size
-
 
         for idx in xrange(0, batch_idxs):
             batch_files = data[idx*batch_size:(idx+1)*batch_size]
@@ -421,7 +426,6 @@ if __name__=='__main__':
                 d_loss = result['d_loss']
                 print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}"\
                       .format(counter, 50000, c_loss, d_loss))
-
 
             if counter%T_tvd==0:
                 t0=time.time()
