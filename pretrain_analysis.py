@@ -36,73 +36,96 @@ def lrelu(x,leak=0.2,name='lrelu'):
 
 
 Graphs={
-    'indep':[
+    'W_indep':[
         ['Young',[]],
         ['Male',[]],
         ['Smiling',[]],
         ['Narrow_Eyes',[]],
         ],
 
-    'ScY':[
+    'D_indep':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',[]],
+        ['Narrow_Eyes',[]],
+        ],
+
+    'W_int_ScY':[
         ['Young',['Smiling']],
         ['Male',[]],
         ['Smiling',[]],
         ['Narrow_Eyes',[]],
         ],
 
-    'YcS':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Smiling',['Young']],
-        ['Narrow_Eyes',[]],
-        ],
-
-    'YcScNE':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Smiling',['Young']],
-        ['Narrow_Eyes',['Smiling']],
-        ],
-
-    'NEcScY':[
+    'W_ScY':[
         ['Young',['Smiling']],
         ['Male',[]],
-        ['Smiling',['Narrow_Eyes']],
+        ['Smiling',[]],
         ['Narrow_Eyes',[]],
         ],
 
-#    'MxYcScNE':[
+    'D_ScY':[
+        ['Young',['Smiling']],
+        ['Male',[]],
+        ['Smiling',[]],
+        ['Narrow_Eyes',[]],
+        ],
+
+#    'YcS':[
 #        ['Young',[]],
 #        ['Male',[]],
-#        ['Smiling',['Male','Young']],
-#        ['Narrow_Eyes',['Smiling']],
+#        ['Smiling',['Young']],
+#        ['Narrow_Eyes',[]],
 #        ],
 
-    'MxYcS_SxMxYcNE':[
+#    'YcScNE':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',['Young']],
+#        ['Narrow_Eyes',['Smiling']],
+#        ],
+#
+#    'NEcScY':[
+#        ['Young',['Smiling']],
+#        ['Male',[]],
+#        ['Smiling',['Narrow_Eyes']],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+    'W_MxYcS_SxMxYcNE':[
         ['Young',[]],
         ['Male',[]],
         ['Smiling',['Male','Young']],
         ['Narrow_Eyes',['Male','Young','Smiling']],
         ],
 
-    'NEcSxMxY_ScYxM':[
-        ['Young',['Narrow_Eyes','Smiling']],
-        ['Male',['Narrow_Eyes','Smiling']],
-        ['Smiling',['Narrow_Eyes']],
-        ['Narrow_Eyes',[]],
+    'D_MxYcS_SxMxYcNE':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Male','Young']],
+        ['Narrow_Eyes',['Male','Young','Smiling']],
         ],
-
+#
+#    'NEcSxMxY_ScYxM':[
+#        ['Young',['Narrow_Eyes','Smiling']],
+#        ['Male',['Narrow_Eyes','Smiling']],
+#        ['Smiling',['Narrow_Eyes']],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
 }
 
 
 
 
+LAMBDA=0.1 # Smaller lambda seems to help for toy tasks specifically
+CRITIC_ITERS = 5 # How many critic iterations per generator iteration
 
 hidden_size=10
 batch_size=64
 
 def discriminator_CC( labels, reuse=False):
-    with tf.variable_scope("disc_CC") as scope:
+    with tf.variable_scope("DCdisc_CC") as scope:
       if reuse:
         scope.reuse_variables()
       # add minibatch features here to get fake labels with high variation
@@ -138,12 +161,40 @@ def discriminator_CC( labels, reuse=False):
       return tf.nn.sigmoid(h3),h3
 
 
+
+
+
+
+
+def discriminatorW(labels,reuse=False):
+    with tf.variable_scope("Wdisc_CC") as scope:
+        if reuse:
+            scope.reuse_variables()
+        h0 = slim.fully_connected(labels,hidden_size,activation_fn=lrelu,scope='dCC_0')
+        h1 = slim.fully_connected(h0,hidden_size,activation_fn=lrelu,scope='dCC_1')
+        h2 = slim.fully_connected(h1,hidden_size,activation_fn=lrelu,scope='dCC_2')
+        h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+        return tf.nn.sigmoid(h3),h3
+
+
 def sxe(logits,labels):
     #use zeros or ones if pass in scalar
     if not isinstance(labels,tf.Tensor):
         labels=labels*tf.ones_like(logits)
     return tf.nn.sigmoid_cross_entropy_with_logits(
         logits=logits,labels=labels)
+
+def label_summary(labels,scope='label_summary')
+    label_names,_ = zip(*Graphs.values()[0])
+    label_names=list(label_names)
+
+    tf_labels_list=tf.unstack(labels,axis=-1)
+    with tf.name_scope(scope):
+        for name,lab in zip( label_names,tf_labels_list):
+            with tf.name_scope(name)
+            tf.summary.histogram('hist',lab)
+            #tf.summary.scalar('mean',tf.reduce_mean(lab))
+
 
 
 if __name__=='__main__':
@@ -161,6 +212,9 @@ if __name__=='__main__':
     print 'label_names:',label_names
     n_labels=len(label_names)
     realLabels = tf.placeholder(tf.float32,[None, n_labels],name='real_labels')
+    int_realLabels = tf.placeholder(tf.float32,[None, n_labels],name='int_real_labels')
+    label_summary(realLabels,'noisy_real_labels')
+    label_summary(int_realLabels,'int_real_labels')
 
     attr=0.5*(1+pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True))
     attr=attr[label_names]
@@ -195,18 +249,53 @@ if __name__=='__main__':
         with tf.variable_scope(graph_name):
             cc=CausalController(graph,batch_size)
 
-            fake_labels= tf.concat( cc.list_labels(),-1 )
-
-            DCC_real, DCC_real_logits = discriminator_CC(realLabels)
-            DCC_fake, DCC_fake_logits = discriminator_CC(fake_labels, reuse=True)
-
-            dcc_loss_real = tf.reduce_mean(sxe(DCC_real_logits,1))
-            dcc_loss_fake = tf.reduce_mean(sxe(DCC_fake_logits,0))
-            c_loss        = tf.reduce_mean(sxe(DCC_fake_logits,1))
-
-            d_loss=dcc_loss_real + dcc_loss_fake
-
             ccs[graph_name]={}
+
+            fake_labels= tf.concat( cc.list_labels(),-1 )
+            tf.summary.histogram(graph_name+'/fake_labels',fake_labels)
+
+            if graph_name.startswith('W_'):
+                if graph_name.startswith('W_int'):
+                    print 'int model'
+                    rl=int_realLabels
+                else:
+                    rl=realLabels
+
+                Discriminator=discriminatorW #same but no minibatch
+                DCC_real, DCC_real_logits = Discriminator(rl,reuse=False)
+                DCC_fake, DCC_fake_logits = Discriminator(fake_labels, reuse=True)
+
+                d_loss=tf.reduce_mean(DCC_fake_logits) - tf.reduce_mean(DCC_real_logits)
+                c_loss=-tf.reduce_mean(DCC_fake_logits)
+
+                #gradient penalty "Improved training of Wasserstein"
+                alpha = tf.random_uniform([batch_size,1],0.,1.)
+                interpolates = alpha*realLabels + ((1-alpha)*fake_labels)
+                disc_interpolates = Discriminator(interpolates,reuse=True)[1]#logits
+                #print 'discint:',disc_interpolates
+                #print 'interpolates:', interpolates
+                gradients = tf.gradients(disc_interpolates,[interpolates])[0]#orig
+                #gradients = tf.gradients(disc_interpolates, interpolates )
+                #gradients=gradients[0]
+                slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients),
+                                       reduction_indices=[1]))
+                gradient_penalty = tf.reduce_mean((slopes-1)**2)
+                grad_cost = LAMBDA*gradient_penalty
+                ccs[graph_name]['gp']=grad_cost
+                d_loss += grad_cost
+
+            else:
+                print 'DCGAN pretraining'
+                DCC_real, DCC_real_logits = discriminator_CC(realLabels,reuse=False)
+                DCC_fake, DCC_fake_logits = discriminator_CC(fake_labels, reuse=True)
+
+                ccs[graph_name]['gp']=0.
+
+                dcc_loss_real = tf.reduce_mean(sxe(DCC_real_logits,1))
+                dcc_loss_fake = tf.reduce_mean(sxe(DCC_fake_logits,0))
+                c_loss        = tf.reduce_mean(sxe(DCC_fake_logits,1))
+                d_loss=dcc_loss_real + dcc_loss_fake
+
             ccs[graph_name]['fake_labels']=fake_labels
             ccs[graph_name]['cc']=cc
             ccs[graph_name]['c_loss']=c_loss
@@ -220,10 +309,17 @@ if __name__=='__main__':
 
     t_vars = tf.trainable_variables()
     d_vars = [var for var in t_vars if 'disc_CC' in var.name ]
+    Wd_vars = [var for var in t_vars if 'Wdisc_CC' in var.name ]
+    print 'n many t_vars:',len(t_vars)
+    print 'n many d_vars:',len(d_vars)
+    print 'n many Wd_vars:',len(Wd_vars)
+    #for w in Wd_vars:
+    #    print w.name
 
 
-    c_optim = tf.train.AdamOptimizer(0.00008).minimize(total_c_loss, var_list=c_vars)
-    d_optim = tf.train.AdamOptimizer(0.00008).minimize(total_d_loss, var_list=d_vars)
+    c_optim = tf.train.AdamOptimizer(0.00008).minimize(total_c_loss,var_list=c_vars)
+    d_optim = tf.train.AdamOptimizer(0.00008).minimize(total_d_loss,var_list=d_vars)
+    Wd_optim = tf.train.AdamOptimizer(0.00008).minimize(total_d_loss,var_list=Wd_vars)
 
 
     for key in ['c_loss','d_loss','D_on_fake']:
@@ -271,6 +367,7 @@ if __name__=='__main__':
     name_list = ccs.values()[0]['cc'].node_names
     print name_list
     attributes=pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True)
+    attr=0.5*(1+pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True))
     for epoch in xrange(400):
         data = glob(os.path.join(
           "./data", 'celebA', "*.jpg"))
@@ -284,17 +381,28 @@ if __name__=='__main__':
             batch_files = data[idx*batch_size:(idx+1)*batch_size]
             fileNames = [i[-10:] for i in batch_files]
 
+            int_np_realLabels = np.array([np.hstack(\
+                tuple([attr.loc[i].loc[label_name] for label_name in name_list]))\
+                                    for i in fileNames])
+
             np_realLabels = np.array([np.hstack(\
                 tuple([label_mapper(attributes.loc[i].loc[label_name],
                                     label_name) for label_name in name_list]))\
                                     for i in fileNames])
 
-            fd={realLabels:np_realLabels}
-            fetch={'c_opt':c_optim,
-                   'd_opt':d_optim}
+            fd={realLabels:np_realLabels,
+                int_realLabels:int_np_realLabels}#add no noise
 
-            T_summary=30
-            T_tvd=100
+            T_summary=30*CRITIC_ITERS
+            T_tvd=100*CRITIC_ITERS
+
+
+            fetch={'d_opt':Wd_optim}
+
+            if counter%CRITIC_ITERS:
+                fetch.update({'c_opt':c_optim,
+                             'd_opt':d_optim})
+
 
             if counter%T_summary==0:
                 fetch.update({'summary':summary_op,
