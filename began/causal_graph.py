@@ -96,7 +96,7 @@ male_causes_mustache=[
         ['Mustache',['Male']],
     ]
 
-big_causal_graph=[
+old_big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],
@@ -109,7 +109,7 @@ big_causal_graph=[
     ]
 #old_big_causal_graph=big_causal_graph#fyi
 
-new_big_causal_graph=[
+big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],
@@ -120,6 +120,16 @@ new_big_causal_graph=[
         ['Mouth_Slightly_Open',['Young','Smiling']],
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
+
+Smiling_MSO = [
+        ['Smiling',[]],
+        ['Mouth_Slightly_Open',['Smiling']]
+       ]
+
+MSO_smiling = [
+        ['Smiling',['Mouth_Slightly_Open']],
+        ['Mouth_Slightly_Open',[]]
+       ]
 
 male_ind_mustache = [
         ['Male',[]],
@@ -148,6 +158,10 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_ind_mustache
     elif causal_model == 'male_smiling_lipstick':
         graph = male_smiling_lipstick
+    elif causal_model == 'Smiling_MSO':
+        graph = Smiling_MSO
+    elif causal_model == 'MSO_smiling':
+        graph = MSO_smiling
 
     elif causal_model == 'new_big_causal_graph':
         graph = new_big_causal_graph

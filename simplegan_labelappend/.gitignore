@@ -1,7 +1,6 @@
 data/
 .*.swp
 logs/
-final_checkpoints
 checkpoint/
 *.pyc
 .DS_Store

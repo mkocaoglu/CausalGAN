@@ -26,19 +26,6 @@ from six.moves import xrange
 pp = pprint.PrettyPrinter()
 
 
-def make_sample_dir(model):
-    #Terminology
-    if model.model_name=='began':
-        result_dir=model.model_dir
-    elif model.model_name=='dcgan':
-        print('DCGAN')
-        result_dir=model.checkpoint_dir
-
-    sample_dir=os.path.join(result_dir,'sample_figures')
-    if not os.path.exists(sample_dir):
-        os.mkdir(sample_dir)
-
-
 #both
 def save_figure_images(model_name, tensor, filename, size, padding=2,
                        normalize=False, scale_each=False):

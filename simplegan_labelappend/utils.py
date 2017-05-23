@@ -10,12 +10,11 @@ import scipy.misc
 import numpy as np
 from time import gmtime, strftime
 from six.moves import xrange
-import os
+import os 
 
 pp = pprint.PrettyPrinter()
 
 get_stddev = lambda x, k_h, k_w: 1/math.sqrt(k_w*k_h*x.get_shape()[-1])
-
 
 def get_image(image_path, input_height, input_width,
               resize_height=64, resize_width=64,

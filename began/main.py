@@ -14,6 +14,9 @@ debug = debugger.Pdb().set_trace
 '''
 Some notes on each version of the model:
 
+smiling->MSO did not work so inc pretrain
+            if step < 15000:#PRETRAIN CC
+
 
 !!!BUG!!! Previous models all ran setup_tensor twice, which effectvely left them
 independent in causal structure.
@@ -58,7 +61,7 @@ def get_trainer(config):
     prepare_dirs_and_logger(config)
 
     rng = np.random.RandomState(config.random_seed)
-    tf.set_random_seed(config.random_seed)
+    #tf.set_random_seed(config.random_seed)
 
     if config.is_train:
         data_path = config.data_path

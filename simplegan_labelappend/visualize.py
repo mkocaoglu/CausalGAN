@@ -11,7 +11,6 @@ import sys
 from model_loader import get_model
 import json
 from figure_scripts.pairwise import crosstab
-from figure_scripts.distributions import record_interventional
 from figure_scripts.sample import intervention2d,condition2d
 from causal_intervention import get_do_dict
 from causal_conditioning import get_cond_dict
@@ -34,22 +33,13 @@ visualize_arg = add_argument_group('visualize')
 visualize_arg.add_argument('--model_type', type=str,default=None)
 
 #Which visualizations to do?
-visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,
-                          help='''Tabulates pairwise marginal distributions
-                          and saves them to text files''')
-
-visualize_arg.add_argument('--record_interventional', type=str2bool,default=False,
-                          help='''records samples from the joint distribution for
-                           each intervening node for each intervening value.
-                           Also d_fake_labels and g_labels each get their own
-                           csv that should be loaded with pd.read_csv().
-                           Therefore, this makes n_labels*2*2 many csv files''')
-
-
-visualize_arg.add_argument('--sample_model', type=str2bool,default=False,
-                          help='''Tells program to do sampling for do_dict and
-                           other arguments provided. Run this to do
-                           intervention2d for example''')
+visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,\
+                          help='Tabulates pairwise marginal distributions\
+                          and saves them to text files')
+visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
+                          help='Tells program to do sampling for do_dict and\
+                           other arguments provided. Run this to do\
+                           intervention2d for example')
 
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
@@ -69,6 +59,7 @@ if __name__=='__main__':
     you would like to produce (followed by True)
 
     Examples:
+
     To run intervention2d, the following works:
 
     #Tested
@@ -108,14 +99,8 @@ if __name__=='__main__':
     model_type= config.model_type
     model=get_model(model_type)
     model.model_type=model_type
-
-
     if config.cross_tab:
         crosstab(model)
-
-    if config.record_interventional:
-        print('Recording csv of interventional distribution')
-        record_interventional(model)
 
     if config.sample_model:
         if config.cond_dict_name and config.do_dict_name:
@@ -130,18 +115,6 @@ if __name__=='__main__':
 
         else:
             raise ValueError('need do_dict_name xor cond_dict_name')
-
-
-
-    #Interventional Joint
-    ##This considers trunc exponential labels
-
-    #If one were to get interventional joint: do so in python like so
-
-
-
-
-
 
 
 

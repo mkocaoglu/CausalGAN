@@ -76,7 +76,6 @@ class CausalController(object):
         return [n.label_logit for n in self.nodes]
 
 
-debug=False
 class CausalNode(object):
     '''
     A CausalNode sets up a small neural network:
@@ -87,7 +86,7 @@ class CausalNode(object):
     because I don't enforce that a node's parent tf_graph
     is constructed during class.setup_tensor
 
-    Uniform[-1,1] + other causes pases through 2 fully connected layers.
+    Uniform[-1,1] + other causes pases through 2 fully connected layers. 
     '''
     train = True
     batch_size=1#class variable. set all at once
@@ -115,8 +114,6 @@ class CausalNode(object):
                         (self.batch_size, self.n_hidden), minval=-0.5, maxval=0.5)
     def setup_tensor(self):
         if self._label is not None:#already setup
-            if debug:
-                print 'self.',self.name,' has refuted setting up tensor'
             return
         tf_parents=[self.z]+[node.label_logit for node in self.parents]
         with tf.variable_scope(self.name):
@@ -125,8 +122,6 @@ class CausalNode(object):
             h1=slim.fully_connected(h0,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer1')
             self._label_logit = slim.fully_connected(h1,1,activation_fn=None,scope='proj')
             self._label=tf.nn.sigmoid( self._label_logit )
-            if debug:
-                print 'self.',self.name,' has setup _label=',self._label
     @property
     def label_logit(self):
         if self._label_logit is not None:

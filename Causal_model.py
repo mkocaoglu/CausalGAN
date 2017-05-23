@@ -350,6 +350,8 @@ class DCGAN(object):
     except:
       tf.initialize_all_variables().run()
 
+    #self.saver.restore(self.sess,'./final_checkpoints/big_causal_graph/celebA_64_64_64/DCGAN.model-80000')
+
     if self.load(self.checkpoint_dir):
       print(" [*] Load SUCCESS")
     else:
@@ -416,7 +418,7 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u 
+      return u
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
       lower, upper, scale = 0, 0.2, 1/2.0
@@ -457,7 +459,8 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    counter = 1
+    counter = 3000
+
     start_time = time.time()
     name_list = self.cc.node_names
     print name_list
@@ -517,7 +520,11 @@ class DCGAN(object):
         #if epoch < 1:
         #if counter < 5001:
         #if counter < 10001:
+<<<<<<< HEAD
         if counter < 11:
+=======
+        if counter < 15001:
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
@@ -570,7 +577,11 @@ class DCGAN(object):
 
         if np.mod(counter, 4000) == 0:
           for name in self.cc.node_names:
+<<<<<<< HEAD
             do_dict={name:[0.6,-0.6]}
+=======
+            do_dict={name:[-.6,0.6]}
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
             do_dict_name=name
             intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
           self.save(self.checkpoint_dir, counter)
@@ -750,7 +761,12 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
+<<<<<<< HEAD
       h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+=======
+      print('WARNING:using 10 instead of 1 for dcc output')
+      h3 = slim.fully_connected(h2,10,activation_fn=None,scope='dCC_3')
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
       return tf.nn.sigmoid(h3),h3
 
 
@@ -1059,7 +1075,8 @@ class DCGAN(object):
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    print 'attempting to load:',checkpoint_dir
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
