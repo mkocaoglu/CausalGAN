@@ -213,7 +213,8 @@ class DCGAN(object):
     #     #self.g_lossLabels = (self.g_lossLabels_Male + self.g_lossLabels_Young + self.g_lossLabels_Smiling)
 
     #New
-    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
+    #self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
+    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
 
     #self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
@@ -519,11 +520,15 @@ class DCGAN(object):
         #if epoch < 1:
         #if counter < 5001:
         #if counter < 10001:
+<<<<<<< HEAD
+        if counter < 11:
+=======
         if counter < 15001:
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
-          _,_,_,summary_str=self.sess.run([c_optim,d_label_optim,dcc_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim, d_label_optim, dcc_optim, self.summary_op], feed_dict=fd)
 
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
@@ -539,20 +544,20 @@ class DCGAN(object):
 
           if np.mod(counter+random_shift, 3) == 0:
 
-            _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+            _, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
-            _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
+            #_, summary_str = self.sess.run([, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
             #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
             #self.writer.add_summary(summary_str, counter)
             #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
             # Update G network
-            _, summary_str = self.sess.run([ g_optim, self.summary_op], feed_dict=fd)
+            #_, summary_str = self.sess.run([ , self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
-            _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
+            _ = self.sess.run([g_optim], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
           else:
-            _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
+            _ = self.sess.run([g_optim], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
@@ -572,7 +577,11 @@ class DCGAN(object):
 
         if np.mod(counter, 4000) == 0:
           for name in self.cc.node_names:
+<<<<<<< HEAD
+            do_dict={name:[0.6,-0.6]}
+=======
             do_dict={name:[-.6,0.6]}
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
             do_dict_name=name
             intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
           self.save(self.checkpoint_dir, counter)
@@ -752,8 +761,12 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
+<<<<<<< HEAD
+      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+=======
       print('WARNING:using 10 instead of 1 for dcc output')
       h3 = slim.fully_connected(h2,10,activation_fn=None,scope='dCC_3')
+>>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
       return tf.nn.sigmoid(h3),h3
 
 

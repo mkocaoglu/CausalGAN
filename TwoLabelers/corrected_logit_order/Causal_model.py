@@ -10,6 +10,7 @@ from six.moves import xrange
 import pandas as pd
 import sys
 import scipy.stats as stats
+from figure_scripts.sample import intervention2d            
 
 from ops import *
 from utils import *
@@ -260,7 +261,7 @@ class DCGAN(object):
       -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
     ###NEW###
-    self.g_loss = self.g_lossGAN + self.g_lossLabels - self.g_lossLabels_GLabeler#+ self.c_loss
+    self.g_loss = self.g_lossGAN + self.g_lossLabels #- self.g_lossLabels_GLabeler#+ self.c_loss
 
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
@@ -542,7 +543,7 @@ class DCGAN(object):
 
           if np.mod(counter+random_shift, 3) == 0:
 
-            _, _, summary_str = self.sess.run([d_label_optim, d_gen_label_optim, self.summary_op], feed_dict=fd)
+            _, _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
@@ -576,6 +577,10 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
         if np.mod(counter, 4000) == 0:
+          for name in self.cc.node_names:
+            do_dict={name:[-.6,0.6]}
+            do_dict_name=name
+            intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
           #self.save(config.checkpoint_dir, counter)
           self.save(self.checkpoint_dir, counter)
 
@@ -765,10 +770,10 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_dCC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,self.hidden_size,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
-   
+
   def generator(self, z, y=None):
     #removed "if y_dim" part
     with tf.variable_scope("generator") as scope:
