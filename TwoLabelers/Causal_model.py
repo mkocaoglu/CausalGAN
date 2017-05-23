@@ -10,6 +10,7 @@ from six.moves import xrange
 import pandas as pd
 import sys
 import scipy.stats as stats
+from figure_scripts.sample import intervention2d            
 
 from ops import *
 from utils import *
@@ -542,7 +543,7 @@ class DCGAN(object):
 
           if np.mod(counter+random_shift, 3) == 0:
 
-            _, _, summary_str = self.sess.run([d_label_optim, d_gen_label_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
@@ -551,13 +552,18 @@ class DCGAN(object):
             #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
             # Update G network
             _, summary_str = self.sess.run([ g_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_gen_label_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_gen_label_optim, self.summary_op], feed_dict=fd)            
             #self.writer.add_summary(summary_str, counter)
           else:
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_gen_label_optim, self.summary_op], feed_dict=fd)            
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_gen_label_optim, self.summary_op], feed_dict=fd)            
+
           if counter%1000==0:
             crosstab(self,counter)#display results
           self.writer.add_summary(summary_str, counter)
@@ -576,6 +582,10 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
         if np.mod(counter, 4000) == 0:
+          for name in self.cc.node_names:
+            do_dict={name:[-.6,0.6]}
+            do_dict_name=name
+            intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
           #self.save(config.checkpoint_dir, counter)
           self.save(self.checkpoint_dir, counter)
 

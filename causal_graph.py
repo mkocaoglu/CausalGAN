@@ -165,6 +165,17 @@ MSO_smiling = [
         ['Smiling',['Mouth_Slightly_Open']],
         ['Mouth_Slightly_Open',[]]
        ]
+Male_Young_Eyeglasses = [
+        ['Male',[]],
+        ['Young',[]],
+        ['Eyeglasses',['Male','Young']]
+        ]
+Male_Young_Eyeglasses_complete = [
+        ['Male',[]],
+        ['Young',['Male']],
+        ['Eyeglasses',['Male','Young']]
+        ]
+
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
 
@@ -198,6 +209,10 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = gray_causes_young
     elif causal_model == 'young_ind_gray':
         graph = young_ind_gray
+    elif causal_model == 'Male_Young_Eyeglasses':
+        graph = Male_Young_Eyeglasses
+    elif causal_model == 'Male_Young_Eyeglasses_complete':
+        graph = Male_Young_Eyeglasses_complete
     elif causal_model is 'empty':
         graph=[[],[]]
 
