@@ -103,7 +103,10 @@ class DCGAN(object):
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
     self.checkpoint_dir=checkpoint_dir
-
+    
+    self.layer1 = ['Male','Young']
+    self.layer2 = ['Eyeglasses', 'Bald', 'Mustache', 'Smiling', 'Wearing_Lipstick']
+    self.layer3 = ['Mouth_Slightly_Open','Narrow_Eyes']
 
     self.build_model()
 
@@ -132,16 +135,24 @@ class DCGAN(object):
     self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
 
     #CC (New)
-    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
-    self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
-    self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
+    # specific to big_causal_graph
 
+    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
+    self.fake_labels1 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer1],-1)
+    self.fake_labels_logits1 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer1 ] ,-1)
+    self.fake_labels2 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer2],-1)
+    self.fake_labels_logits2 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer2 ] ,-1)
+    self.fake_labels3 = tf.concat([n.label for n in self.cc.nodes if n.name in self.layer3],-1)
+    self.fake_labels_logits3 = tf.concat( [n.label_logit for n in self.cc.nodes if n.name in self.layer3 ] ,-1)
+    #self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
+    self.fake_labels_logits= tf.concat([self.fake_labels_logits1, self.fake_labels_logits2 ,self.fake_labels_logits3],-1) #tf.concat( self.cc.list_label_logits(),-1 )
+    self.fake_labels = tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1)
     #This part is to make it easy to sample all noise at once
     self.z_fd=self.cc.sample_z.copy()#a dictionary: {'Smiling:[0.2,.1,...]}
     self.z_fd.update({'z_gen':self.z_gen})
 
     #This is to match up with your notation:
-    self.z_fake_labels=self.fake_labels_logits
+    self.z_fake_labels = tf.concat([self.fake_labels1 , self.fake_labels2 , self.fake_labels3],-1)#=self.fake_labels_logits
 
 
     ##Old causal section:
@@ -213,20 +224,45 @@ class DCGAN(object):
     #     #self.g_lossLabels = (self.g_lossLabels_Male + self.g_lossLabels_Young + self.g_lossLabels_Smiling)
 
     #New
-    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
-    #self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
+    #self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
+    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
 
     #self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
     #self.g_lossLabels_Smiling_sum = scalar_summary("g_loss_label_smiling", self.g_lossLabels_Smiling)
 
-    self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels)) # shuffle to avoid any correlated behavior with discriminator
-    self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
+    self.DCC_real, self.DCC_real_logits = self.discriminator_CC(self.realLabels) # shuffle to avoid any correlated behavior with discriminator
+    self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(tf.concat([self.fake_labels1, self.fake_labels2, self.fake_labels3],-1), reuse=True)
+
+    self.DCC_real1, self.DCC_real2, self.DCC_real3 = tf.split(self.DCC_real, [1,1,1],1)
+    self.DCC_real_logits1, self.DCC_real_logits2, self.DCC_real_logits3 = tf.split(self.DCC_real_logits, [1,1,1],1)
+
+    self.DCC_fake1, self.DCC_fake2, self.DCC_fake3 = tf.split(self.DCC_fake, [1, 1, 1],1)
+    self.DCC_fake_logits1, self.DCC_fake_logits2, self.DCC_fake_logits3 = tf.split(self.DCC_fake_logits, [1,1,1],1)
 
     self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
+    self.dcc_loss_real1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits1, tf.ones_like(self.DCC_real1)))
+    self.dcc_loss_real2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits2, tf.ones_like(self.DCC_real2)))
+    self.dcc_loss_real3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits3, tf.ones_like(self.DCC_real3)))
+    
     self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
-    self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
+    self.dcc_loss_fake1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits1, tf.zeros_like(self.DCC_fake1)))
+    self.dcc_loss_fake2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits2, tf.zeros_like(self.DCC_fake2)))
+    self.dcc_loss_fake3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits3, tf.zeros_like(self.DCC_fake3)))
 
+    self.dcc_loss_phase1 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1)
+    self.dcc_loss_phase2 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 )
+    self.dcc_loss_phase3 = tf.reduce_mean(self.dcc_loss_real1+self.dcc_loss_fake1 + self.dcc_loss_real2 +self.dcc_loss_fake2 +self.dcc_loss_real3 +self.dcc_loss_fake3)
+
+    self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
+    self.c_loss1 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits1,tf.ones_like(self.DCC_fake1)))
+    self.c_loss2 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits2,tf.ones_like(self.DCC_fake2)))
+    self.c_loss3 = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits3,tf.ones_like(self.DCC_fake3)))
+
+    self.c_loss_phase1 = tf.reduce_mean(self.c_loss1)
+    self.c_loss_phase2 = tf.reduce_mean(self.c_loss1 + self.c_loss2)
+    self.c_loss_phase3 = tf.reduce_mean(self.c_loss1 + self.c_loss2 + self.c_loss3)
+    
     #This is a better way to do summary
     #you don't have to assign them to a variable and group them later
     #the / helps organize them in tensorboard
@@ -340,11 +376,19 @@ class DCGAN(object):
     g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.g_loss, var_list=self.g_vars)
     #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    c_optim = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.c_loss, var_list=self.c_vars)
+    c_optim_phase1 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.c_loss_phase1, var_list=self.c_vars)
+    c_optim_phase2 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.c_loss_phase2, var_list=self.c_vars)
+    c_optim_phase3 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.c_loss_phase3, var_list=self.c_vars)
     #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    dcc_optim = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.dcc_loss, var_list=self.dcc_vars)
+    dcc_optim_phase1 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.dcc_loss_phase1, var_list=self.dcc_vars)
+    dcc_optim_phase2 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.dcc_loss_phase2, var_list=self.dcc_vars)
+    dcc_optim_phase3 = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.dcc_loss_phase3, var_list=self.dcc_vars)
     try:
       tf.global_variables_initializer().run()
     except:
@@ -482,10 +526,20 @@ class DCGAN(object):
         #     )\
         #    for i in fileNames])
         # DO: Simplify the following
-        realLabels = np.array([np.hstack(\
-            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list])\
+
+        realLabels1 = np.array([np.hstack(\
+            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer1])\
             )\
            for i in fileNames])
+        realLabels2 = np.array([np.hstack(\
+            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer2])\
+            )\
+           for i in fileNames])
+        realLabels3 = np.array([np.hstack(\
+            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list if label_name in self.layer3])\
+            )\
+           for i in fileNames])
+        #realLabels = 
         batch = [
             get_image(batch_file,
                       input_height=self.input_height,
@@ -506,7 +560,7 @@ class DCGAN(object):
 
         #New, z not needed
         fd= {self.inputs: batch_images,
-             self.realLabels:realLabels,
+             self.realLabels:np.hstack([realLabels1, realLabels2, realLabels3]),
              #self.z_gen:    batch_z,
              #self.zMale:    batch_zMale,
              #self.zYoung:   batch_zYoung,
@@ -524,7 +578,39 @@ class DCGAN(object):
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
-          _,_,_,summary_str=self.sess.run([c_optim, d_label_optim, dcc_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim_phase1, d_label_optim, dcc_optim_phase1, self.summary_op], feed_dict=fd)
+
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+
+          self.writer.add_summary(summary_str, counter)
+        # elif counter == 30: #1*3165+500:
+        #   pairwise(self)
+          if counter%1000==0:
+            crosstab(self,counter)#display results
+
+        elif counter < 30001:
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim_phase2, d_label_optim, dcc_optim_phase2, self.summary_op], feed_dict=fd)
+
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+
+          self.writer.add_summary(summary_str, counter)
+        # elif counter == 30: #1*3165+500:
+        #   pairwise(self)
+          if counter%1000==0:
+            crosstab(self,counter)#display results
+
+        elif counter < 45001:
+          #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
+          #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim_phase3, d_label_optim, dcc_optim_phase3, self.summary_op], feed_dict=fd)
 
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
@@ -753,7 +839,7 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,3,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
 
