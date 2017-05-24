@@ -35,22 +35,9 @@ def lrelu(x,leak=0.2,name='lrelu'):
 #from causal_graph import get_causal_graph
 
 
+model_dir="./checkpoint/completehs100bs256L001nc100onlyintpretrain"
 Graphs={
     'W_int_indep':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Smiling',[]],
-        ['Narrow_Eyes',[]],
-        ],
-
-    'W_indep':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Smiling',[]],
-        ['Narrow_Eyes',[]],
-        ],
-
-    'D_indep':[
         ['Young',[]],
         ['Male',[]],
         ['Smiling',[]],
@@ -64,41 +51,6 @@ Graphs={
         ['Narrow_Eyes',[]],
         ],
 
-    'W_ScY':[
-        ['Young',['Smiling']],
-        ['Male',[]],
-        ['Smiling',[]],
-        ['Narrow_Eyes',[]],
-        ],
-
-    'D_ScY':[
-        ['Young',['Smiling']],
-        ['Male',[]],
-        ['Smiling',[]],
-        ['Narrow_Eyes',[]],
-        ],
-
-#    'YcS':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',['Young']],
-#        ['Narrow_Eyes',[]],
-#        ],
-
-#    'YcScNE':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',['Young']],
-#        ['Narrow_Eyes',['Smiling']],
-#        ],
-#
-#    'NEcScY':[
-#        ['Young',['Smiling']],
-#        ['Male',[]],
-#        ['Smiling',['Narrow_Eyes']],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
     'W_int_MxYcS_SxMxYcNE':[
         ['Young',[]],
         ['Male',[]],
@@ -106,37 +58,130 @@ Graphs={
         ['Narrow_Eyes',['Male','Young','Smiling']],
         ],
 
-    'W_MxYcS_SxMxYcNE':[
+    'W_int_YcM_MxYcS_SxMxYcNE':[
         ['Young',[]],
-        ['Male',[]],
+        ['Male',['Young']],
         ['Smiling',['Male','Young']],
         ['Narrow_Eyes',['Male','Young','Smiling']],
         ],
 
-    'D_MxYcS_SxMxYcNE':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Smiling',['Male','Young']],
-        ['Narrow_Eyes',['Male','Young','Smiling']],
-        ],
-#
-#    'NEcSxMxY_ScYxM':[
-#        ['Young',['Narrow_Eyes','Smiling']],
-#        ['Male',['Narrow_Eyes','Smiling']],
-#        ['Smiling',['Narrow_Eyes']],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
 }
 
 
 
 
-LAMBDA=0.1 # Smaller lambda seems to help for toy tasks specifically
-CRITIC_ITERS = 5 # How many critic iterations per generator iteration
 
-hidden_size=10
-batch_size=64
+#model_dir="./checkpoint/L0.1_nc100_challengepretrainlogs"
+#Graphs={
+#
+#    'W_McUxL':[
+#        ['Male',[]],
+#        ['Mustache',['Male']],
+#        ['Wearing_Lipstick',['Male']],
+#        ],
+#    'W_int_McUxL':[
+#        ['Male',[]],
+#        ['Mustache',['Male']],
+#        ['Wearing_Lipstick',['Male']],
+#        ],
+#    'D_McUxL':[
+#        ['Male',[]],
+#        ['Mustache',['Male']],
+#        ['Wearing_Lipstick',['Male']],
+#        ],
+#
+#    'W_UxLcM':[
+#        ['Male',['Mustache','Wearing_Lipstick']],
+#        ['Mustache',[]],
+#        ['Wearing_Lipstick',[]],
+#        ],
+#    'W_int_UxLcM':[
+#        ['Male',['Mustache','Wearing_Lipstick']],
+#        ['Mustache',[]],
+#        ['Wearing_Lipstick',[]],
+#        ],
+#    'D_UxLcM':[
+#        ['Male',['Mustache','Wearing_Lipstick']],
+#        ['Mustache',[]],
+#        ['Wearing_Lipstick',[]],
+#        ],
+#}
+
+#model_dir="./checkpoint/pretrainlogs"
+#Graphs={
+#    'W_int_indep':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'W_indep':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'D_indep':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'W_int_ScY':[
+#        ['Young',['Smiling']],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'W_ScY':[
+#        ['Young',['Smiling']],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'D_ScY':[
+#        ['Young',['Smiling']],
+#        ['Male',[]],
+#        ['Smiling',[]],
+#        ['Narrow_Eyes',[]],
+#        ],
+#
+#    'W_int_MxYcS_SxMxYcNE':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',['Male','Young']],
+#        ['Narrow_Eyes',['Male','Young','Smiling']],
+#        ],
+#
+#    'W_MxYcS_SxMxYcNE':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',['Male','Young']],
+#        ['Narrow_Eyes',['Male','Young','Smiling']],
+#        ],
+#
+#    'D_MxYcS_SxMxYcNE':[
+#        ['Young',[]],
+#        ['Male',[]],
+#        ['Smiling',['Male','Young']],
+#        ['Narrow_Eyes',['Male','Young','Smiling']],
+#        ],
+#}
+
+
+
+#LAMBDA=1.0 # Smaller lambda seems to help for toy tasks specifically
+#LAMBDA=0.1
+LAMBDA=0.01
+CRITIC_ITERS = 100 # How many critic iterations per generator iteration
+
+hidden_size=100
+batch_size=256
 
 def discriminator_CC( labels, reuse=False):
     with tf.variable_scope("DCdisc_CC") as scope:
@@ -174,12 +219,6 @@ def discriminator_CC( labels, reuse=False):
       h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
 
-
-
-
-
-
-
 def discriminatorW(labels,reuse=False):
     with tf.variable_scope("Wdisc_CC") as scope:
         if reuse:
@@ -189,6 +228,102 @@ def discriminatorW(labels,reuse=False):
         h2 = slim.fully_connected(h1,hidden_size,activation_fn=lrelu,scope='dCC_2')
         h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
         return tf.nn.sigmoid(h3),h3
+
+
+def logodds(p):
+    return np.log(p/(1.-p))
+def prepare_labels( batch_size, do_shuffle=True,num_worker=24,seed=None):
+
+    attributes = pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True) #+-1
+    attributes = 0.5*(attributes+1)
+
+
+    label_names=attributes.columns
+    num_examples_per_epoch=len(attributes)
+
+    min_fraction_of_examples_in_queue=0.001#have enough to do shuffling
+    #min_fraction_of_examples_in_queue=0.1#have enough to do shuffling
+    min_queue_examples=int(num_examples_per_epoch*min_fraction_of_examples_in_queue)
+
+    tf_labels = tf.convert_to_tensor(attributes.values, dtype=tf.uint8)
+
+    with tf.name_scope('filename_queue'):
+        str_queue=tf.train.slice_input_producer([tf_labels])
+
+    uint_label= str_queue[0]
+
+    label_means=attributes.mean()# attributes is 0,1
+    p=label_means.values
+
+    label=tf.to_float(uint_label)
+    int_label=label#without noise
+
+
+    #(fixed)Original Murat Noise model
+    N=tf.random_uniform([len(p)],-.25,.25,)
+    def label_mapper(p,label,N):
+        '''
+        P \in {1-p, p}
+        L \in {-1, +1}
+        N \in [-1/4,1/4]
+        '''
+        P = 1-(label+p-2*label*p)#l=0 -> (1-p) or l=1 -> p
+        L = 2*label-1# -1 or +1   :for label=0,1
+        return 0.5+ .25*P*L + P*N
+
+    min_label= label_mapper(label_means,0,-.25)
+    max_label= label_mapper(label_means,+1,0.25)
+    min_logit= logodds(min_label)
+    max_logit= logodds(max_label)
+
+    #needed for visualization range
+    label_stats=pd.DataFrame({
+        'mean':label_means,
+        'min_label':min_label,
+        'max_label':max_label,
+        'max_logit':max_logit,
+        'min_logit':min_logit,
+         })
+    noisy_label=label_mapper(label_means.values,label,N)
+
+
+    dict_noisy_data={sl:tl for sl,tl in
+               zip(label_names,tf.split(noisy_label,len(label_names)))}
+    dict_int_data={sl:tl for sl,tl in
+               zip(label_names,tf.split(int_label,len(label_names)))}
+    #assert not 'x' in dict_data.keys()
+    #dict_data['x']=image
+
+
+    print ('Filling queue with %d Celeb images before starting to train. '
+        'I don\'t know how long this will take' % min_queue_examples)
+    num_devices=1
+    num_preprocess_threads = max(num_worker-3,1)
+    noisy_data_batch = tf.train.shuffle_batch(
+            dict_noisy_data,
+            batch_size=batch_size*num_devices,
+            num_threads=num_preprocess_threads,
+            capacity=min_queue_examples + 3 * batch_size*num_devices,
+            min_after_dequeue=min_queue_examples,
+            #allow_smaller_final_batch=True)
+            )
+    int_data_batch = tf.train.shuffle_batch(
+            dict_int_data,
+            batch_size=batch_size*num_devices,
+            num_threads=num_preprocess_threads,
+            capacity=min_queue_examples + 3 * batch_size*num_devices,
+            min_after_dequeue=min_queue_examples,
+            #allow_smaller_final_batch=True)
+            )
+
+    label_names,_ = zip(*Graphs.values()[0])
+    label_names=list(label_names)
+
+    int_data_batch=tf.concat([int_data_batch[na] for na in label_names],-1)
+    noisy_data_batch=tf.concat([noisy_data_batch[na] for na in label_names],-1)
+
+    return int_data_batch, noisy_data_batch
+    #return data_batch, label_stats
 
 
 def sxe(logits,labels):
@@ -210,7 +345,6 @@ def label_summary(labels,scope='label_summary'):
                 #tf.summary.scalar('mean',tf.reduce_mean(lab))
 
 
-
 if __name__=='__main__':
     tf.reset_default_graph()
     print 'Resetting tf graph!'
@@ -222,8 +356,12 @@ if __name__=='__main__':
     label_names=list(label_names)
     print 'label_names:',label_names
     n_labels=len(label_names)
-    realLabels = tf.placeholder(tf.float32,[None, n_labels],name='real_labels')
-    int_realLabels = tf.placeholder(tf.float32,[None, n_labels],name='int_real_labels')
+
+
+    int_realLabels, realLabels = prepare_labels(batch_size)
+    #realLabels = tf.placeholder(tf.float32,[None, n_labels],name='real_labels')
+    #int_realLabels = tf.placeholder(tf.float32,[None, n_labels],name='int_real_labels')
+
     label_summary(realLabels,'noisy_real_labels')
     label_summary(int_realLabels,'int_real_labels')
 
@@ -261,7 +399,8 @@ if __name__=='__main__':
             ccs[graph_name]={}
 
             fake_labels= tf.concat( cc.list_labels(),-1 )
-            tf.summary.histogram(graph_name+'/fake_labels',fake_labels)
+            #tf.summary.histogram(graph_name+'/fake_labels',fake_labels)
+            label_summary(fake_labels,'fake_labels')
 
             if graph_name.startswith('W_'):
                 if graph_name.startswith('W_int'):
@@ -273,6 +412,9 @@ if __name__=='__main__':
                 Discriminator=discriminatorW #same but no minibatch
                 DCC_real, DCC_real_logits = Discriminator(rl,reuse=False)
                 DCC_fake, DCC_fake_logits = Discriminator(fake_labels, reuse=True)
+
+                ccs[graph_name]['dcc_real']=DCC_real
+                ccs[graph_name]['dcc_fake']=DCC_fake
 
                 d_loss=tf.reduce_mean(DCC_fake_logits) - tf.reduce_mean(DCC_real_logits)
                 c_loss=-tf.reduce_mean(DCC_fake_logits)
@@ -299,6 +441,8 @@ if __name__=='__main__':
                 DCC_fake, DCC_fake_logits = discriminator_CC(fake_labels, reuse=True)
 
                 ccs[graph_name]['gp']=0.
+                ccs[graph_name]['dcc_real']=DCC_real
+                ccs[graph_name]['dcc_fake']=DCC_fake
 
                 dcc_loss_real = tf.reduce_mean(sxe(DCC_real_logits,1))
                 dcc_loss_fake = tf.reduce_mean(sxe(DCC_fake_logits,0))
@@ -325,25 +469,39 @@ if __name__=='__main__':
     #for w in Wd_vars:
     #    print w.name
 
+    step=tf.Variable(0.,'step')
 
-    c_optim = tf.train.AdamOptimizer(0.00008).minimize(total_c_loss,var_list=c_vars)
+    c_optim = tf.train.AdamOptimizer(0.00008).minimize(total_c_loss,var_list=c_vars,global_step=step)
     d_optim = tf.train.AdamOptimizer(0.00008).minimize(total_d_loss,var_list=d_vars)
     Wd_optim = tf.train.AdamOptimizer(0.00008).minimize(total_d_loss,var_list=Wd_vars)
 
 
-    for key in ['c_loss','d_loss','D_on_fake']:
+    for key in ['c_loss','d_loss','D_on_fake','gp']:
         with tf.name_scope(key):
             for graph_name in ccs.keys():
                 tf.summary.scalar(graph_name, ccs[graph_name][key])
 
-    sess=tf.Session()
-    sess.run(tf.global_variables_initializer())
 
     summary_op=tf.summary.merge_all()
-    model_dir="./checkpoint/pretrainlogs"
-    writer = SummaryWriter(model_dir, sess.graph)
+    #writer = SummaryWriter(model_dir, sess.graph)
+    writer = tf.summary.FileWriter(model_dir)
     saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1)
 
+    sv = tf.train.Supervisor(logdir=model_dir,
+                            is_chief=True,
+                            saver=saver,
+                            summary_op=None,
+                            summary_writer=writer,
+                            save_model_secs=600,
+                            global_step=step,
+                            ready_for_local_init_op=None)
+
+    gpu_options = tf.GPUOptions(allow_growth=True,per_process_gpu_memory_fraction=0.333)
+    sess_config = tf.ConfigProto(allow_soft_placement=True,gpu_options=gpu_options)
+    sess = sv.prepare_or_wait_for_session(config=sess_config)
+    print 'created session'
+
+    #sess.run(tf.global_variables_initializer())
 
     #if load( checkpoint_dir ):
     #  print(" [*] Load SUCCESS")
@@ -383,20 +541,21 @@ if __name__=='__main__':
         #batch_idxs = min(len(data), config.train_size) // config.batch_size
 
         for idx in xrange(0, batch_idxs):
-            batch_files = data[idx*batch_size:(idx+1)*batch_size]
-            fileNames = [i[-10:] for i in batch_files]
+            #batch_files = data[idx*batch_size:(idx+1)*batch_size]
+            #fileNames = [i[-10:] for i in batch_files]
 
-            int_np_realLabels = np.array([np.hstack(\
-                tuple([attr.loc[i].loc[label_name] for label_name in name_list]))\
-                                    for i in fileNames])
+            #int_np_realLabels = np.array([np.hstack(\
+            #    tuple([attr.loc[i].loc[label_name] for label_name in name_list]))\
+            #                        for i in fileNames])
 
-            np_realLabels = np.array([np.hstack(\
-                tuple([label_mapper(attributes.loc[i].loc[label_name],
-                                    label_name) for label_name in name_list]))\
-                                    for i in fileNames])
+            #np_realLabels = np.array([np.hstack(\
+            #    tuple([label_mapper(attributes.loc[i].loc[label_name],
+            #                        label_name) for label_name in name_list]))\
+            #                        for i in fileNames])
 
-            fd={realLabels:np_realLabels,
-                int_realLabels:int_np_realLabels}#add no noise
+            #fd={realLabels:np_realLabels,
+            #    int_realLabels:int_np_realLabels}#add no noise
+            fd=None
 
             T_summary=30*CRITIC_ITERS
             T_tvd=100*CRITIC_ITERS
