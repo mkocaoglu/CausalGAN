@@ -375,6 +375,7 @@ class DCGAN(object):
     except:
       tf.initialize_all_variables().run()
 
+    print('attempting to load from',self.checkpoint_dir)
     if self.load(self.checkpoint_dir):
       print(" [*] Load SUCCESS")
     else:
@@ -441,7 +442,7 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u 
+      return u
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
       lower, upper, scale = 0, 0.2, 1/25.0
@@ -485,7 +486,8 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    counter = 1
+    #counter = 12000
+    counter = 0
     start_time = time.time()
     #name_list = self.cc.node_names
     name_list = [i[0] for i in self.graph]
@@ -1110,7 +1112,8 @@ class DCGAN(object):
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+    print('attempting to get checkpoint state from:',checkpoint_dir)
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
