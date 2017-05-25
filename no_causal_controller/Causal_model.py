@@ -498,6 +498,7 @@ class DCGAN(object):
         fake_labels_fixed = 0.5+(np.random.random_integers(0 , 1, size=(self.batch_size,len(name_list))) - 0.5)*0.4
         fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.7],[0.3]]), self.batch_size/2 ,axis = 0).reshape(64,)
         fixed_noises[name] = fake_labels_fixed
+        name_id = name_id + 1
     print name_list
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
@@ -615,7 +616,7 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name,self.loss_function))
 
 
-        if np.mod(counter, 4000) == 0:
+        if np.mod(counter, 40) == 0:
           # for name in self.cc.node_names:
           #   do_dict={name:[0.9,-0.9]}
           #   do_dict_name=name
