@@ -616,7 +616,7 @@ class DCGAN(object):
             time.time() - start_time, errD_fake+errD_real, errG, self.graph_name,self.loss_function))
 
 
-        if np.mod(counter, 40) == 0:
+        if np.mod(counter, 4000) == 0:
           # for name in self.cc.node_names:
           #   do_dict={name:[0.9,-0.9]}
           #   do_dict_name=name
