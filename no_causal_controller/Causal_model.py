@@ -493,13 +493,15 @@ class DCGAN(object):
     name_id = 0
     for name in name_list:
         fake_labels_fixed = 0.5+(np.random.random_integers(0 , 1, size=(self.batch_size,len(name_list))) - 0.5)*0.4
-        fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.9],[-0.9]]), self.batch_size/2 ,axis = 0).reshape(64,)
+        fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.7],[0.3]]), self.batch_size/2 ,axis = 0).reshape(64,)
         fixed_noises[name] = fake_labels_fixed
     print name_list
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
         "./data", config.dataset, self.input_fname_pattern))
       batch_idxs = min(len(data), config.train_size) // config.batch_size
+      # last batch has 39 image, drop the last batch
+      batch_idxs = batch_idxs-1
       random_shift = np.random.random_integers(3)-1 # 0,1,2
 
       for idx in xrange(0, batch_idxs):

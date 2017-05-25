@@ -214,16 +214,10 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = gray_causes_young
     elif causal_model == 'young_ind_gray':
         graph = young_ind_gray
-<<<<<<< HEAD
     elif causal_model == 'Male_Young_Eyeglasses':
         graph = Male_Young_Eyeglasses
     elif causal_model == 'Male_Young_Eyeglasses_complete':
         graph = Male_Young_Eyeglasses_complete
-=======
-    elif causal_model=='Male_Young_Eyeglasses':
-        graph=Male_Young_Eyeglasses
-
->>>>>>> ff631e93899ec66b04e5471c7afa0f776e031502
     elif causal_model is 'empty':
         graph=[[],[]]
 

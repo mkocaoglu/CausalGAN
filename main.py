@@ -109,5 +109,5 @@ def main(_):
     visualize(sess, dcgan, FLAGS, OPTION)
 
 if __name__ == '__main__':
-  #main(0)
-  tf.app.run()
+  main(0)
+  #tf.app.run()
