@@ -135,3 +135,9 @@ def crosstab(model,step=None):
             dlf_f.write('\n\n')
 
 
+
+
+###Code to generate tab####
+
+
+

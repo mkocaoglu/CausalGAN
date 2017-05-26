@@ -486,8 +486,8 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    #counter = 12000
-    counter = 0
+    counter = 12000
+    #counter = 0
     start_time = time.time()
     #name_list = self.cc.node_names
     name_list = [i[0] for i in self.graph]

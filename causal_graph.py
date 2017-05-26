@@ -140,6 +140,18 @@ big_causal_graph=[
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
 
+complete_big_causal_graph=[
+        ['Young',[]],
+        ['Male',['Young']],
+        ['Eyeglasses',['Male','Young']],
+        ['Bald',            ['Male','Young','Eyeglasses']],
+        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
+        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
+        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
+        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
+        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
+    ]
+
 male_ind_mustache = [
         ['Male',[]],
         ['Mustache',[]]
@@ -198,6 +210,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = old_big_causal_graph
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
+    elif causal_model == 'complete_big_causal_graph':
+        graph = complete_big_causal_graph
     elif causal_model == 'male_ind_mustache':
         graph = male_ind_mustache
     elif causal_model == 'male_smiling_lipstick':
