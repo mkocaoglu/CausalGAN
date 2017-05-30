@@ -12,6 +12,23 @@ debug = debugger.Pdb().set_trace
 
 
 '''
+Tensorflow's bilinear resizing seemed to be messing up "glasses"
+scipy.misc.resize had a number of methods that performed better.
+Using tensorflow "Area" seemed to do better, but may reduce sharpness
+    resize_method=getattr(tf.image.ResizeMethod,config.resize_method)
+    image=tf.image.resize_images(image,[scale_size,scale_size],
+            method=resize_method)
+
+
+
+tvd for male_mustache_lipstick reached 0.02 tvd in 4k iter
+However, mustache label was not heavily centered around 0,1
+Need to add percentile code to check that out
+
+Also need to change variable name for g_step from 'step' to g_step
+Also consider code that loads a model based on the code in that models directory
+
+
 Added wasserstein as an option during pretraining:
     #Pretrain network
     pretrain_arg=add_argument_group('Pretrain')

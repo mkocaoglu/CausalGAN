@@ -54,7 +54,7 @@ def slerp(val, low, high):
     return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
 
 class Trainer(object):
-    model_name='began'
+    model_type='began'
     def __init__(self, config, data_loader,label_stats):
 
         self.config = config
@@ -78,15 +78,12 @@ class Trainer(object):
         self.batch_size = config.batch_size
         self.separate_labeler=config.separate_labeler
 
-
         if self.config.pretrain_type=='wasserstein':
             self.DCC=DiscriminatorW
         elif self.config.pretrain_type=='gan':
             self.DCC=Discriminator_CC
 
-        if config.is_pretrain:#compatability with old models
-            self.cc_step= tf.Variable(0, name='cc_step', trainable=False)
-        self.step = tf.Variable(0, name='step', trainable=False)
+        self.g_step = tf.Variable(0, name='step', trainable=False)
 
         self.g_lr = tf.Variable(config.g_lr, name='g_lr')
         self.d_lr = tf.Variable(config.d_lr, name='d_lr')
@@ -135,6 +132,12 @@ class Trainer(object):
 
         self.build_model()####multigpu stuff here
 
+        self.pt_var=self.cc.var+self.dcc_var
+        self.pt_saver=tf.train.Saver(var_list=self.pt_var)
+        self.pt_dir=os.path.join(self.model_dir,'pretrain')
+        if config.pt_load_path:
+            self.pt_saver.restor(config.pt_load_path)
+
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
@@ -162,7 +165,7 @@ class Trainer(object):
         #    self.build_test_model()
 
     def pretrain(self):
-        step,global_step=self.sess.run([self.cc_step,self.step])
+        step,global_step=self.sess.run([self.cc.step,self.g_step])
         assert global_step==0,'if pretraining, model should not be trained already'
 
         stats=crosstab(self,report_tvd=True)
@@ -180,7 +183,7 @@ class Trainer(object):
             #one iter causal controller
             fetch_dict = {
                 "pretrain_op": self.pretrain_op,
-                'step':self.cc_step,
+                'step':self.cc.step,
             }
             if step % self.log_step == 0:
                 fetch_dict.update({
@@ -217,6 +220,7 @@ class Trainer(object):
         print('step:',step,'  TVD:',stats['tvd'])
 
 
+
     def train(self):
         #dictionary of fixed z inputs(causal and gen)
         z_fixed = self.sess.run(self.z_fd)
@@ -232,12 +236,7 @@ class Trainer(object):
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
-        do_dict={n:'percentile' for n in self.cc.node_names}
-        cond_dict={n:'percentile' for n in self.cc.node_names}
-        do_dict_name='per'
-        cond_dict_name='per'
 
-        cc_step=self.sess.run(self.cc_step)
         for step in trange(self.start_step, self.max_step):
             fetch_dict = {
                 "train_op": self.train_op,
@@ -258,7 +257,7 @@ class Trainer(object):
 
             if step % self.log_step == 0:
                 self.summary_writer.add_summary(result['summary'],
-                                                result['global_step']+cc_step)
+                                                result['global_step'])
                 self.summary_writer.flush()
 
                 g_loss = result['g_loss']
@@ -279,8 +278,14 @@ class Trainer(object):
             if step % (self.log_step * 100) == 0:
                 self.big_generate()
                 #For now on logits even if noisy_labels=False
-                intervention2d( model, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
-                condition2d( model, cond_dict=cond_dict, cond_dict_name=cond_dict_name, on_logits=True)
+
+                for name,node in self.cc.node_dict.items():
+                    do_dict={name:'percentile'}
+                    cond_dict={name:'percentile'}
+                    do_dict_name='per'+name
+                    cond_dict_name='per'+name
+                    intervention2d( self, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
+                    condition2d( self, cond_dict=cond_dict, cond_dict_name=cond_dict_name, on_logits=True)
 
 
             if step % self.lr_update_step == self.lr_update_step - 1:
@@ -449,7 +454,8 @@ class Trainer(object):
         #end loss
 
         #pretrain:
-        c_grad=self.c_optimizer.compute_gradients(self.c_loss, var_list=self.cc.var)
+        c_grad=self.c_optimizer.compute_gradients(self.c_loss,
+                                                  var_list=self.cc.tr_var)
         dcc_grad=self.dcc_optimizer.compute_gradients(self.dcc_loss,var_list=self.dcc_var)
 
         # Calculate the gradients for the batch of data,
@@ -556,15 +562,19 @@ class Trainer(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-        self.c_optim = self.c_optimizer.apply_gradients(c_grads,global_step=self.cc_step)
+        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
         self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
 
         self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
 
-        g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.step)
+        g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.g_step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
         with tf.control_dependencies([k_update,l_update,z_update]):
             self.train_op=tf.group(g_optim, d_optim)
+
+
+        #used as global indicator
+        self.step= self.g_step+self.cc.step
 
         ##*#* Interesting but pass this time around
         ## Track the moving averages of all trainable
@@ -634,7 +644,7 @@ class Trainer(object):
         #tf.summary.scalar('losslabel/d_fake_absdif',tf.reduce_mean(self.d_absdiff_fake_label))
         #tf.summary.scalar('losslabel/g_absdif',tf.reduce_mean(self.g_absdiff_label))
 
-        #self.summary_op = tf.summary.merge([
+
         tf.summary.image("G", self.G),
         tf.summary.image("AE_G", self.AE_G),
         tf.summary.image("AE_x", self.AE_x),
@@ -710,7 +720,7 @@ class Trainer(object):
 
         all_images=None
         for i in range(nrow):
-            idx,z_fixed = self.sess.run([self.step,self.z_fd])
+            idx,z_fixed = self.sess.run([self.g_step,self.z_fd])
             feed_fixed_z={self.z_fd[k]:val for k,val in z_fixed.items()}
             images = self.sess.run(self.G, feed_dict=feed_fixed_z)
 

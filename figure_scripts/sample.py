@@ -60,10 +60,10 @@ def get_joint(model, do_dict=None, N=50,return_discrete=True,step=''):
 
     labels, d_fake_labels= [],[]
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_fake_labels
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
 
@@ -298,7 +298,6 @@ def did_succeed( output_dict, cond_dict ):
     print('cond_dict:',cond_dict[test_key])
 
 
-    print('WARNING:using hardcoded success condition')
     #definition success:
     def is_win(key):
         cond=np.squeeze(cond_dict[key])
@@ -306,11 +305,9 @@ def did_succeed( output_dict, cond_dict ):
         cond1=np.sign(val)==np.sign(cond)
         cond2=np.abs(val)>np.abs(cond)
 
-        cond1=val<0.8
-        cond2=val>0.6
-
-        #cond1=val<0.6
-        #cond2=val>0.0
+        #print('WARNING:using hardcoded success condition')
+        #cond1=val<0.8
+        #cond2=val>0.6
 
         return cond1*cond2
 
@@ -328,6 +325,7 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
     do_dict is a list of strings or tensors of the form:
     {'Male':1, model.z_gen:[0,1], model.cc.Smiling:[0.1,0.9]}
     '''
+    verbose=False
     if fetch:
         raise ValueError('manual fetch not supported')
 
@@ -382,8 +380,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
 
         #init
         print('WARNING: max_fail too high')
-        #max_fail=100
-        max_fail=10000
+        max_fail=150
+        #max_fail=10000
         n_fails=np.zeros_like(rows)
         remaining_rows=rows.copy()
         completed_rows=[]
@@ -398,12 +396,13 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
         while( len(remaining_rows)>0 ):
             #debug()
             ii+=1
-            print('Iter:',ii)
             #loop
             iter_rows=remaining_rows[:model.batch_size]
-            print('iter_rows:',len(iter_rows),':',iter_rows)
             n_pad = model.batch_size - len(iter_rows)
-            print('n_pad:',n_pad)
+            if verbose:
+                print('Iter:',ii)
+                print('iter_rows:',len(iter_rows),':',iter_rows)
+                print('n_pad:',n_pad)
             #iter_rows.extend( [iter_rows[-1]]*n_pad )#just duplicate
             pad_iter_rows=list(iter_rows)+ ( [iter_rows[-1]]*n_pad )
 
@@ -416,15 +415,16 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
             out=model.sess.run(fetch_dict, fed)
 
             bool_pass = did_succeed(out,cond)[:len(iter_rows)]
-            print('bool_pass:',len(bool_pass),':',bool_pass)
+            if verbose:
+                print('bool_pass:',len(bool_pass),':',bool_pass)
             pass_idx=iter_rows[bool_pass]
             fail_idx=iter_rows[~bool_pass]
 
 
             good_rows=set( iter_rows[bool_pass] )
-            print('good_rows',good_rows)
+            #print('good_rows',good_rows)
             bad_rows=set( rows[ n_fails>=max_fail ] )
-            print('bad_rows',bad_rows)
+            #print('bad_rows',bad_rows)
 
             #yuck
             for key in out:
@@ -437,7 +437,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
                 for idx_giveup in bad_rows:
                     shape=fetch_dict[key].get_shape().as_list()[1:]
                     outputs[key][idx_giveup]=np.zeros(shape)
-                    print('key:',key,' shape giveup:',shape)
+                    if verbose:
+                        print('key:',key,' shape giveup:',shape)
 
 
             ##Remove rows
@@ -445,6 +446,7 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
 
             #debug()
 
+            print('conditioning took',ii,' tries')
             print('n_fails:10',n_fails[:10])
 
         #Tempory since for now we are only interested in 'G'
@@ -542,11 +544,11 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
 
 
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         result_dir=model.model_dir
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         print 'DCGAN'
         result_dir=model.checkpoint_dir
 
@@ -566,8 +568,7 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     #    cond_file='new'+cond_file #don't overwrite
 
     print '[*] saving condition2d:',cond_file
-    save_figure_images(model.model_name,images,cond_file,size=size)
-
+    save_figure_images(model.model_type,images,cond_file,size=size)
 
 
 def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits=True, step=''):
@@ -601,7 +602,7 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
                 for _ in range(30):
                     data.append(model.sess.run(model.cc.node_dict[key].label_logit))
                 D=np.vstack(data)
-                print('dat',D.flatten())
+                #print('dat',D.flatten())
                 do_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
                 print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
             else:
@@ -645,11 +646,11 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
 
 
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         result_dir=model.model_dir
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         print 'DCGAN'
         result_dir=model.checkpoint_dir
 
@@ -668,15 +669,10 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     #    itv_file='new'+itv_file #don't overwrite
 
     print '[*] saving intervention2d:',itv_file
-    save_figure_images(model.model_name,images,itv_file,size=size)
+    save_figure_images(model.model_type,images,itv_file,size=size)
 
 
 
-
-####
-#def intervention2d(*args,**kwargs):
-#    print('Warning: use image_panel_2d instead of intervention2d in future')
-#    return image_panel_2d(*args,**kwargs)
 
 
 

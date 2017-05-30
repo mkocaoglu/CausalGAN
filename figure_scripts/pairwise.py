@@ -69,7 +69,7 @@ def crosstab(model,step=None,report_tvd=True):
     n_batches=N/model.batch_size
     labels, d_fake_labels= [],[]
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_fake_labels
         #result_dir=os.path.join('began',model.model_dir)
@@ -77,7 +77,7 @@ def crosstab(model,step=None,report_tvd=True):
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
         attr=model.attr[list(model.cc.node_names)]
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
         result_dir=model.checkpoint_dir

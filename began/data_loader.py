@@ -86,13 +86,18 @@ def get_loader(config, root, batch_size, scale_size, data_format,
         #dcgan center-crops input to 108x108, outputs 64x64 #centrally crops it
         image=tf.image.resize_image_with_crop_or_pad(image,108,108)
         #image=tf.image.resize_bilinear(image,[scale_size,scale_size])#must be 4D
+
+        resize_method=getattr(tf.image.ResizeMethod,config.resize_method)
         image=tf.image.resize_images(image,[scale_size,scale_size],
-                method=tf.image.ResizeMethod.BILINEAR)
+                method=resize_method)
         image=tf.image.random_flip_left_right(image)
 
         ##carpedm-began crops to 128x128 starting at (50,25), then resizes to 64x64
         #image=tf.image.crop_to_bounding_box(image, 50, 25, 128, 128)
         #image=tf.image.resize_nearest_neighbor(image, [scale_size, scale_size])
+
+        ##UNTESTED
+        tf.summary.image('real_image',image)#unclear if will bug
 
     if data_format == 'NCHW':
         image = tf.transpose(image, [2, 0, 1])#3D

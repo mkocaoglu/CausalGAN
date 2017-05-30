@@ -15,6 +15,7 @@ def add_argument_group(name):
 
 #Pretrain network
 pretrain_arg=add_argument_group('Pretrain')
+pretrain_arg.add_argument('--pt_load_path', type=str, default='')
 pretrain_arg.add_argument('--is_pretrain',type=str2bool,default=True,
                          help='to do pretraining')
 pretrain_arg.add_argument('--only_pretrain', action='store_true',
@@ -84,6 +85,9 @@ misc_arg.add_argument('--data_dir', type=str, default='data')
 misc_arg.add_argument('--dry_run', action='store_true')
 #misc_arg.add_argument('--dry_run', type=str2bool, default='False')
 misc_arg.add_argument('--is_crop', type=str2bool, default='True')
+misc_arg.add_argument('--resize_method',type=str,default='AREA',choices=['AREA','BILINEAR','BICUBIC','NEAREST_NEIGHBOR'],
+                     help='''methods to resize image to 64x64. AREA seems to work
+                     best, possibly some scipy methods could work better''')
 misc_arg.add_argument('--load_path', type=str, default='')
 misc_arg.add_argument('--log_step', type=int, default=100)
 misc_arg.add_argument('--save_step', type=int, default=5000)

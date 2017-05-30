@@ -162,6 +162,15 @@ Male_Young_Eyeglasses=[
     ['Young',[]],
     ['Eyeglasses',['Male','Young']]]
 
+MYESO=[
+    ['Male',[]],
+    ['Young',['Male']],
+    ['Eyeglasses',['Male','Young']],
+    ['Smiling',['Male','Young','Eyeglasses']],
+    ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Smiling']],
+    ]
+
+
 male_smiling_lipstick=[
        ['Male'   , []],
        ['Wearing_Lipstick'  , ['Male']],
@@ -235,6 +244,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = gray_causes_young
     elif causal_model == 'young_ind_gray':
         graph = young_ind_gray
+    elif causal_model == 'MYESO':
+        graph = MYESO
     elif causal_model == 'Male_Young_Eyeglasses':
         graph = Male_Young_Eyeglasses
     elif causal_model == 'Male_Young_Eyeglasses_complete':
