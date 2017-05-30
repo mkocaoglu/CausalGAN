@@ -1,6 +1,5 @@
 from __future__ import division
 from figure_scripts.pairwise import crosstab
-from figure_scripts.sample import intervention2d
 import os
 import time
 import math
@@ -38,7 +37,7 @@ class DCGAN(object):
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
                z_dim_Image=100, intervene_on = None, graph = None,
-               label_specific_noise = None, is_train = None, loss_function = None):#'big_causal_graph'
+               label_specific_noise = None, is_train = None):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
@@ -92,19 +91,16 @@ class DCGAN(object):
 
     self.dataset_name = dataset_name
     self.input_fname_pattern = input_fname_pattern
-    self.loss_function = loss_function
 
     self.attributes = pd.read_csv("./data/list_attr_celeba.txt",delim_whitespace=True)
     self.means = pd.read_csv("./data/means",header = None)
     self.means = dict(zip(self.means[0],self.means[1]))
     self.intervention_range = {key:[-2*(1-val),2*val] for key,val in self.means.iteritems()}
-    checkpoint_dir = checkpoint_dir + 'loss_f_'+str(self.loss_function)+'/'
+    self.checkpoint_dir = checkpoint_dir
 
     checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     if not os.path.exists(checkpoint_dir):
       os.makedirs(checkpoint_dir)
-    if not os.path.exists(checkpoint_dir+'/train_images/'):
-      os.makedirs(checkpoint_dir+'/train_images/')
     self.checkpoint_dir=checkpoint_dir
 
 
@@ -135,15 +131,13 @@ class DCGAN(object):
     self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
 
     #CC (New)
-    #self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
-    #self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
-    #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
-    self.fake_labels= tf.placeholder(tf.float32, [self.batch_size, self.causal_labels_dim])#tf.concat( self.cc.list_labels(),-1 )
-    self.fake_labels_logits= -tf.log(1/(self.fake_labels+self.TINY)-1) #tf.concat( self.cc.list_label_logits(),-1 )
+    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
+    self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
+    self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
 
     #This part is to make it easy to sample all noise at once
-    #self.z_fd=self.cc.sample_z.copy()#a dictionary: {'Smiling:[0.2,.1,...]}
-    #self.z_fd.update({'z_gen':self.z_gen})
+    self.z_fd=self.cc.sample_z.copy()#a dictionary: {'Smiling:[0.2,.1,...]}
+    self.z_fd.update({'z_gen':self.z_gen})
 
     #This is to match up with your notation:
     self.z_fake_labels=self.fake_labels_logits
@@ -183,7 +177,7 @@ class DCGAN(object):
     print 'inputs:',inputs.get_shape().as_list()
     print 'G:',self.G.get_shape().as_list()
 
-    self.D, self.D_logits = self.discriminator(inputs, self.realLabels)
+    self.D, self.D_logits = self.discriminator(inputs)
     self.D_labels_for_real, self.D_labels_for_real_logits = self.discriminator_labeler(inputs)
 
     #self.sampler = self.sampler(self.z_gen, self.zMale, self.zYoung, self.zSmiling)
@@ -193,7 +187,7 @@ class DCGAN(object):
     self.sampler=self.G
     self.sampler_label=self.fake_labels_logits
 
-    self.D_, self.D_logits_ = self.discriminator(self.G, self.fake_labels, reuse=True)
+    self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
     self.D_labels_for_fake, self.D_labels_for_fake_logits = self.discriminator_labeler(self.G, reuse = True)
     self.d_sum = histogram_summary("d", self.D)
     self.d__sum = histogram_summary("d_", self.D_)
@@ -218,70 +212,49 @@ class DCGAN(object):
     #     #self.g_lossLabels = (self.g_lossLabels_Male + self.g_lossLabels_Young + self.g_lossLabels_Smiling)
 
     #New
-    if self.loss_function == 0:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
-        self.g_lossGAN = tf.reduce_mean(
-          -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-    elif self.loss_function == 1:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
-        self.g_lossGAN = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-    elif self.loss_function == 2:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
-        self.g_lossGAN = tf.reduce_mean(-sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
-    elif self.loss_function == 3:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
-        self.g_lossGAN = tf.reduce_mean(
-          -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-    elif self.loss_function == 4:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
-        self.g_lossGAN = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-    elif self.loss_function == 5:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
-        self.g_lossGAN = tf.reduce_mean(-sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
-    else:
-        raise Exception('should not happen.\
-                        self.loss_function=',self.loss_function)
-    #self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
+    self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
 
     #self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
     #self.g_lossLabels_Smiling_sum = scalar_summary("g_loss_label_smiling", self.g_lossLabels_Smiling)
 
-    # self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels)) # shuffle to avoid any correlated behavior with discriminator
-    # self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
+    self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels)) # shuffle to avoid any correlated behavior with discriminator
+    self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
 
-    # self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
-    # self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
-    # self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
+    self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
+    self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
+    self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
 
     #This is a better way to do summary
     #you don't have to assign them to a variable and group them later
     #the / helps organize them in tensorboard
-    # ave_dcc_real=tf.reduce_mean(self.DCC_real)
-    # std_dcc_real=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_real-self.DCC_real)))
-    # ave_dcc_fake=tf.reduce_mean(self.DCC_fake)
-    # std_dcc_fake=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_fake-self.DCC_fake)))
-    # tf.summary.scalar('dcc/real_dcc_ave',ave_dcc_real)
-    # tf.summary.scalar('dcc/real_dcc_std',std_dcc_real)
-    # tf.summary.scalar('dcc/fake_dcc_ave',ave_dcc_fake)
-    # tf.summary.scalar('dcc/fake_dcc_std',std_dcc_fake)
-    # tf.summary.histogram('dcc/real_hist',self.DCC_real)
-    # tf.summary.histogram('dcc/fake_hist',self.DCC_fake)
+    ave_dcc_real=tf.reduce_mean(self.DCC_real)
+    std_dcc_real=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_real-self.DCC_real)))
+    ave_dcc_fake=tf.reduce_mean(self.DCC_fake)
+    std_dcc_fake=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_fake-self.DCC_fake)))
+    tf.summary.scalar('dcc/real_dcc_ave',ave_dcc_real)
+    tf.summary.scalar('dcc/real_dcc_std',std_dcc_real)
+    tf.summary.scalar('dcc/fake_dcc_ave',ave_dcc_fake)
+    tf.summary.scalar('dcc/fake_dcc_std',std_dcc_fake)
+    tf.summary.histogram('dcc/real_hist',self.DCC_real)
+    tf.summary.histogram('dcc/fake_hist',self.DCC_fake)
 
-    # self.dcc_loss_real_sum = scalar_summary("dcc_loss_real", self.dcc_loss_real)
-    # self.dcc_loss_fake_sum = scalar_summary("dcc_loss_fake", self.dcc_loss_fake)
-    # self.dcc_loss = self.dcc_loss_real+self.dcc_loss_fake
-    # self.dcc_loss_sum = scalar_summary("dcc_loss", self.dcc_loss)
+    self.dcc_loss_real_sum = scalar_summary("dcc_loss_real", self.dcc_loss_real)
+    self.dcc_loss_fake_sum = scalar_summary("dcc_loss_fake", self.dcc_loss_fake)
+    self.dcc_loss = self.dcc_loss_real+self.dcc_loss_fake
+    self.dcc_loss_sum = scalar_summary("dcc_loss", self.dcc_loss)
 
     self.d_loss_real = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
     self.d_loss_fake = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
+    self.g_lossGAN = tf.reduce_mean(
+      -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
 
     self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
-    #self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
+    self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
 
     self.d_labelLossReal = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))    #self.d_labelLossFake = tf.reduce_mean(
 
@@ -298,10 +271,10 @@ class DCGAN(object):
     self.dl_vars = [var for var in t_vars if 'disc_labeler' in var.name ]
     self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
     self.g_vars = [var for var in t_vars if 'generator' in var.name ]
-    # self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
-    # self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
+    self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
+    self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
     #make sure working:(delete later)
-    #print 'you have ',len(self.c_vars),' many causal weights'
+    print 'you have ',len(self.c_vars),' many causal weights'
     #OLD
     #self.c_vars = [var for var in t_vars if 'c_' in var.name ]
 
@@ -315,43 +288,43 @@ class DCGAN(object):
     self.D_fake_labels_list= tf.unstack(self.D_labels_for_fake,axis=1)
     self.D_real_labels_list= tf.unstack(self.D_labels_for_real,axis=1)
 
-    # LabelList=[self.cc.nodes,self.real_labels_list,
-    #            self.D_fake_labels_list,self.D_real_labels_list]
-    # for node,rlabel,d_fake_label,d_real_label in zip(*LabelList):
-    #     with tf.name_scope(node.name):
-    #         ##CC summaries:
-    #         ave_label=tf.reduce_mean(node.label)
-    #         std_label=tf.sqrt(tf.reduce_mean(tf.square(node.label-ave_label)))
-    #         tf.summary.scalar('ave',ave_label)
-    #         tf.summary.scalar('std',std_label)
-    #         tf.summary.histogram('fake_label_hist',node.label)
+    LabelList=[self.cc.nodes,self.real_labels_list,
+               self.D_fake_labels_list,self.D_real_labels_list]
+    for node,rlabel,d_fake_label,d_real_label in zip(*LabelList):
+        with tf.name_scope(node.name):
+            ##CC summaries:
+            ave_label=tf.reduce_mean(node.label)
+            std_label=tf.sqrt(tf.reduce_mean(tf.square(node.label-ave_label)))
+            tf.summary.scalar('ave',ave_label)
+            tf.summary.scalar('std',std_label)
+            tf.summary.histogram('fake_label_hist',node.label)
 
-    #         ##Disc summaries
-    #         d_flabel=tf.cast(tf.round(d_fake_label),tf.int32)
-    #         d_rlabel=tf.cast(tf.round(d_real_label),tf.int32)
-    #         f_acc=tf.contrib.metrics.accuracy(tf.cast(tf.round(node.label),tf.int32),d_flabel)
-    #         r_acc=tf.contrib.metrics.accuracy(tf.cast(tf.round(rlabel),tf.int32),d_rlabel)
+            ##Disc summaries
+            d_flabel=tf.cast(tf.round(d_fake_label),tf.int32)
+            d_rlabel=tf.cast(tf.round(d_real_label),tf.int32)
+            f_acc=tf.contrib.metrics.accuracy(tf.cast(tf.round(node.label),tf.int32),d_flabel)
+            r_acc=tf.contrib.metrics.accuracy(tf.cast(tf.round(rlabel),tf.int32),d_rlabel)
 
-    #         ave_d_fake_label=tf.reduce_mean(d_fake_label)
-    #         std_d_fake_label=tf.sqrt(tf.reduce_mean(tf.square(d_fake_label-ave_d_fake_label)))
+            ave_d_fake_label=tf.reduce_mean(d_fake_label)
+            std_d_fake_label=tf.sqrt(tf.reduce_mean(tf.square(d_fake_label-ave_d_fake_label)))
 
-    #         ave_d_real_label=tf.reduce_mean(d_real_label)
-    #         std_d_real_label=tf.sqrt(tf.reduce_mean(tf.square(d_real_label-ave_d_real_label)))
+            ave_d_real_label=tf.reduce_mean(d_real_label)
+            std_d_real_label=tf.sqrt(tf.reduce_mean(tf.square(d_real_label-ave_d_real_label)))
 
-    #         tf.summary.scalar('ave_d_fake_abs_diff',tf.reduce_mean(tf.abs(node.label-d_fake_label)))
-    #         tf.summary.scalar('ave_d_real_abs_diff',tf.reduce_mean(tf.abs(rlabel-d_real_label)))
+            tf.summary.scalar('ave_d_fake_abs_diff',tf.reduce_mean(tf.abs(node.label-d_fake_label)))
+            tf.summary.scalar('ave_d_real_abs_diff',tf.reduce_mean(tf.abs(rlabel-d_real_label)))
 
-    #         tf.summary.scalar('ave_d_fake_label',ave_d_fake_label)
-    #         tf.summary.scalar('std_d_fake_label',std_d_fake_label)
-    #         tf.summary.scalar('ave_d_real_label',ave_d_real_label)
-    #         tf.summary.scalar('std_d_real_label',std_d_real_label)
+            tf.summary.scalar('ave_d_fake_label',ave_d_fake_label)
+            tf.summary.scalar('std_d_fake_label',std_d_fake_label)
+            tf.summary.scalar('ave_d_real_label',ave_d_real_label)
+            tf.summary.scalar('std_d_real_label',std_d_real_label)
 
-    #         tf.summary.histogram('d_fake_label',d_fake_label)
-    #         tf.summary.histogram('d_real_label',d_real_label)
+            tf.summary.histogram('d_fake_label',d_fake_label)
+            tf.summary.histogram('d_real_label',d_real_label)
 
-    #         tf.summary.scalar('real_label_ave',tf.reduce_mean(rlabel))
-    #         tf.summary.scalar('real_label_accuracy',r_acc)
-    #         tf.summary.scalar('fake_label_accuracy',f_acc)
+            tf.summary.scalar('real_label_ave',tf.reduce_mean(rlabel))
+            tf.summary.scalar('real_label_accuracy',r_acc)
+            tf.summary.scalar('fake_label_accuracy',f_acc)
 
 
   def train(self, config):
@@ -364,18 +337,17 @@ class DCGAN(object):
               .minimize(self.d_loss, var_list=self.d_vars)
     g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.g_loss, var_list=self.g_vars)
-    # #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    # c_optim = tf.train.AdamOptimizer(0.00008) \
-    #           .minimize(self.c_loss, var_list=self.c_vars)
-    # #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    # dcc_optim = tf.train.AdamOptimizer(0.00008) \
-    #           .minimize(self.dcc_loss, var_list=self.dcc_vars)
+    #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    c_optim = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.c_loss, var_list=self.c_vars)
+    #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+    dcc_optim = tf.train.AdamOptimizer(0.00008) \
+              .minimize(self.dcc_loss, var_list=self.dcc_vars)
     try:
       tf.global_variables_initializer().run()
     except:
       tf.initialize_all_variables().run()
 
-    print('attempting to load from',self.checkpoint_dir)
     if self.load(self.checkpoint_dir):
       print(" [*] Load SUCCESS")
     else:
@@ -434,7 +406,7 @@ class DCGAN(object):
 
     def clamp(x, lower, upper):
       return max(min(upper, x), lower)
-
+    
     def p_dependent_noise(u,name):
       p = self.means[name]
       u = 0.5*(np.array(u)+1)
@@ -442,16 +414,13 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u
+      return u 
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
-      lower, upper, scale = 0, 0.2, 1/25.0
+      lower, upper, scale = 0, 0.2, 1/2.0
       t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
       s = t.rvs(1)
-      lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
-      t_tail = stats.truncexpon(b=(upper_tail-lower_tail)/scale_tail, loc=lower, scale=scale_tail)
-      s_tail = t_tail.rvs(1)
-      u = u + ((0.5-u)/0.2)*s + ((-0.5+u)/0.2)*s_tail
+      u = u + ((0.5-u)/0.2)*s
       # u = 0.5*(np.array(u)+1)
       # if u == 1:
       #   u = 0.5 + np.random.uniform(0, 0.3, 1).astype(np.float32)
@@ -460,11 +429,10 @@ class DCGAN(object):
       return u
 
     def label_mapper(u,name):
-      return 0.5+np.array(u)*0.2
-      # if self.label_specific_noise:
-      #   return p_dependent_noise(u,name)
-      # else:
-      #   return p_independent_noise(u)
+      if self.label_specific_noise:
+        return p_dependent_noise(u,name)
+      else:
+        return p_independent_noise(u)
 
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
@@ -487,60 +455,20 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    counter = 12000
-    #counter = 0
+    counter = 1
     start_time = time.time()
-    #name_list = self.cc.node_names
-    name_list = [i[0] for i in self.graph]
-    # Fixed noise vectors for visualization:
-    fixed_noises = {}
-    z_gen_fixed = {}
-    name_id = 0
-    for name in name_list:
-        dum = np.random.uniform(-0.5, 0.5, size=(1, self.z_gen_dim))
-        z_gen_fixed[name] = np.tile(dum,[self.batch_size,1])
-        sub = self.attributes[self.attributes[name] == 1]
-        l = sub.shape[0]
-        pointer = np.random.random_integers(0,l-33,1)[0]
-        # print "l is: "+str(l) 
-        # print "pointer is: "+ str(pointer)
-        fake_labels_fixed = np.ones((self.batch_size,len(name_list)))
-        name_id2 = 0
-        for name2 in name_list:
-            # print name2
-            # print sub[name2].shape
-            fake_labels_fixed[0:32,name_id2] = 0.5 + 0.2*sub[name2][pointer:pointer+32].values.reshape((32,))
-            name_id2 = name_id2 + 1
-        sub = self.attributes[self.attributes[name] == -1]
-        l = sub.shape[0]
-        pointer = np.random.random_integers(0,l-33,1)[0]
-        # print "l is: "+str(l) 
-        # print "pointer is: "+ str(pointer)
-        name_id2 = 0
-        for name2 in name_list:
-            # print name2
-            # print sub[name2].shape
-            fake_labels_fixed[32:64,name_id2] = 0.5 + 0.2*sub[name2][pointer:pointer+32].values.reshape((32,))
-            name_id2 = name_id2 + 1
-        #fake_labels_fixed = 0.5+(np.random.random_integers(0 , 1, size=(self.batch_size,len(name_list))) - 0.5)*0.4
-        #fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.7],[0.3]]), self.batch_size/2 ,axis = 0).reshape(64,)
-        fixed_noises[name] = fake_labels_fixed
-        name_id = name_id + 1
+    name_list = self.cc.node_names
     print name_list
     for epoch in xrange(config.epoch):
       data = glob(os.path.join(
         "./data", config.dataset, self.input_fname_pattern))
       batch_idxs = min(len(data), config.train_size) // config.batch_size
-      # last batch has 39 image, drop the last batch
-      batch_idxs = batch_idxs-1
       random_shift = np.random.random_integers(3)-1 # 0,1,2
 
       for idx in xrange(0, batch_idxs):
-        idx2 = np.random.random_integers(batch_idxs)
         batch_files = data[idx*config.batch_size:(idx+1)*config.batch_size]
-        batch_files_labels = data[idx2*config.batch_size:(idx2+1)*config.batch_size]
         fileNames = [i[-10:] for i in batch_files]
-        fileNames_labels = [i[-10:] for i in batch_files_labels]
+
         #realLabels = 2*np.array([(self.attributes.loc[i].loc['Male'],self.attributes.loc[i].loc['Young'],self.attributes.loc[i].loc['Smiling']) for i in fileNames])-1
         # realLabels = np.array([np.hstack(\
         #     (label_mapper(self.attributes.loc[i].loc['Male'], self.MaleDim,'male'),\
@@ -553,10 +481,6 @@ class DCGAN(object):
             tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list])\
             )\
            for i in fileNames])
-        fakeLabels = np.array([np.hstack(\
-            tuple([label_mapper(self.attributes.loc[i].loc[label_name],label_name) for label_name in name_list])\
-            )\
-           for i in fileNames_labels])
         batch = [
             get_image(batch_file,
                       input_height=self.input_height,
@@ -578,7 +502,6 @@ class DCGAN(object):
         #New, z not needed
         fd= {self.inputs: batch_images,
              self.realLabels:realLabels,
-             self.fake_labels:fakeLabels
              #self.z_gen:    batch_z,
              #self.zMale:    batch_zMale,
              #self.zYoung:   batch_zYoung,
@@ -591,12 +514,11 @@ class DCGAN(object):
         # once every 50 iterations or so, not 6 times per iteration.
         #if epoch < 1:
         #if counter < 5001:
-        #if counter < 10001:
-        if False:#counter < 15001:
+        if counter < 10001:
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
-          _,_,_,summary_str=self.sess.run([c_optim, d_label_optim, dcc_optim, self.summary_op], feed_dict=fd)
+          _,_,_,summary_str=self.sess.run([c_optim,d_label_optim,dcc_optim, self.summary_op], feed_dict=fd)
 
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
@@ -612,20 +534,20 @@ class DCGAN(object):
 
           if np.mod(counter+random_shift, 3) == 0:
 
-            _, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
-            #_, summary_str = self.sess.run([, self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
             #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
             #self.writer.add_summary(summary_str, counter)
             #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
             # Update G network
-            #_, summary_str = self.sess.run([ , self.summary_op], feed_dict=fd)
+            _, summary_str = self.sess.run([ g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
-            _ = self.sess.run([g_optim], feed_dict=fd)
+            _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
           else:
-            _ = self.sess.run([g_optim], feed_dict=fd)
+            _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
@@ -638,19 +560,13 @@ class DCGAN(object):
             [self.d_loss_fake,self.d_loss_real,self.g_loss], feed_dict=fd)
 
         counter += 1
-        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s, loss: %d" \
+        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s" \
           % (epoch, idx, batch_idxs,
-            time.time() - start_time, errD_fake+errD_real, errG, self.graph_name,self.loss_function))
+            time.time() - start_time, errD_fake+errD_real, errG, self.graph_name))
 
 
         if np.mod(counter, 4000) == 0:
-          # for name in self.cc.node_names:
-          #   do_dict={name:[0.9,-0.9]}
-          #   do_dict_name=name
-          #   intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
-          for name in name_list:
-            images = self.sess.run(self.G, feed_dict={self.z_gen:z_gen_fixed[name], self.fake_labels:fixed_noises[name]})
-            save_images(images, [8, 8], self.checkpoint_dir +'/train_images'+'/test_arange_%s%s.png' % (name,counter))
+          #self.save(config.checkpoint_dir, counter)
           self.save(self.checkpoint_dir, counter)
 
 
@@ -694,7 +610,7 @@ class DCGAN(object):
     r = ( (1-m)*(1-y)*(1-s)/p1 + (1-m)*(1-y)*(s)/p2 + (1-m)*(y)*(1-s)/p3 + (1-m)*(y)*(s)/p4 \
         + (m)*(1-y)*(1-s)/p5 +     (m)*(1-y)*(s)/p6 +  (m)*(y)*(1-s)/p7 + (m)*(y)*(s)/p8 )/total
     return r
-  def discriminator(self, image, labels, reuse=False):
+  def discriminator(self, image, reuse=False):
     with tf.variable_scope("discriminator") as scope:
       if reuse:
         scope.reuse_variables()
@@ -744,19 +660,15 @@ class DCGAN(object):
       # print shape
       # print shape_
       #image (16,64,64,3)
-      labels = tf.expand_dims(labels,1)
-      labels = tf.expand_dims(labels,1) # [64,1,1,8]
-      labels = tf.tile(labels,[1,64,64,1]) # [64,64,64,8]
-      h00 = tf.concat([image, labels],3) # labels added as new color channels
-      h0 = lrelu(conv2d(h00, self.df_dim, name='d_h0_conv'))#16,32,32,64
+      h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))#16,32,32,64
       h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv')))#16,16,16,128
       h1 = add_minibatch_features(h1, self.df_dim, self.batch_size)#now put minibatch here
       h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv')))#16,16,16,248
       h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, name='d_h3_conv')))
       h3_flat=tf.reshape(h3, [self.batch_size, -1])
       h4 = linear(h3_flat, 1, 'd_h3_lin')
-      # D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'd_h3_Label')
-      # D_labels = tf.nn.sigmoid(D_labels_logits)
+      D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'd_h3_Label')
+      D_labels = tf.nn.sigmoid(D_labels_logits)
       return tf.nn.sigmoid(h4), h4 #, D_labels, D_labels_logits
 
   def discriminator_labeler(self, image, reuse=False):
@@ -832,8 +744,9 @@ class DCGAN(object):
       h1 = slim.fully_connected(h0,self.hidden_size,activation_fn=lrelu,scope='dCC_1')
       h1_aug = lrelu(add_minibatch_features_for_labels(h1,self.batch_size),name = 'disc_CC_lrelu')
       h2 = slim.fully_connected(h1_aug,self.hidden_size,activation_fn=lrelu,scope='dCC_2')
-      h3 = slim.fully_connected(h2,1,activation_fn=None,scope='dCC_3')
+      h3 = slim.fully_connected(h2,self.hidden_size,activation_fn=None,scope='dCC_3')
       return tf.nn.sigmoid(h3),h3
+
 
 
 
@@ -1141,8 +1054,7 @@ class DCGAN(object):
 
   def load(self, checkpoint_dir):
     print(" [*] Reading checkpoints...")
-    #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
-    print('attempting to get checkpoint state from:',checkpoint_dir)
+    checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:
       ckpt_name = os.path.basename(ckpt.model_checkpoint_path)

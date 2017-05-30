@@ -1,5 +1,5 @@
 from __future__ import print_function
-
+import pandas as pd
 import os
 import StringIO
 import scipy.misc
@@ -9,9 +9,10 @@ from tqdm import trange
 from itertools import chain
 from collections import deque
 from figure_scripts.pairwise import crosstab
+from figure_scripts.sample import intervention2d,condition2d
 
 from models import *
-from utils import save_image,distribute_input_data
+from utils import save_image,distribute_input_data,summary_stats,make_summary
 
 from IPython.core import debugger
 debug = debugger.Pdb().set_trace
@@ -66,12 +67,25 @@ class Trainer(object):
         Ml=self.label_stats['max_logit'].to_dict()
         self.intervention_range={name:[ml[name],Ml[name]] for name in ml.keys()}
 
+        label_names = zip(*self.graph)[0]
+        label_names=list(label_names)
+        attributes = pd.read_csv(config.attr_file,delim_whitespace=True) #+-1
+        self.attr = 0.5*(attributes+1)[label_names]
+
         self.beta1 = config.beta1
         self.beta2 = config.beta2
         self.optimizer = config.optimizer
         self.batch_size = config.batch_size
         self.separate_labeler=config.separate_labeler
 
+
+        if self.config.pretrain_type=='wasserstein':
+            self.DCC=DiscriminatorW
+        elif self.config.pretrain_type=='gan':
+            self.DCC=Discriminator_CC
+
+        if config.is_pretrain:#compatability with old models
+            self.cc_step= tf.Variable(0, name='cc_step', trainable=False)
         self.step = tf.Variable(0, name='step', trainable=False)
 
         self.g_lr = tf.Variable(config.g_lr, name='g_lr')
@@ -147,6 +161,62 @@ class Trainer(object):
 
         #    self.build_test_model()
 
+    def pretrain(self):
+        step,global_step=self.sess.run([self.cc_step,self.step])
+        assert global_step==0,'if pretraining, model should not be trained already'
+
+        stats=crosstab(self,report_tvd=True)
+
+        def break_pretrain(stats):
+            return (stats['tvd']<self.config.min_tvd)
+
+        while step<self.config.pretrain_iter:
+            if self.config.pretrain_type=='wasserstein':
+                #optimize critic
+                fetch_dict = {"critic_op":self.dcc_optim }
+                for i in range(self.config.n_critic):
+                    result = self.sess.run(fetch_dict)
+
+            #one iter causal controller
+            fetch_dict = {
+                "pretrain_op": self.pretrain_op,
+                'step':self.cc_step,
+            }
+            if step % self.log_step == 0:
+                fetch_dict.update({
+                    "summary": self.summary_op,
+                    "c_loss": self.c_loss,
+                    "dcc_loss": self.dcc_loss,
+                })
+            result = self.sess.run(fetch_dict)
+            if step %(10*self.log_step)==0:
+                stats=crosstab(self,report_tvd=True)
+                print('step:',step,'  TVD:',stats['tvd'])
+                sum_tvd=make_summary('misc/tvd', stats['tvd'])
+                self.summary_writer.add_summary(sum_tvd,result['step']+global_step)
+                if break_pretrain(stats):
+                    print('Completed Pretrain by TVD Qualification')
+                    break
+
+            if step % self.log_step == 0:
+                self.summary_writer.add_summary(result['summary'],
+                                                result['step']+global_step)
+                self.summary_writer.flush()
+
+                c_loss = result['c_loss']
+                dcc_loss = result['dcc_loss']
+                print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}".\
+                      format(step, self.max_step, c_loss, dcc_loss))
+
+            #cleanup
+            step=result['step']
+        else:
+            stats=crosstab(self,report_tvd=True)
+            print('Completed Pretrain by Exhaustin all Pretrain Steps!')
+
+        print('step:',step,'  TVD:',stats['tvd'])
+
+
     def train(self):
         #dictionary of fixed z inputs(causal and gen)
         z_fixed = self.sess.run(self.z_fd)
@@ -162,84 +232,65 @@ class Trainer(object):
         prev_measure = 1
         measure_history = deque([0]*self.lr_update_step, self.lr_update_step)
 
+        do_dict={n:'percentile' for n in self.cc.node_names}
+        cond_dict={n:'percentile' for n in self.cc.node_names}
+        do_dict_name='per'
+        cond_dict_name='per'
+
+        cc_step=self.sess.run(self.cc_step)
         for step in trange(self.start_step, self.max_step):
+            fetch_dict = {
+                "train_op": self.train_op,
+                "measure": self.measure,
+            }
+            if step % self.log_step == 0:
+                fetch_dict.update({
+                    "global_step": self.step,
+                    "summary": self.summary_op,
+                    "g_loss": self.g_loss,
+                    "d_loss": self.d_loss,
+                    "k_t": self.k_t,
+                })
+            result = self.sess.run(fetch_dict)
 
-            if step < 15000:#PRETRAIN CC
-                fetch_dict = {
-                    "pretrain_op": self.pretrain_op,
-                }
-                if step % self.log_step == 0:
-                    fetch_dict.update({
-                        "global_step": self.step,
-                        "summary": self.summary_op,
-                        "c_loss": self.c_loss,
-                        "dcc_loss": self.dcc_loss,
-                    })
-                result = self.sess.run(fetch_dict)
+            measure = result['measure']
+            measure_history.append(measure)
 
-                if step % self.log_step == 0:
-                    self.summary_writer.add_summary(result['summary'], result['global_step'])
-                    self.summary_writer.flush()
+            if step % self.log_step == 0:
+                self.summary_writer.add_summary(result['summary'],
+                                                result['global_step']+cc_step)
+                self.summary_writer.flush()
 
-                    c_loss = result['c_loss']
-                    dcc_loss = result['dcc_loss']
+                g_loss = result['g_loss']
+                d_loss = result['d_loss']
+                k_t = result['k_t']
 
-                    print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}".\
-                          format(step, self.max_step, c_loss, dcc_loss))
+                print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
+                      format(step, self.max_step, d_loss, g_loss, measure, k_t))
 
-                if (step+1) %1000==0:
-                    print('crosstab')
-                    crosstab(self)
+            if step % (self.log_step * 10) == 0:
+                x_fake = self.generate(feed_fixed_z, self.model_dir, idx=step)
+                #self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
+                self.autoencode(data_fixed, self.model_dir, idx=step, x_fake=x_fake)
+
+                self.intervention( z_fixed )
 
 
-            else:#NORMAL TRAINING
-                fetch_dict = {
-                    "train_op": self.train_op,
-                    "measure": self.measure,
-                }
-                if step % self.log_step == 0:
-                    fetch_dict.update({
-                        "global_step": self.step,
-                        "summary": self.summary_op,
-                        "g_loss": self.g_loss,
-                        "d_loss": self.d_loss,
-                        "k_t": self.k_t,
-                    })
-                result = self.sess.run(fetch_dict)
+            if step % (self.log_step * 100) == 0:
+                self.big_generate()
+                #For now on logits even if noisy_labels=False
+                intervention2d( model, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
+                condition2d( model, cond_dict=cond_dict, cond_dict_name=cond_dict_name, on_logits=True)
 
-                measure = result['measure']
-                measure_history.append(measure)
 
-                if step % self.log_step == 0:
-                    self.summary_writer.add_summary(result['summary'], result['global_step'])
-                    self.summary_writer.flush()
-
-                    g_loss = result['g_loss']
-                    d_loss = result['d_loss']
-                    k_t = result['k_t']
-
-                    print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
-                          format(step, self.max_step, d_loss, g_loss, measure, k_t))
-
-                if step % (self.log_step * 10) == 0:
-                    x_fake = self.generate(feed_fixed_z, self.model_dir, idx=step)
-                    #self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
-                    self.autoencode(data_fixed, self.model_dir, idx=step, x_fake=x_fake)
-
-                    self.intervention( z_fixed )
-
-                if step % (self.log_step * 100) == 0:
-                    self.big_generate()
-
-                if step % self.lr_update_step == self.lr_update_step - 1:
-                    self.sess.run([self.g_lr_update, self.d_lr_update])
-                    #cur_measure = np.mean(measure_history)
-                    #if cur_measure > prev_measure * 0.99:
-                    #prev_measure = cur_measure
+            if step % self.lr_update_step == self.lr_update_step - 1:
+                self.sess.run([self.g_lr_update, self.d_lr_update])
+                #cur_measure = np.mean(measure_history)
+                #if cur_measure > prev_measure * 0.99:
+                #prev_measure = cur_measure
 
 
     def build_tower(self,data_loader):
-
         #This is just to see if two copies get made
         #since I wasn't using tf.get_variable()
         #self.debug_var=tf.Variable(1.0,'DEBUG')
@@ -264,9 +315,9 @@ class Trainer(object):
         self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
         #print('shape of fake_labels:',self.fake_labels.get_shape().as_list())
 
-
-        self.dcc_real,self.dcc_real_logit,self.dcc_var0=Discriminator_CC(self.real_labels,self.batch_size)
-        self.dcc_fake,self.dcc_fake_logit,self.dcc_var=Discriminator_CC(self.fake_labels,self.batch_size,reuse=True)
+        n_hidden=self.config.critic_hidden_size
+        self.dcc_real,self.dcc_real_logit,self.dcc_var0=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
+        self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,reuse=True,n_hidden=n_hidden)
 
         #z_num is 64 or 128 in paper
         self.z_gen = tf.random_uniform(
@@ -330,15 +381,28 @@ class Trainer(object):
             return tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=logits,labels=labels)
 
-        #pretrain:
-        self.dcc_xe_real=sxe(self.dcc_real_logit,1)
-        self.dcc_xe_fake=sxe(self.dcc_fake_logit,0)
-        self.dcc_loss_real=tf.reduce_mean(self.dcc_xe_real)
-        self.dcc_loss_fake=tf.reduce_mean(self.dcc_xe_fake)
-        self.dcc_loss=self.dcc_loss_real+self.dcc_loss_fake
 
-        self.c_xe_fake=sxe(self.dcc_fake_logit,1)
-        self.c_loss=tf.reduce_mean(self.c_xe_fake)
+        #pretrain
+        if self.config.pretrain_type=='gan':
+            print('WARNING: I dont think I implemented the correct disc. see\
+                  pretrain analysis')
+            self.dcc_xe_real=sxe(self.dcc_real_logit,1)
+            self.dcc_xe_fake=sxe(self.dcc_fake_logit,0)
+            self.dcc_loss_real=tf.reduce_mean(self.dcc_xe_real)
+            self.dcc_loss_fake=tf.reduce_mean(self.dcc_xe_fake)
+            self.dcc_loss=self.dcc_loss_real+self.dcc_loss_fake
+            self.c_xe_fake=sxe(self.dcc_fake_logit,1)
+            self.c_loss=tf.reduce_mean(self.c_xe_fake)
+        elif self.config.pretrain_type=='wasserstein':
+            self.dcc_diff = self.dcc_fake_logit - self.dcc_real_logit
+            self.dcc_gan_loss=tf.reduce_mean(self.dcc_diff)
+            self.dcc_grad_loss,self.dcc_slopes=Grad_Penalty(self.real_labels,self.fake_labels,self.DCC,self.config)
+            self.dcc_loss=self.dcc_gan_loss+self.dcc_grad_loss
+            self.c_loss=-tf.reduce_mean(self.dcc_fake_logit)
+
+        else:
+            raise ValueError('shouldnt happen')
+
 
         self.d_xe_real_label=sxe(self.D_real_labels_logits,self.real_labels)
         self.d_xe_fake_label=sxe(self.D_fake_labels_logits,self.fake_labels)
@@ -347,7 +411,6 @@ class Trainer(object):
         #self.d_loss_real_label = tf.reduce_mean(self.d_xe_real_label)
         #self.d_loss_fake_label = tf.reduce_mean(self.d_xe_fake_label)
         #self.g_loss_label=tf.reduce_mean(self.g_xe_label)
-
 
         self.d_absdiff_real_label=tf.abs(self.D_real_labels  - self.real_labels)
         self.d_absdiff_fake_label=tf.abs(self.D_fake_labels  - self.fake_labels)
@@ -493,9 +556,10 @@ class Trainer(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-        c_optim = self.g_optimizer.apply_gradients(c_grads, global_step=self.step)
-        dcc_optim = self.g_optimizer.apply_gradients(dcc_grads)
-        self.pretrain_op = tf.group(c_optim,dcc_optim)
+        self.c_optim = self.c_optimizer.apply_gradients(c_grads,global_step=self.cc_step)
+        self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
+
+        self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
 
         g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
@@ -511,16 +575,6 @@ class Trainer(object):
         ## train op.
         #train_op = tf.group(apply_gradient_op, variables_averages_op)
 
-        ave_dcc_real=tf.reduce_mean(self.dcc_real)
-        std_dcc_real=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_real-self.dcc_real)))
-        ave_dcc_fake=tf.reduce_mean(self.dcc_fake)
-        std_dcc_fake=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_fake-self.dcc_fake)))
-        tf.summary.scalar('dcc/real_dcc_ave',ave_dcc_real)
-        tf.summary.scalar('dcc/real_dcc_std',std_dcc_real)
-        tf.summary.scalar('dcc/fake_dcc_ave',ave_dcc_fake)
-        tf.summary.scalar('dcc/fake_dcc_std',std_dcc_fake)
-        tf.summary.histogram('dcc/real_hist',self.dcc_real)
-        tf.summary.histogram('dcc/fake_hist',self.dcc_fake)
 
 
         #Label summaries
@@ -528,6 +582,7 @@ class Trainer(object):
                    self.D_fake_labels_list,self.D_real_labels_list]
         for node,rlabel,d_fake_label,d_real_label in zip(*LabelList):
             with tf.name_scope(node.name):
+                #TODO:replace with summary_stats
 
                 ##CC summaries:
                 ave_label=tf.reduce_mean(node.label)
@@ -588,8 +643,19 @@ class Trainer(object):
         tf.summary.scalar("loss/d_loss_fake", self.d_loss_fake),
         tf.summary.scalar("loss/g_loss", self.g_loss),
 
-        tf.summary.scalar('loss/dcc_real_loss',self.dcc_loss_real)
-        tf.summary.scalar('loss/dcc_fake_loss',self.dcc_loss_fake)
+        if self.config.pretrain_type=='gan':
+            summary_stats('dcc/real_dcc',self.dcc_real,hist=True)
+            summary_stats('dcc/fake_dcc',self.dcc_fake,hist=True)
+            tf.summary.scalar('loss/dcc_real_loss',self.dcc_loss_real)
+            tf.summary.scalar('loss/dcc_fake_loss',self.dcc_loss_fake)
+
+        elif self.config.pretrain_type=='wasserstein':
+            summary_stats('dcc/real_dcc_logit',self.dcc_real_logit,hist=True)
+            summary_stats('dcc/fake_dcc_logit',self.dcc_fake_logit,hist=True)
+            summary_stats('dcc/slopes',self.dcc_slopes,hist=True)
+            summary_stats('dcc/gan_loss',self.dcc_gan_loss)
+            summary_stats('dcc/grad_loss',self.dcc_grad_loss)
+
         tf.summary.scalar('loss/c_loss',self.c_loss)
 
         tf.summary.scalar("misc/d_lr", self.d_lr),

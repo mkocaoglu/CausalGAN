@@ -140,6 +140,18 @@ big_causal_graph=[
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
 
+complete_big_causal_graph=[
+        ['Young',[]],
+        ['Male',['Young']],
+        ['Eyeglasses',['Male','Young']],
+        ['Bald',            ['Male','Young','Eyeglasses']],
+        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
+        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
+        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
+        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
+        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
+    ]
+
 male_ind_mustache = [
         ['Male',[]],
         ['Mustache',[]]
@@ -180,6 +192,11 @@ Male_Young_Eyeglasses_complete = [
         ['Young',['Male']],
         ['Eyeglasses',['Male','Young']]
         ]
+male_mustache_lipstick=[
+       ['Male'   , []],
+       ['Mustache', ['Male']],
+       ['Wearing_Lipstick'  , ['Male','Mustache']]
+       ]
 
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
@@ -198,6 +215,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = old_big_causal_graph
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
+    elif causal_model == 'complete_big_causal_graph':
+        graph = complete_big_causal_graph
     elif causal_model == 'male_ind_mustache':
         graph = male_ind_mustache
     elif causal_model == 'male_smiling_lipstick':
@@ -210,6 +229,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = MSO_smiling
     elif causal_model == 'young_causes_gray':
         graph = young_causes_gray
+    elif causal_model == 'male_mustache_lipstick':
+        graph = male_mustache_lipstick
     elif causal_model == 'gray_causes_young':
         graph = gray_causes_young
     elif causal_model == 'young_ind_gray':

@@ -183,7 +183,7 @@ class DCGAN(object):
     print 'inputs:',inputs.get_shape().as_list()
     print 'G:',self.G.get_shape().as_list()
 
-    self.D, self.D_logits = self.discriminator(inputs, self.realLabels)
+    self.D, self.D_logits = self.discriminator(inputs)
     self.D_labels_for_real, self.D_labels_for_real_logits = self.discriminator_labeler(inputs)
 
     #self.sampler = self.sampler(self.z_gen, self.zMale, self.zYoung, self.zSmiling)
@@ -193,7 +193,7 @@ class DCGAN(object):
     self.sampler=self.G
     self.sampler_label=self.fake_labels_logits
 
-    self.D_, self.D_logits_ = self.discriminator(self.G, self.fake_labels, reuse=True)
+    self.D_, self.D_logits_ = self.discriminator(self.G, reuse=True)
     self.D_labels_for_fake, self.D_labels_for_fake_logits = self.discriminator_labeler(self.G, reuse = True)
     self.d_sum = histogram_summary("d", self.D)
     self.d__sum = histogram_summary("d_", self.D_)
@@ -278,7 +278,10 @@ class DCGAN(object):
     self.d_loss_fake = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
 
-    self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
+    print('WARNING: running with glabelloss scaled by 0')
+    self.g_loss = self.g_lossGAN
+    #self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
+
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
     #self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
@@ -460,11 +463,10 @@ class DCGAN(object):
       return u
 
     def label_mapper(u,name):
-      return 0.5+np.array(u)*0.2
-      # if self.label_specific_noise:
-      #   return p_dependent_noise(u,name)
-      # else:
-      #   return p_independent_noise(u)
+      if self.label_specific_noise:
+        return p_dependent_noise(u,name)
+      else:
+        return p_independent_noise(u)
 
     def make_summary(name, val):
       return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
@@ -487,43 +489,19 @@ class DCGAN(object):
       print a
       a.to_csv('Joint')
 
-    counter = 12000
-    #counter = 0
+    #counter = 12000
+    counter = 0
     start_time = time.time()
     #name_list = self.cc.node_names
     name_list = [i[0] for i in self.graph]
     # Fixed noise vectors for visualization:
     fixed_noises = {}
-    z_gen_fixed = {}
+    z_gen_fixed = np.random.uniform(-0.5, 0.5, size=(1, self.z_gen_dim))
+    z_gen_fixed = np.tile(z_gen_fixed,[self.batch_size,1])
     name_id = 0
     for name in name_list:
-        dum = np.random.uniform(-0.5, 0.5, size=(1, self.z_gen_dim))
-        z_gen_fixed[name] = np.tile(dum,[self.batch_size,1])
-        sub = self.attributes[self.attributes[name] == 1]
-        l = sub.shape[0]
-        pointer = np.random.random_integers(0,l-33,1)[0]
-        # print "l is: "+str(l) 
-        # print "pointer is: "+ str(pointer)
-        fake_labels_fixed = np.ones((self.batch_size,len(name_list)))
-        name_id2 = 0
-        for name2 in name_list:
-            # print name2
-            # print sub[name2].shape
-            fake_labels_fixed[0:32,name_id2] = 0.5 + 0.2*sub[name2][pointer:pointer+32].values.reshape((32,))
-            name_id2 = name_id2 + 1
-        sub = self.attributes[self.attributes[name] == -1]
-        l = sub.shape[0]
-        pointer = np.random.random_integers(0,l-33,1)[0]
-        # print "l is: "+str(l) 
-        # print "pointer is: "+ str(pointer)
-        name_id2 = 0
-        for name2 in name_list:
-            # print name2
-            # print sub[name2].shape
-            fake_labels_fixed[32:64,name_id2] = 0.5 + 0.2*sub[name2][pointer:pointer+32].values.reshape((32,))
-            name_id2 = name_id2 + 1
-        #fake_labels_fixed = 0.5+(np.random.random_integers(0 , 1, size=(self.batch_size,len(name_list))) - 0.5)*0.4
-        #fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.7],[0.3]]), self.batch_size/2 ,axis = 0).reshape(64,)
+        fake_labels_fixed = 0.5+(np.random.random_integers(0 , 1, size=(self.batch_size,len(name_list))) - 0.5)*0.4
+        fake_labels_fixed[:,name_id] = np.repeat(np.array([[0.7],[0.3]]), self.batch_size/2 ,axis = 0).reshape(64,)
         fixed_noises[name] = fake_labels_fixed
         name_id = name_id + 1
     print name_list
@@ -609,28 +587,19 @@ class DCGAN(object):
             crosstab(self,counter)#display results
 
         else:
+          _, _, summary_str = self.sess.run([d_optim, g_optim, self.summary_op], feed_dict=fd)
 
-          if np.mod(counter+random_shift, 3) == 0:
+          #_, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
+          #_ = self.sess.run([d_optim], feed_dict=fd)
+          #_ = self.sess.run([d_optim], feed_dict=fd)
+          #_ = self.sess.run([d_optim], feed_dict=fd)
 
-            _, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
-            #self.writer.add_summary(summary_str, counter)
-            #_, summary_str = self.sess.run([, self.summary_op], feed_dict=fd)
-            #_, summary_str = self.sess.run([d_optim, self.summary_op],
-            #  feed_dict={ self.inputs: batch_images, self.realLabels:realLabels, self.fakeLabels:fakeLabels, self.z: batch_z })
-            #self.writer.add_summary(summary_str, counter)
-            #self.writer.add_summary(make_summary('mygamma', self.gamma.eval(self.sess)),counter)          
-            # Update G network
-            #_, summary_str = self.sess.run([ , self.summary_op], feed_dict=fd)
-            #self.writer.add_summary(summary_str, counter)
-            _ = self.sess.run([g_optim], feed_dict=fd)
-            #self.writer.add_summary(summary_str, counter)
-          else:
-            _ = self.sess.run([g_optim], feed_dict=fd)
-            #self.writer.add_summary(summary_str, counter)
-            _, summary_str = self.sess.run([g_optim, self.summary_op], feed_dict=fd)
-            #self.writer.add_summary(summary_str, counter)
-          #Unclear if indentation is correct#I changed it:
-          #self.writer.add_summary(summary_str, counter)
+          #if np.mod(counter+random_shift, 3) == 0:
+          #  _, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
+          #  _ = self.sess.run([d_optim], feed_dict=fd)
+          #else:
+          #  _ = self.sess.run([d_optim], feed_dict=fd)
+          #  _, summary_str = self.sess.run([d_optim, self.summary_op], feed_dict=fd)
         self.writer.add_summary(summary_str, counter)
 
         #do this instead
@@ -649,7 +618,7 @@ class DCGAN(object):
           #   do_dict_name=name
           #   intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
           for name in name_list:
-            images = self.sess.run(self.G, feed_dict={self.z_gen:z_gen_fixed[name], self.fake_labels:fixed_noises[name]})
+            images = self.sess.run(self.G, feed_dict={self.z_gen:z_gen_fixed, self.fake_labels:fixed_noises[name]})
             save_images(images, [8, 8], self.checkpoint_dir +'/train_images'+'/test_arange_%s%s.png' % (name,counter))
           self.save(self.checkpoint_dir, counter)
 
@@ -694,7 +663,7 @@ class DCGAN(object):
     r = ( (1-m)*(1-y)*(1-s)/p1 + (1-m)*(1-y)*(s)/p2 + (1-m)*(y)*(1-s)/p3 + (1-m)*(y)*(s)/p4 \
         + (m)*(1-y)*(1-s)/p5 +     (m)*(1-y)*(s)/p6 +  (m)*(y)*(1-s)/p7 + (m)*(y)*(s)/p8 )/total
     return r
-  def discriminator(self, image, labels, reuse=False):
+  def discriminator(self, image, reuse=False):
     with tf.variable_scope("discriminator") as scope:
       if reuse:
         scope.reuse_variables()
@@ -744,19 +713,15 @@ class DCGAN(object):
       # print shape
       # print shape_
       #image (16,64,64,3)
-      labels = tf.expand_dims(labels,1)
-      labels = tf.expand_dims(labels,1) # [64,1,1,8]
-      labels = tf.tile(labels,[1,64,64,1]) # [64,64,64,8]
-      h00 = tf.concat([image, labels],3) # labels added as new color channels
-      h0 = lrelu(conv2d(h00, self.df_dim, name='d_h0_conv'))#16,32,32,64
+      h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))#16,32,32,64
       h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv')))#16,16,16,128
       h1 = add_minibatch_features(h1, self.df_dim, self.batch_size)#now put minibatch here
       h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv')))#16,16,16,248
       h3 = lrelu(self.d_bn3(conv2d(h2, self.df_dim*8, name='d_h3_conv')))
       h3_flat=tf.reshape(h3, [self.batch_size, -1])
       h4 = linear(h3_flat, 1, 'd_h3_lin')
-      # D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'd_h3_Label')
-      # D_labels = tf.nn.sigmoid(D_labels_logits)
+      D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'd_h3_Label')
+      D_labels = tf.nn.sigmoid(D_labels_logits)
       return tf.nn.sigmoid(h4), h4 #, D_labels, D_labels_logits
 
   def discriminator_labeler(self, image, reuse=False):

@@ -37,6 +37,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
     #and the indices should be filenames
     #and the columns should be labels
     attr_file= glob("{}/*.{}".format(root, 'txt'))[0]
+    setattr(config,'attr_file',attr_file)
     attributes = pd.read_csv(attr_file,delim_whitespace=True) #+-1
     attributes = 0.5*(attributes+1)
 
@@ -49,6 +50,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
 
     label_names=attributes.columns
     num_examples_per_epoch=len(filenames)
+
 
     #-----------
     #DEBUG
@@ -107,7 +109,6 @@ def get_loader(config, root, batch_size, scale_size, data_format,
 
 
     if config.noisy_labels:
-
         #(fixed)Original Murat Noise model
         N=tf.random_uniform([len(p)],-.25,.25,)
         def label_mapper(p,label,N):
@@ -157,6 +158,16 @@ def get_loader(config, root, batch_size, scale_size, data_format,
         #neg_noise=noise*p#U[0,p]
         #pos_noise=1-noise*(1-p)
         #label= label*
+    else:
+        #No noise model!
+        ones=np.ones_like(label_means)
+        label_stats=pd.DataFrame({
+            'mean':label_means,
+            'min_label':0.*ones,
+            'max_label':1.*ones,
+            'min_logit':-100.*ones,
+            'max_logit':100*ones,
+        })
 
 
     #inputs to dictionary:

@@ -96,6 +96,26 @@ male_causes_mustache=[
         ['Mustache',['Male']],
     ]
 
+mustache_causes_male=[
+        ['Male',['Mustache']],
+        ['Mustache',[]],
+    ]
+
+young_causes_gray=[
+        ['Young',[]],
+        ['Gray_Hair',['Young']],
+        ]
+
+gray_causes_young=[
+        ['Young',['Gray_Hair']],
+        ['Gray_Hair',[]],
+        ]
+
+young_ind_gray=[
+        ['Young',[]],
+        ['Gray_Hair',[]],
+        ]
+
 old_big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
@@ -107,7 +127,6 @@ old_big_causal_graph=[
         ['Mouth_Slightly_Open',['Smiling']],
         ['Narrow_Eyes',        ['Smiling']],
     ]
-#old_big_causal_graph=big_causal_graph#fyi
 
 big_causal_graph=[
         ['Young',[]],
@@ -120,25 +139,27 @@ big_causal_graph=[
         ['Mouth_Slightly_Open',['Young','Smiling']],
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
     ]
-complete_big_causal_graph=[
-        ['Young',[]],
-        ['Male',['Young']],
-        ['Eyeglasses',['Male','Young']],
-        ['Bald',            ['Male','Young','Eyeglasses']],
-        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
-        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
-        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
-        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
-        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
+
+male_ind_mustache = [
+        ['Male',[]],
+        ['Mustache',[]]
     ]
 
-complete_minimal_graph=[
-        ['Young',[]],
-        ['Male',['Young']],
-        ['Mustache',        ['Male','Young']],
-        ['Wearing_Lipstick',['Male','Young','Mustache']],
-        ['Smiling',         ['Male','Young','Mustache','Wearing_Lipstick']],
-    ]
+Male_Young_Eyeglasses=[
+    ['Male',[]],
+    ['Young',[]],
+    ['Eyeglasses',['Male','Young']]]
+
+male_smiling_lipstick=[
+       ['Male'   , []],
+       ['Wearing_Lipstick'  , ['Male']],
+       ['Smiling', ['Male']]
+       ]
+male_smiling_lipstick_complete=[
+       ['Male'   , []],
+       ['Wearing_Lipstick'  , ['Male']],
+       ['Smiling', ['Male','Wearing_Lipstick']]
+       ]
 
 Smiling_MSO = [
         ['Smiling',[]],
@@ -149,26 +170,19 @@ MSO_smiling = [
         ['Smiling',['Mouth_Slightly_Open']],
         ['Mouth_Slightly_Open',[]]
        ]
-
-male_ind_mustache = [
+Male_Young_Eyeglasses = [
         ['Male',[]],
-        ['Mustache',[]]
-    ]
-
-male_smiling_lipstick=[
-       ['Male'   , []],
-       ['Wearing_Lipstick'  , ['Male']],
-       ['Smiling', ['Male']]
-       ]
-
-male_mustache_lipstick=[
-       ['Male'   , []],
-       ['Mustache', ['Male']],
-       ['Wearing_Lipstick'  , ['Male','Mustache']]
-       ]
-
+        ['Young',[]],
+        ['Eyeglasses',['Male','Young']]
+        ]
+Male_Young_Eyeglasses_complete = [
+        ['Male',[]],
+        ['Young',['Male']],
+        ['Eyeglasses',['Male','Young']]
+        ]
 
 def get_causal_graph(causal_model=None,*args,**kwargs):
+
 
     if causal_model == 'male.young.smiling':
         graph=standard_graph
@@ -178,28 +192,41 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = male_causes_beard
     elif causal_model == 'male_causes_mustache':
         graph = male_causes_mustache
+    elif causal_model == 'mustache_causes_male':
+        graph = mustache_causes_male
+    elif causal_model == 'old_big_causal_graph':
+        graph = old_big_causal_graph
     elif causal_model == 'big_causal_graph':
         graph = big_causal_graph
-    elif causal_model == 'complete_big_causal_graph':
-        graph = complete_big_causal_graph
     elif causal_model == 'male_ind_mustache':
         graph = male_ind_mustache
     elif causal_model == 'male_smiling_lipstick':
         graph = male_smiling_lipstick
+    elif causal_model == 'male_smiling_lipstick_complete':
+        graph = male_smiling_lipstick_complete
     elif causal_model == 'Smiling_MSO':
         graph = Smiling_MSO
     elif causal_model == 'MSO_smiling':
         graph = MSO_smiling
-    elif causal_model == 'male_mustache_lipstick':
-        graph = male_mustache_lipstick
-    elif causal_model == 'new_big_causal_graph':
-        graph = new_big_causal_graph
-
+    elif causal_model == 'young_causes_gray':
+        graph = young_causes_gray
+    elif causal_model == 'gray_causes_young':
+        graph = gray_causes_young
+    elif causal_model == 'young_ind_gray':
+        graph = young_ind_gray
+    elif causal_model == 'Male_Young_Eyeglasses':
+        graph = Male_Young_Eyeglasses
+    elif causal_model == 'Male_Young_Eyeglasses_complete':
+        graph = Male_Young_Eyeglasses_complete
     elif causal_model is 'empty':
         graph=[[],[]]
+
+    #no more #UnboundLocalError: local variable 'graph' referenced before assignment
     else:
         raise ValueError('the specified graph:',causal_model,' was not one of\
                          those listed in ',__file__)
+
+
 
 
     return graph

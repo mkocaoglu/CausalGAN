@@ -11,6 +11,19 @@ import logging
 import numpy as np
 from PIL import Image
 from datetime import datetime
+from tensorflow.core.framework import summary_pb2
+
+def make_summary(name, val):
+    return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
+
+def summary_stats(name,tensor,hist=False):
+    ave=tf.reduce_mean(tensor)
+    std=tf.sqrt(tf.reduce_mean(tf.square(ave-tensor)))
+    tf.summary.scalar(name+'_ave',ave)
+    tf.summary.scalar(name+'_std',std)
+    if hist:
+        tf.summary.histogram(name+'_hist',tensor)
+
 
 def prepare_dirs_and_logger(config):
     formatter = logging.Formatter("%(asctime)s:%(levelname)s::%(message)s")
