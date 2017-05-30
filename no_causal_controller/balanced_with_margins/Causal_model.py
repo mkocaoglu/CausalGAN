@@ -38,7 +38,7 @@ class DCGAN(object):
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
                z_dim_Image=100, intervene_on = None, graph = None,
-               label_specific_noise = None, is_train = None, loss_function = None):#'big_causal_graph'
+               label_specific_noise = None, is_train = None, loss_function = None, label_loss_hyperparameter = None):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
@@ -47,7 +47,13 @@ class DCGAN(object):
     self.model_name = 'dcgan'
     self.batch_size = batch_size
     self.sample_num = sample_num
-
+    self.label_loss_hyperparameter = label_loss_hyperparameter
+    self.k_t = tf.get_variable(name='k_t',initializer=0.,trainable=False) # kt is the closed loop feedback coefficient to balance the loss between LR and LG
+    self.gamma_k = 2.0
+    self.lambda_k = self.label_loss_hyperparameter#0.001
+    self.m_t = tf.get_variable(name='m_t',initializer=0.,trainable=False) # mt is the closed loop feedback coefficient to balance the loss between LL(label losses) and LGAN
+    self.gamma_m = 2.0
+    self.lambda_m =  self.label_loss_hyperparameter#0.001
     self.input_height = input_height
     self.input_width = input_width
     self.output_height = output_height
@@ -98,7 +104,7 @@ class DCGAN(object):
     self.means = pd.read_csv("./data/means",header = None)
     self.means = dict(zip(self.means[0],self.means[1]))
     self.intervention_range = {key:[-2*(1-val),2*val] for key,val in self.means.iteritems()}
-    checkpoint_dir = checkpoint_dir + 'loss_f_'+str(self.loss_function)+'/'
+    checkpoint_dir = checkpoint_dir + '_loss_fcn_'+str(self.loss_function)+'_loss_param_'+str(self.label_loss_hyperparameter)+'/'
 
     checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     if not os.path.exists(checkpoint_dir):
@@ -195,6 +201,9 @@ class DCGAN(object):
 
     self.D_, self.D_logits_ = self.discriminator(self.G, self.fake_labels, reuse=True)
     self.D_labels_for_fake, self.D_labels_for_fake_logits = self.discriminator_labeler(self.G, reuse = True)
+    
+    self.D_gen_labels_for_fake, self.D_gen_labels_for_fake_logits = self.discriminator_gen_labeler(self.G)
+    
     self.d_sum = histogram_summary("d", self.D)
     self.d__sum = histogram_summary("d_", self.D_)
     self.G_sum = image_summary("G", self.G, max_outputs = 10)
@@ -223,7 +232,7 @@ class DCGAN(object):
         self.g_lossGAN = tf.reduce_mean(
           -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
     elif self.loss_function == 1:
-        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
+        self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))        
         self.g_lossGAN = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
     elif self.loss_function == 2:
         self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
@@ -241,6 +250,9 @@ class DCGAN(object):
     else:
         raise Exception('should not happen.\
                         self.loss_function=',self.loss_function)
+    
+    self.g_lossLabels_GLabeler = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_gen_labels_for_fake))
+
     #self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
 
     #self.g_lossLabels_Male_sum = scalar_summary("g_loss_label_male", self.g_lossLabels_Male)
@@ -278,10 +290,18 @@ class DCGAN(object):
     self.d_loss_fake = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
 
-    self.g_loss = self.g_lossGAN + self.g_lossLabels#+ self.c_loss
+    self.g_loss_label_mix = self.g_lossLabels - self.k_t*self.g_lossLabels_GLabeler
+
+    #2*self.g_lossLabels  - tf.minimum(self.g_lossLabels,0.5*self.g_lossLabels+self.label_loss_hyperparameter*self.g_lossLabels_GLabeler)#tf.maximum(self.label_loss_hyperparameter*tf.ones_like(self.g_lossLabels),self.g_lossLabels)#+ self.c_loss
+    self.g_loss = self.g_lossGAN + self.m_t*self.g_loss_label_mix
+    #1.5*self.g_lossGAN + self.g_loss_label_mix - 0.5*tf.minimum(self.g_lossGAN,2*self.g_loss_label_mix)
+    self.g_loss_without_labels = self.g_lossGAN
     self.g_loss_labels_sum = scalar_summary( 'g_loss_label', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
     #self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
+
+    self.k_t_sum = scalar_summary( 'k_t_sum', self.k_t)
+    self.m_t_sum = scalar_summary( 'm_t_sum', self.m_t)
 
     self.d_labelLossReal = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits, self.realLabels))    #self.d_labelLossFake = tf.reduce_mean(
 
@@ -294,7 +314,7 @@ class DCGAN(object):
     self.d_loss_sum = scalar_summary("d_loss", self.d_loss)
 
     t_vars = tf.trainable_variables()
-
+    self.dl_gen_vars = [var for var in t_vars if 'disc_gen_labeler' in var.name ]
     self.dl_vars = [var for var in t_vars if 'disc_labeler' in var.name ]
     self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
     self.g_vars = [var for var in t_vars if 'generator' in var.name ]
@@ -358,12 +378,17 @@ class DCGAN(object):
     """Train DCGAN"""
     data = glob(os.path.join("./data", config.dataset, self.input_fname_pattern))
     #np.random.shuffle(data)
+    d_gen_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+              .minimize(self.g_lossLabels_GLabeler, var_list=self.dl_gen_vars) 
     d_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.d_labelLossReal, var_list=self.dl_vars)
     d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.d_loss, var_list=self.d_vars)
     g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
               .minimize(self.g_loss, var_list=self.g_vars)
+    g_optim_without_labels = tf.train.AdamOptimizer(config.learning_rate,beta1 = config.beta1).minimize(self.g_loss_without_labels,var_list=self.g_vars)
+    k_t_update = tf.assign(self.k_t, tf.clip_by_value(self.k_t + self.lambda_k*(self.gamma_k*self.g_lossLabels - self.g_lossLabels_GLabeler),0.0,1.0)) #tf.constant(0, dtype=tf.float32, name='zero'),tf.constant(1, dtype=tf.float32, name='one')) )
+    m_t_update = tf.assign(self.m_t, tf.clip_by_value(self.m_t + self.lambda_m*(-self.g_lossGAN + self.gamma_m*self.g_loss_label_mix),0.0,1.0))#tf.constant(0, dtype=tf.float32, name='zero'),tf.constant(1, dtype=tf.float32, name='one')) )
     # #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
     # c_optim = tf.train.AdamOptimizer(0.00008) \
     #           .minimize(self.c_loss, var_list=self.c_vars)
@@ -495,8 +520,8 @@ class DCGAN(object):
     z_gen_fixed = {}
     name_id = 0
     for name in name_list:
-        dum = np.random.uniform(-0.5, 0.5, size=(1, self.z_gen_dim))
-        z_gen_fixed[name] = np.tile(dum,[self.batch_size,1])
+        z_gen_fixed[name] = np.random.uniform(-0.5, 0.5, size=(self.batch_size, self.z_gen_dim))
+        #z_gen_fixed[name] = np.tile(dum,[self.batch_size,1])
         sub = self.attributes[self.attributes[name] == 1]
         l = sub.shape[0]
         pointer = np.random.random_integers(0,l-33,1)[0]
@@ -608,9 +633,9 @@ class DCGAN(object):
 
         else:
 
-          if np.mod(counter+random_shift, 3) == 0:
+          if True:#np.mod(counter+random_shift, 3) == 0:
 
-            _, _, _, summary_str = self.sess.run([d_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
+            _, _, _, _, summary_str = self.sess.run([d_label_optim, d_gen_label_optim, d_optim, g_optim, self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             #_, summary_str = self.sess.run([, self.summary_op], feed_dict=fd)
             #_, summary_str = self.sess.run([d_optim, self.summary_op],
@@ -621,6 +646,7 @@ class DCGAN(object):
             #_, summary_str = self.sess.run([ , self.summary_op], feed_dict=fd)
             #self.writer.add_summary(summary_str, counter)
             _ = self.sess.run([g_optim], feed_dict=fd)
+            _, _ = self.sess.run([k_t_update, m_t_update],feed_dict=fd)#,feed_dict = fd)
             #self.writer.add_summary(summary_str, counter)
           else:
             _ = self.sess.run([g_optim], feed_dict=fd)
@@ -636,9 +662,9 @@ class DCGAN(object):
             [self.d_loss_fake,self.d_loss_real,self.g_loss], feed_dict=fd)
 
         counter += 1
-        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s, loss: %d" \
+        print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s, loss: %d, label_loss_hyperparam: %f" \
           % (epoch, idx, batch_idxs,
-            time.time() - start_time, errD_fake+errD_real, errG, self.graph_name,self.loss_function))
+            time.time() - start_time, errD_fake+errD_real, errG, self.graph_name,self.loss_function, self.label_loss_hyperparameter))
 
 
         if np.mod(counter, 4000) == 0:
@@ -742,11 +768,11 @@ class DCGAN(object):
       # print shape
       # print shape_
       #image (16,64,64,3)
-      labels = tf.expand_dims(labels,1)
-      labels = tf.expand_dims(labels,1) # [64,1,1,8]
-      labels = tf.tile(labels,[1,64,64,1]) # [64,64,64,8]
-      h00 = tf.concat([image, labels],3) # labels added as new color channels
-      h0 = lrelu(conv2d(h00, self.df_dim, name='d_h0_conv'))#16,32,32,64
+      #labels = tf.expand_dims(labels,1)
+      #labels = tf.expand_dims(labels,1) # [64,1,1,8]
+      #labels = tf.tile(labels,[1,64,64,1]) # [64,64,64,8]
+      #h00 = tf.concat([image, labels],3) # labels added as new color channels
+      h0 = lrelu(conv2d(image, self.df_dim, name='d_h0_conv'))#16,32,32,64
       h1 = lrelu(self.d_bn1(conv2d(h0, self.df_dim*2, name='d_h1_conv')))#16,16,16,128
       h1 = add_minibatch_features(h1, self.df_dim, self.batch_size)#now put minibatch here
       h2 = lrelu(self.d_bn2(conv2d(h1, self.df_dim*4, name='d_h2_conv')))#16,16,16,248
@@ -771,6 +797,20 @@ class DCGAN(object):
       D_labels = tf.nn.sigmoid(D_labels_logits)
       return D_labels, D_labels_logits
 
+  def discriminator_gen_labeler(self, image, reuse=False):
+    with tf.variable_scope("disc_gen_labeler") as scope:
+      if reuse:
+        scope.reuse_variables()
+
+      h0 = lrelu(conv2d(image, self.df_dim, name='dgl_h0_conv'))#16,32,32,64
+      h1 = lrelu(self.dl_bn1(conv2d(h0, self.df_dim*2, name='dgl_h1_conv')))#16,16,16,128
+      h2 = lrelu(self.dl_bn2(conv2d(h1, self.df_dim*4, name='dgl_h2_conv')))#16,16,16,248
+      h3 = lrelu(self.dl_bn3(conv2d(h2, self.df_dim*8, name='dgl_h3_conv')))
+      h3_flat=tf.reshape(h3, [self.batch_size, -1])
+      D_labels_logits = linear(h3_flat, self.causal_labels_dim, 'dgl_h3_Label')
+      D_labels = tf.nn.sigmoid(D_labels_logits)
+      return D_labels, D_labels_logits
+      
   def independence_checker(self,fake_labels_logits, D_logits_, real_labels_logits, D_logits):
     #with tf.variable_scope("discriminator") as scope:
     ic0_ = tf.tanh(linear(fake_labels_logits,10,'i_checker_fake_linear0'))
