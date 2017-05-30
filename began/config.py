@@ -13,7 +13,25 @@ def add_argument_group(name):
     arg_lists.append(arg)
     return arg
 
-# Network
+#Pretrain network
+pretrain_arg=add_argument_group('Pretrain')
+pretrain_arg.add_argument('--is_pretrain',type=str2bool,default=True,
+                         help='to do pretraining')
+pretrain_arg.add_argument('--only_pretrain', action='store_true',
+                         help='simply complete pretrain and exit')
+pretrain_arg.add_argument('--pretrain_type',type=str,default='gan',choices=['wasserstein','gan'])
+pretrain_arg.add_argument('--lambda_W',type=float,default=0.1,
+                          help='penalty for gradient of W critic')
+pretrain_arg.add_argument('--n_critic',type=int,default=25,
+                          help='number of critic iterations between gen update')
+pretrain_arg.add_argument('--critic_hidden_size',type=int,default=10,
+                         help='hidden_size for critic of discriminator')
+pretrain_arg.add_argument('--min_tvd',type=float,default=0.02,
+                          help='if tvd<min_tvd then stop pretrain')
+pretrain_arg.add_argument('--pretrain_iter',type=int,default=10000,
+                          help='if iter>pretrain_iter then stop pretrain')
+
+#Network
 net_arg = add_argument_group('Network')
 net_arg.add_argument('--input_scale_size', type=int, default=64,
                      help='input image will be resized with the given value as width and height')
@@ -105,5 +123,15 @@ def get_config():
     else:
         data_format = 'NHWC'
     setattr(config, 'data_format', data_format)
+
+    if config.only_pretrain and config.is_train:
+        print('Warning.. is_train=True conflicts with only_pretrain'),
+        print('..setting is_train=False')
+        setattr(config,'is_train',False)
+
     return config, unparsed
+
+if __name__=='__main__':
+    #for debug of config
+    config, unparsed = get_config()
 

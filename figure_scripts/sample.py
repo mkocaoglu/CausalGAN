@@ -488,19 +488,15 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
                 print('Condition dict used:',cond_dict)
 
             elif value=='percentile':
-
                 #fetch=cond2fetch(cond_dict)
-
                 print('...calculating percentile')
                 data=[]
                 for _ in range(30):
                     data.append(model.sess.run(model.cc.node_dict[key].label_logit))
                 D=np.vstack(data)
                 print('dat',D.flatten())
-                #cond_dict[key]=[np.percentile(D,90),np.percentile(D,10)]
-                cond_dict[key]=np.repeat([np.percentile(D,90),np.percentile(D,10)],64)
-                print('percentiles for',key,'are',[np.percentile(D,10),np.percentile(D,90)])
-
+                cond_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
+                print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
 
 
             else:
@@ -574,8 +570,6 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
 
 
 
-
-
 def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits=True, step=''):
     '''
     This function is a wrapper around the more general function "sample".
@@ -600,6 +594,16 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
             if value == 'model_default':
                 itv_min,itv_max=model.intervention_range[key]
                 do_dict[key]=np.linspace(itv_min,itv_max,8)
+
+            elif value=='percentile':
+                print('...calculating percentile')
+                data=[]
+                for _ in range(30):
+                    data.append(model.sess.run(model.cc.node_dict[key].label_logit))
+                D=np.vstack(data)
+                print('dat',D.flatten())
+                do_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
+                print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
             else:
                 #otherwise pass a number, list, or array
                 assert(not isinstance(value,str))

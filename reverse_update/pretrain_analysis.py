@@ -34,98 +34,38 @@ def lrelu(x,leak=0.2,name='lrelu'):
 #from causal_graph import male_causes_beard
 #from causal_graph import get_causal_graph
 
-LAMBDA=0.01
-CRITIC_ITERS = 15
-hidden_size=30
-batch_size=64
-model_dir="./checkpoint/L01_nc15_hs30_bs64_pretrain_complete_big_causal_graph"
-Graphs={
-    'D_complete_big_causal_graph':[
-        ['Young',[]],
-        ['Male',['Young']],
-        ['Eyeglasses',['Male','Young']],
-        ['Bald',            ['Male','Young','Eyeglasses']],
-        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
-        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
-        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
-        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
-        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-    ],
-    'W_int_complete_big_causal_graph':[
-        ['Young',[]],
-        ['Male',['Young']],
-        ['Eyeglasses',['Male','Young']],
-        ['Bald',            ['Male','Young','Eyeglasses']],
-        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
-        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
-        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
-        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
-        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-    ],
-}
 
-#Failed: both lower bounded by 0.2
-#LAMBDA=0.01
-#CRITIC_ITERS = 15
-#hidden_size=30
-#batch_size=64
-#model_dir="./checkpoint/L01_nc15_hs30_bs64_pretrain_complete_big_causal_graph"
-#Graphs={
-#    'D_complete_big_causal_graph':[
-#        ['Young',[]],
-#        ['Male',['Young']],
-#        ['Eyeglasses',['Male','Young']],
-#        ['Bald',            ['Male','Young','Eyeglasses']],
-#        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
-#        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
-#        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
-#        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
-#        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-#    ],
-#    'W_int_complete_big_causal_graph':[
-#        ['Young',[]],
-#        ['Male',['Young']],
-#        ['Eyeglasses',['Male','Young']],
-#        ['Bald',            ['Male','Young','Eyeglasses']],
-#        ['Mustache',        ['Male','Young','Eyeglasses','Bald']],
-#        ['Smiling',         ['Male','Young','Eyeglasses','Bald','Mustache']],
-#        ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
-#        ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
-#        ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-#    ],
-#}
-#
-#model_dir="./checkpoint/completehs100bs256L001nc100onlyintpretrain"
-#Graphs={
-#    'W_int_indep':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',[]],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
-#    'W_int_ScY':[
-#        ['Young',['Smiling']],
-#        ['Male',[]],
-#        ['Smiling',[]],
-#        ['Narrow_Eyes',[]],
-#        ],
-#
-#    'W_int_MxYcS_SxMxYcNE':[
-#        ['Young',[]],
-#        ['Male',[]],
-#        ['Smiling',['Male','Young']],
-#        ['Narrow_Eyes',['Male','Young','Smiling']],
-#        ],
-#
-#    'W_int_YcM_MxYcS_SxMxYcNE':[
-#        ['Young',[]],
-#        ['Male',['Young']],
-#        ['Smiling',['Male','Young']],
-#        ['Narrow_Eyes',['Male','Young','Smiling']],
-#        ],
-#
-#}
+model_dir="./checkpoint/completehs100bs256L001nc100onlyintpretrain"
+Graphs={
+    'W_int_indep':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',[]],
+        ['Narrow_Eyes',[]],
+        ],
+
+    'W_int_ScY':[
+        ['Young',['Smiling']],
+        ['Male',[]],
+        ['Smiling',[]],
+        ['Narrow_Eyes',[]],
+        ],
+
+    'W_int_MxYcS_SxMxYcNE':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Smiling',['Male','Young']],
+        ['Narrow_Eyes',['Male','Young','Smiling']],
+        ],
+
+    'W_int_YcM_MxYcS_SxMxYcNE':[
+        ['Young',[]],
+        ['Male',['Young']],
+        ['Smiling',['Male','Young']],
+        ['Narrow_Eyes',['Male','Young','Smiling']],
+        ],
+
+}
 
 
 
@@ -238,10 +178,10 @@ Graphs={
 #LAMBDA=1.0 # Smaller lambda seems to help for toy tasks specifically
 #LAMBDA=0.1
 LAMBDA=0.01
-CRITIC_ITERS = 15 # How many critic iterations per generator iteration
+CRITIC_ITERS = 100 # How many critic iterations per generator iteration
 
-hidden_size=30
-batch_size=64
+hidden_size=100
+batch_size=256
 
 def discriminator_CC( labels, reuse=False):
     with tf.variable_scope("DCdisc_CC") as scope:
@@ -296,6 +236,7 @@ def prepare_labels( batch_size, do_shuffle=True,num_worker=24,seed=None):
 
     attributes = pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True) #+-1
     attributes = 0.5*(attributes+1)
+
 
     label_names=attributes.columns
     num_examples_per_epoch=len(attributes)
@@ -440,6 +381,7 @@ if __name__=='__main__':
         dat_id=pd.merge(df_dat,df2,on=label_names,how='left')
         dat_counts=pd.value_counts(dat_id['ID'])
         dat_pdf = dat_counts / dat_counts.sum()
+
         #diff=real_pdf-dat_pdf
         diff=real_pdf.subtract(dat_pdf, fill_value=0)
         tvd=0.5*diff.abs().sum()
@@ -453,6 +395,7 @@ if __name__=='__main__':
         print 'graph_name:',graph_name
         with tf.variable_scope(graph_name):
             cc=CausalController(graph,batch_size)
+
             ccs[graph_name]={}
 
             fake_labels= tf.concat( cc.list_labels(),-1 )

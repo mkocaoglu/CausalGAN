@@ -9,12 +9,50 @@ from itertools import combinations
 import sys
 
 
-def crosstab(model,step=None):
+
+
+def calc_tvd(data,attr):
+    '''
+    attr should be a 0,1 pandas dataframe with
+    columns restricted to the graph names
+
+    for example:
+    names=zip(*self.graph)[0]
+    calc_tvd(data,attr[names])
+
+    data should be a numpy array with columns corresponding
+    to the names from the attr dataframe. Rows are samples
+    from the distribution
+    '''
+    ####Calculate Total Variation####
+    if np.min(attr.values)<0:
+        raise ValueError('calc_tvd received \
+                 attr that may not have been in {0,1}')
+
+    df2=attr.drop_duplicates()
+    df2 = df2.reset_index(drop = True).reset_index()
+    df2=df2.rename(columns = {'index':'ID'})
+    real_data_id=pd.merge(attr,df2)
+    real_counts = pd.value_counts(real_data_id['ID'])
+    real_pdf=real_counts/len(attr)
+
+    label_names=list(attr.columns)
+    data=np.round(data)
+    df_dat=pd.DataFrame(columns=label_names,data=data)
+    dat_id=pd.merge(df_dat,df2,on=label_names,how='left')
+    dat_counts=pd.value_counts(dat_id['ID'])
+    dat_pdf = dat_counts / dat_counts.sum()
+    diff=real_pdf.subtract(dat_pdf, fill_value=0)
+    tvd=0.5*diff.abs().sum()
+    return tvd
+
+def crosstab(model,step=None,report_tvd=True):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs
     including the marginals and the pairwise comparisons
 
     '''
+    result={}
     if step is None:
         str_step=''
     else:
@@ -38,10 +76,13 @@ def crosstab(model,step=None):
         result_dir=model.model_dir
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
+        attr=model.attr[list(model.cc.node_names)]
     elif model.model_name=='dcgan':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
         result_dir=model.checkpoint_dir
+        attr=0.5*(model.attributes+1)
+        attr=attr[list(model.cc.names)]
 
     if not os.path.exists(result_dir):
         raise ValueError('result_dir:',result_dir,' does not exist')
@@ -56,6 +97,10 @@ def crosstab(model,step=None):
         lab,dfl=model.sess.run([fake_labels,D_fake_labels])
         labels.append(lab)
         d_fake_labels.append(dfl)
+
+    if report_tvd:
+        tvd=calc_tvd(np.vstack(labels),attr)
+        result['tvd']=tvd
 
     list_labels=np.split( np.vstack(labels),n_labels, axis=1)
     list_d_fake_labels=np.split( np.vstack(d_fake_labels),n_labels, axis=1)
@@ -81,6 +126,8 @@ def crosstab(model,step=None):
 
     #Make a cross table for every pair of labels and save that to csv
     with open(dfl_xtab_fn,'w') as dlf_f, open(lab_xtab_fn,'w') as lab_f, open(gvsd_xtab_fn,'w') as gldf_f:
+        if report_tvd:
+            lab_f.write('TVD:'+str(tvd)+'\n\n')
         dlf_f.write('Marginals:\n')
         lab_f.write('Marginals:\n')
         gldf_f.write('Pairwise g_label vs d_fake\n')
@@ -134,7 +181,7 @@ def crosstab(model,step=None):
             dlf_f.write( dlf_ct.__repr__() )
             dlf_f.write('\n\n')
 
-
+    return result
 
 
 ###Code to generate tab####

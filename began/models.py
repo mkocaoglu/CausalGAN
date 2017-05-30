@@ -219,12 +219,41 @@ def Discriminator_CC(labels,batch_size, reuse=None, n_hidden=10):
         h1 = slim.fully_connected(h0,n_hidden,activation_fn=lrelu,scope='layer1')
         h1_aug = lrelu(add_minibatch_features_for_labels(h1,batch_size))
         h2 = slim.fully_connected(h1_aug,n_hidden,activation_fn=lrelu,scope='layer2')
-        print('WARNING: using n_hidden for im disc_CC output')
+        #print('WARNING: using n_hidden for im disc_CC output')
+        #h3 = slim.fully_connected(h2,n_hidden,activation_fn=None,scope='layer3')
         h3 = slim.fully_connected(h2,n_hidden,activation_fn=None,scope='layer3')
 
     variables = tf.contrib.framework.get_variables(scope)
 
     return tf.nn.sigmoid(h3), h3, variables
+
+def DiscriminatorW(labels,batch_size, reuse=None, n_hidden=10):
+    with tf.variable_scope("WasserDisc") as scope:
+        if reuse:
+            scope.reuse_variables()
+        h0 = slim.fully_connected(labels,n_hidden,activation_fn=lrelu,scope='WD0')
+        h1 = slim.fully_connected(h0,n_hidden,activation_fn=lrelu,scope='WD1')
+        h2 = slim.fully_connected(h1,n_hidden,activation_fn=lrelu,scope='WD2')
+        h3 = slim.fully_connected(h2,1,activation_fn=None,scope='WD3')
+
+        variables = tf.contrib.framework.get_variables(scope)
+        return tf.nn.sigmoid(h3),h3,variables
+
+
+def Grad_Penalty(real_data,fake_data,Discriminator,config):
+    batch_size=config.batch_size
+    LAMBDA=config.lambda_W
+    n_hidden=config.critic_hidden_size
+    #gradient penalty "Improved training of Wasserstein"
+    alpha = tf.random_uniform([batch_size,1],0.,1.)
+    interpolates = alpha*real_data + ((1-alpha)*fake_data)
+    disc_interpolates = Discriminator(interpolates,batch_size,reuse=True,n_hidden=n_hidden)[1]#logits
+    gradients = tf.gradients(disc_interpolates,[interpolates])[0]#orig
+    slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients),
+                           reduction_indices=[1]))
+    gradient_penalty = tf.reduce_mean((slopes-1)**2)
+    grad_cost = LAMBDA*gradient_penalty
+    return grad_cost,slopes
 
 def Discriminator_labeler(image, output_size, repeat_num, hidden_num, data_format):
     with tf.variable_scope("discriminator_labeler") as scope:
