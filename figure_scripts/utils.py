@@ -25,6 +25,48 @@ from six.moves import xrange
 
 pp = pprint.PrettyPrinter()
 
+def nchw_to_nhwc(x):
+    return tf.transpose(x, [0, 2, 3, 1])
+def nhwc_to_nchw(x):
+    return tf.transpose(x, [0, 3, 1, 2])
+
+def to_nhwc(image, data_format):
+    if data_format == 'NCHW':
+        new_image = nchw_to_nhwc(image)
+    else:
+        new_image = image
+    return new_image
+def norm_img(image, data_format=None):
+    image = image/127.5 - 1.
+    if data_format:
+        image = to_nhwc(image, data_format)
+    return image
+def denorm_img(norm, data_format):
+    return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
+
+
+def read_prepared_uint8_image(img_path):
+    '''
+    img_path should point to a uint8 image that is
+    already cropped and resized
+    '''
+    cropped_image=scipy.misc.imread(path)
+    if not np.all( np.array([64,64,3])==cropped_image.shape) 
+        raise ValueError('image must already be cropped and resized:',img_path)
+    #TODO: warn if wrong dtype
+    return cropped_image
+
+def make_encode_dir(model,image_name):
+    #Terminology
+    if model.model_name=='began':
+        result_dir=model.model_dir
+    elif model.model_name=='dcgan':
+        print('DCGAN')
+        result_dir=model.checkpoint_dir
+    encode_dir=os.path.join(result_dir,'encode_'+str(image_name))
+    if not os.path.exists(encode_dir):
+        os.mkdir(encode_dir)
+    return encode_dir
 
 def make_sample_dir(model):
     #Terminology

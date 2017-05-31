@@ -12,6 +12,8 @@ from figure_scripts.pairwise import crosstab
 from figure_scripts.sample import intervention2d,condition2d
 
 from models import *
+from CausalController import CausalController
+
 from utils import save_image,distribute_input_data,summary_stats,make_summary
 
 from IPython.core import debugger
