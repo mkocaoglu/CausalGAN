@@ -37,7 +37,8 @@ class CausalController(object):
             else:
                 NodeClass=CausalNode
 
-            self.step= tf.Variable(0, name='step', trainable=False)
+            print 'WARNING,temporary edit'
+            #self.step= tf.Variable(0, name='step', trainable=False)
 
             NodeClass.batch_size=batch_size
             self.node_names, self.parent_names=zip(*graph)

@@ -97,7 +97,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
         #image=tf.image.resize_nearest_neighbor(image, [scale_size, scale_size])
 
         ##UNTESTED
-        tf.summary.image('real_image',image)#unclear if will bug
+        tf.summary.image('real_image',tf.expand_dims(image,0))#unclear if will bug
 
     if data_format == 'NCHW':
         image = tf.transpose(image, [2, 0, 1])#3D

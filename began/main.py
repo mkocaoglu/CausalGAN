@@ -12,6 +12,18 @@ debug = debugger.Pdb().set_trace
 
 
 '''
+gamma_label was 1.0 instead of 0.5 and this caused d_labeler to never learn the
+labels
+
+#train_arg.add_argument('--gamma_label', type=float, default=1.0)
+train_arg.add_argument('--gamma_label', type=float, default=0.5)
+
+I think I advice gamma_label~1.0 for imperfect continuous pretraining, but 0.5 for
+idealized training e.g.discrete. Also
+TODO: compare the diameter between training labels and real labels. Ratio
+should be normalization number for lambda.
+
+
 Tensorflow's bilinear resizing seemed to be messing up "glasses"
 scipy.misc.resize had a number of methods that performed better.
 Using tensorflow "Area" seemed to do better, but may reduce sharpness

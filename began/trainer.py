@@ -85,6 +85,9 @@ class Trainer(object):
 
         self.g_step = tf.Variable(0, name='step', trainable=False)
 
+        self.cc_step = tf.Variable(0, name='cc_step', trainable=False)
+        self.step=self.cc_step+self.g_step
+
         self.g_lr = tf.Variable(config.g_lr, name='g_lr')
         self.d_lr = tf.Variable(config.d_lr, name='d_lr')
 
@@ -141,6 +144,7 @@ class Trainer(object):
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
+        print('self.model_dir:',self.model_dir)
         sv = tf.train.Supervisor(logdir=self.model_dir,
                                 is_chief=True,
                                 saver=self.saver,
@@ -562,7 +566,9 @@ class Trainer(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
+        print( 'WARNING:temp edit')
+        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc_step)
+        #self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
         self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
 
         self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
@@ -574,7 +580,8 @@ class Trainer(object):
 
 
         #used as global indicator
-        self.step= self.g_step+self.cc.step
+        print( 'WARNING:temp edit')
+        #self.step= self.g_step+self.cc.step
 
         ##*#* Interesting but pass this time around
         ## Track the moving averages of all trainable

@@ -68,6 +68,7 @@ intervention_dicts={
     'MaleLipstick':{  'Male':np.repeat([1.,-1.],4),
                       'Wearing_Lipstick':np.repeat([1,-1],4)},
 
+    'perMale':{'Male':'percentile'},
 
     'd_Young':{'Young':'model_default'},
     'd_Smiling':{'Smiling':'model_default'},
