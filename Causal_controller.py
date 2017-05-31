@@ -7,7 +7,7 @@ slim = tf.contrib.slim
 
 
 class CausalController(object):
-    def __init__(self, graph,batch_size,indep_causal=False,n_hidden=10, train = True):
+    def __init__(self,graph,batch_size=1,indep_causal=False,n_hidden=10,input_dict=None,reuse=None):
         '''a causal graph is specified as follows:
             just supply a list of pairs (node, node_parents)
 
@@ -33,8 +33,19 @@ class CausalController(object):
             or with:
             model.cc.Male
 
+            input_dict allows the model to take in some aritrary input instead
+            of using tf_random_uniform nodes
+
+            #It should be a dictionary {name:var}, where name corresponds to
+            the node names at play
+
+            pass reuse if constructing for a second time
         '''
-        with tf.variable_scope('causal_controller') as vs:
+        if reuse:
+            assert input_dict is not None
+
+
+        with tf.variable_scope('causal_controller',reuse=reuse) as vs:
             self.graph=graph
             self.n_hidden=n_hidden
             self.train = train
@@ -45,7 +56,13 @@ class CausalController(object):
 
             NodeClass.batch_size=batch_size
             self.node_names, self.parent_names=zip(*graph)
-            self.nodes=[NodeClass(name=n,train=self.train) for n in self.node_names]
+
+            if not input_dict:
+                #normal mode, use random uniform noise asexogenous
+                self.nodes=[NodeClass(name=n) for n in self.node_names]
+            else:
+                self.nodes=[NodeClass(name=n,input_z=input_dict[name]) for n in self.node_names]
+
 
             #={n:CausalNode(n) for n in self.node_names}
             for node,rents in zip(self.nodes,self.parent_names):
@@ -98,28 +115,28 @@ class CausalNode(object):
     _label=None
     parents=[]#list of CausalNodes
 
-    def __init__(self,train=True,name=None,n_hidden=10):
+    def __init__(self,train=True,name=None,n_hidden=10,input_z=None,reuse=None):
         self.name=name
         self.n_hidden=n_hidden#also is z_dim
         self.train = train
+        self.reuse=reuse
 
         #Use tf.random_uniform instead of placeholder for noise
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
         with tf.variable_scope(self.name):
-            if self.train:
-                self.z = tf.random_uniform(
-                        (self.batch_size, self.n_hidden), minval=-1.0, maxval=1.0)
-            else:
-                self.z = tf.random_uniform(
-                        (self.batch_size, self.n_hidden), minval=-0.5, maxval=0.5)
+            self.z=input_z or  tf.random_uniform( 
+                    (self.batch_size,self.n_hidden),minval=-1.0,maxval=1.0)
+            if debug:
+                print 'self.',self.name,' using input_z ', input_z
+
     def setup_tensor(self):
         if self._label is not None:#already setup
             if debug:
                 print 'self.',self.name,' has refuted setting up tensor'
             return
         tf_parents=[self.z]+[node.label_logit for node in self.parents]
-        with tf.variable_scope(self.name):
+        with tf.variable_scope(self.name,reuse=self.reuse):
             vec_parents=tf.concat(tf_parents,-1)
             h0=slim.fully_connected(vec_parents,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer0')
             h1=slim.fully_connected(h0,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer1')

@@ -132,7 +132,7 @@ class DCGAN(object):
     self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
 
     #CC (New)
-    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size, train = self.is_train)
+    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size)
     self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
     self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
 
@@ -832,9 +832,9 @@ class DCGAN(object):
 
 
 ############################################################      
-  def generator(self, z, y=None):
+  def generator(self, z, y=None,reuse=None):
     #removed "if y_dim" part
-    with tf.variable_scope("generator") as scope:
+    with tf.variable_scope("generator",reuse=reuse) as scope:
         s_h, s_w = self.output_height, self.output_width
         s_h2, s_w2 = conv_out_size_same(s_h, 2), conv_out_size_same(s_w, 2)
         s_h4, s_w4 = conv_out_size_same(s_h2, 2), conv_out_size_same(s_w2, 2)
