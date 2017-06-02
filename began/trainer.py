@@ -1,4 +1,5 @@
 from __future__ import print_function
+from utils import save_image,distribute_input_data,summary_stats,make_summary
 import pandas as pd
 import os
 import StringIO
@@ -12,9 +13,8 @@ from figure_scripts.pairwise import crosstab
 from figure_scripts.sample import intervention2d,condition2d
 
 from models import *
-from CausalController import CausalController
+from Causal_controller import CausalController
 
-from utils import save_image,distribute_input_data,summary_stats,make_summary
 
 from IPython.core import debugger
 debug = debugger.Pdb().set_trace
@@ -87,9 +87,6 @@ class Trainer(object):
 
         self.g_step = tf.Variable(0, name='step', trainable=False)
 
-        self.cc_step = tf.Variable(0, name='cc_step', trainable=False)
-        self.step=self.cc_step+self.g_step
-
         self.g_lr = tf.Variable(config.g_lr, name='g_lr')
         self.d_lr = tf.Variable(config.d_lr, name='d_lr')
 
@@ -130,7 +127,7 @@ class Trainer(object):
         self.start_step = 0
         self.log_step = config.log_step
         self.max_step = config.max_step
-        self.save_step = config.save_step
+        self.save_step = config.save_step#Not used
         self.lr_update_step = config.lr_update_step
 
         self.is_train = config.is_train
@@ -140,7 +137,11 @@ class Trainer(object):
         self.pt_var=self.cc.var+self.dcc_var
         self.pt_saver=tf.train.Saver(var_list=self.pt_var)
         self.pt_dir=os.path.join(self.model_dir,'pretrain')
+        if not os.path.exists(self.pt_dir):
+            os.mkdir(self.pt_dir)
+
         if config.pt_load_path:
+            print('Attempting to load pretrain model:',config.pt_load_path)
             self.pt_saver.restor(config.pt_load_path)
 
         self.saver = tf.train.Saver()
@@ -174,14 +175,22 @@ class Trainer(object):
         step,global_step=self.sess.run([self.cc.step,self.g_step])
         assert global_step==0,'if pretraining, model should not be trained already'
 
-        stats=crosstab(self,report_tvd=True)
+        stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
 
         def break_pretrain(stats):
             return (stats['tvd']<self.config.min_tvd)
 
-        while step<self.config.pretrain_iter:
+        for counter in trange(self.config.pretrain_iter):
+            #Check for early exit
+            if counter %(10*self.log_step)==0:
+                stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
+                print('ptstep:',counter,'  TVD:',stats['tvd'])
+                if break_pretrain(stats):
+                    print('Completed Pretrain by TVD Qualification')
+                    break
+
+            #Optimize critic
             if self.config.pretrain_type=='wasserstein':
-                #optimize critic
                 fetch_dict = {"critic_op":self.dcc_optim }
                 for i in range(self.config.n_critic):
                     result = self.sess.run(fetch_dict)
@@ -189,27 +198,23 @@ class Trainer(object):
             #one iter causal controller
             fetch_dict = {
                 "pretrain_op": self.pretrain_op,
-                'step':self.cc.step,
+                'cc_step':self.cc.step,
+                'step':self.step,
             }
-            if step % self.log_step == 0:
+            if counter % self.log_step == 0:
                 fetch_dict.update({
                     "summary": self.summary_op,
                     "c_loss": self.c_loss,
                     "dcc_loss": self.dcc_loss,
                 })
             result = self.sess.run(fetch_dict)
-            if step %(10*self.log_step)==0:
-                stats=crosstab(self,report_tvd=True)
-                print('step:',step,'  TVD:',stats['tvd'])
-                sum_tvd=make_summary('misc/tvd', stats['tvd'])
-                self.summary_writer.add_summary(sum_tvd,result['step']+global_step)
-                if break_pretrain(stats):
-                    print('Completed Pretrain by TVD Qualification')
-                    break
 
-            if step % self.log_step == 0:
-                self.summary_writer.add_summary(result['summary'],
-                                                result['step']+global_step)
+            if counter % self.log_step == 0:
+                if counter %(10*self.log_step)==0:
+                    sum_tvd=make_summary('misc/tvd', stats['tvd'])
+                    self.summary_writer.add_summary(sum_tvd,result['step'])
+
+                self.summary_writer.add_summary(result['summary'],result['step'])
                 self.summary_writer.flush()
 
                 c_loss = result['c_loss']
@@ -217,14 +222,14 @@ class Trainer(object):
                 print("[{}/{}] Loss_C: {:.6f} Loss_DCC: {:.6f}".\
                       format(step, self.max_step, c_loss, dcc_loss))
 
-            #cleanup
-            step=result['step']
+            if counter %(10*self.log_step)==0:
+                self.pt_saver.save(self.sess,self.pt_dir)
+
         else:
-            stats=crosstab(self,report_tvd=True)
+            stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
             print('Completed Pretrain by Exhaustin all Pretrain Steps!')
 
         print('step:',step,'  TVD:',stats['tvd'])
-
 
 
     def train(self):
@@ -302,12 +307,8 @@ class Trainer(object):
 
 
     def build_tower(self,data_loader):
-        #This is just to see if two copies get made
-        #since I wasn't using tf.get_variable()
-        #self.debug_var=tf.Variable(1.0,'DEBUG')
-
         self.data_loader=data_loader
-        self.data_fd = data_loader#Can also use for feeding data
+        self.data_fd = data_loader
 
         #The keys of data_loader are all the labels union 'x'
         self.x = self.data_loader['x']#no
@@ -395,12 +396,10 @@ class Trainer(object):
 
         #pretrain
         if self.config.pretrain_type=='gan':
-            print('WARNING: I dont think I implemented the correct disc. see\
-                  pretrain analysis')
-            self.dcc_xe_real=sxe(self.dcc_real_logit,1)
-            self.dcc_xe_fake=sxe(self.dcc_fake_logit,0)
-            self.dcc_loss_real=tf.reduce_mean(self.dcc_xe_real)
-            self.dcc_loss_fake=tf.reduce_mean(self.dcc_xe_fake)
+            self.dcc_xe_real=tf.reduce_mean(sxe(self.dcc_real_logit,1))
+            self.dcc_xe_fake=tf.reduce_mean(sxe(self.dcc_fake_logit,0))
+            self.dcc_loss_real = tf.reduce_mean(self.dcc_xe_real)
+            self.dcc_loss_fake = tf.reduce_mean(self.dcc_xe_fake)
             self.dcc_loss=self.dcc_loss_real+self.dcc_loss_fake
             self.c_xe_fake=sxe(self.dcc_fake_logit,1)
             self.c_loss=tf.reduce_mean(self.c_xe_fake)
@@ -413,7 +412,6 @@ class Trainer(object):
 
         else:
             raise ValueError('shouldnt happen')
-
 
         self.d_xe_real_label=sxe(self.D_real_labels_logits,self.real_labels)
         self.d_xe_fake_label=sxe(self.D_fake_labels_logits,self.fake_labels)
@@ -461,7 +459,7 @@ class Trainer(object):
 
         #pretrain:
         c_grad=self.c_optimizer.compute_gradients(self.c_loss,
-                                                  var_list=self.cc.tr_var)
+                                                  var_list=self.cc.train_var)
         dcc_grad=self.dcc_optimizer.compute_gradients(self.dcc_loss,var_list=self.dcc_var)
 
         # Calculate the gradients for the batch of data,
@@ -495,6 +493,8 @@ class Trainer(object):
 
         self.c_optimizer, self.dcc_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
+
+        self.dlr_optimizer = optimizer(self.g_lr)
 
 
         #g_tower_grads=[]
@@ -568,12 +568,14 @@ class Trainer(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-        print( 'WARNING:temp edit')
-        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc_step)
-        #self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
+        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
         self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
 
-        self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
+        self.dl_optim=self.dlr_optimizer.minimize(self.d_loss_real_label,var_list=self.DL_var)
+        if self.config.pretrain_labeler:
+            self.pretrain_op = tf.group(self.c_optim,self.dcc_optim,self.dl_optim)
+        else:
+            self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
 
         g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.g_step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
@@ -582,8 +584,7 @@ class Trainer(object):
 
 
         #used as global indicator
-        print( 'WARNING:temp edit')
-        #self.step= self.g_step+self.cc.step
+        self.step= tf.add(self.g_step,self.cc.step,name='model_step')
 
         ##*#* Interesting but pass this time around
         ## Track the moving averages of all trainable
@@ -672,8 +673,10 @@ class Trainer(object):
             summary_stats('dcc/real_dcc_logit',self.dcc_real_logit,hist=True)
             summary_stats('dcc/fake_dcc_logit',self.dcc_fake_logit,hist=True)
             summary_stats('dcc/slopes',self.dcc_slopes,hist=True)
-            summary_stats('dcc/gan_loss',self.dcc_gan_loss)
-            summary_stats('dcc/grad_loss',self.dcc_grad_loss)
+            tf.summary.scalar('dcc/gan_loss',self.dcc_gan_loss)
+            tf.summary.scalar('dcc/grad_loss',self.dcc_grad_loss)
+            #summary_stats('dcc/gan_loss',self.dcc_gan_loss)
+            #summary_stats('dcc/grad_loss',self.dcc_grad_loss)
 
         tf.summary.scalar('loss/c_loss',self.c_loss)
 
@@ -695,24 +698,6 @@ class Trainer(object):
         tf.summary.scalar("misc/z_t", self.z_t),
         self.summary_op=tf.summary.merge_all()
 
-    def build_test_model(self):
-        ##Under construction.
-        with tf.variable_scope("test") as vs:
-            # Extra ops for interpolation
-            z_optimizer = tf.train.AdamOptimizer(0.0001)
-
-            self.z_r = tf.get_variable("z_r", [self.batch_size, self.z_num], tf.float32)
-            self.z_r_update = tf.assign(self.z_r, self.z)
-
-        G_z_r, _ = GeneratorCNN(
-                self.z_r, self.conv_hidden_num, self.channel, self.repeat_num, self.data_format, reuse=True)
-
-        with tf.variable_scope("test") as vs:
-            self.z_r_loss = tf.reduce_mean(tf.abs(self.x - G_z_r))
-            self.z_r_optim = z_optimizer.minimize(self.z_r_loss, var_list=[self.z_r])
-
-        test_variables = tf.contrib.framework.get_variables(vs)
-        self.sess.run(tf.variables_initializer(test_variables))
 
     def generate(self, inputs, root_path=None, path=None, idx=None, save=True):
         x = self.sess.run(self.G, feed_dict=inputs)
@@ -812,37 +797,6 @@ class Trainer(object):
             img = np.concatenate([[real1_batch[idx]], img, [real2_batch[idx]]], 0)
             save_image(img, os.path.join(root_path, 'test{}_interp_D_{}.png'.format(step, idx)), nrow=10 + 2)
 
-    def test(self):
-        root_path = "./"#self.model_dir
-
-        all_G_z = None
-        for step in range(3):
-            real1_batch = self.get_data_from_loader('x')
-            real2_batch = self.get_data_from_loader('x')
-
-            save_image(real1_batch, os.path.join(root_path, 'test{}_real1.png'.format(step)))
-            save_image(real2_batch, os.path.join(root_path, 'test{}_real2.png'.format(step)))
-
-            self.autoencode(
-                    real1_batch, self.model_dir, idx=os.path.join(root_path, "test{}_real1".format(step)))
-            self.autoencode(
-                    real2_batch, self.model_dir, idx=os.path.join(root_path, "test{}_real2".format(step)))
-
-            self.interpolate_G(real1_batch, step, root_path)
-            #self.interpolate_D(real1_batch, real2_batch, step, root_path)
-
-            z_fixed = np.random.uniform(-1, 1, size=(self.batch_size, self.z_num))
-            G_z = self.generate(z_fixed, path=os.path.join(root_path, "test{}_G_z.png".format(step)))
-
-            if all_G_z is None:
-                all_G_z = G_z
-            else:
-                all_G_z = np.concatenate([all_G_z, G_z])
-            save_image(all_G_z, '{}/G_z{}.png'.format(root_path, step))
-
-        save_image(all_G_z, '{}/all_G_z.png'.format(root_path), nrow=16)
-
-        self.intervention()
 
     def get_data_from_loader(self,key=None):
         data = self.sess.run(self.data_loader)

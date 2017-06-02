@@ -292,8 +292,8 @@ def discriminatorW(labels,reuse=False):
 
 def logodds(p):
     return np.log(p/(1.-p))
-def prepare_labels( batch_size, do_shuffle=True,num_worker=24,seed=None):
 
+def prepare_labels( batch_size, do_shuffle=True,num_worker=24,seed=None):
     attributes = pd.read_csv('./data/list_attr_celeba.txt',delim_whitespace=True) #+-1
     attributes = 0.5*(attributes+1)
 

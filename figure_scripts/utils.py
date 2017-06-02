@@ -51,7 +51,7 @@ def read_prepared_uint8_image(img_path):
     already cropped and resized
     '''
     cropped_image=scipy.misc.imread(path)
-    if not np.all( np.array([64,64,3])==cropped_image.shape) 
+    if not np.all( np.array([64,64,3])==cropped_image.shape):
         raise ValueError('image must already be cropped and resized:',img_path)
     #TODO: warn if wrong dtype
     return cropped_image

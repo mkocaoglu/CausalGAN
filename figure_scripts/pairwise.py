@@ -46,7 +46,7 @@ def calc_tvd(data,attr):
     tvd=0.5*diff.abs().sum()
     return tvd
 
-def crosstab(model,step=None,report_tvd=True):
+def crosstab(model,step=None,result_dir=None,report_tvd=True):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs
     including the marginals and the pairwise comparisons
@@ -73,14 +73,14 @@ def crosstab(model,step=None,report_tvd=True):
         fake_labels=model.fake_labels
         D_fake_labels=model.D_fake_labels
         #result_dir=os.path.join('began',model.model_dir)
-        result_dir=model.model_dir
+        result_dir=result_dir or model.model_dir
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
         attr=model.attr[list(model.cc.node_names)]
     elif model.model_type=='dcgan':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
-        result_dir=model.checkpoint_dir
+        result_dir=result_dir or model.checkpoint_dir
         attr=0.5*(model.attributes+1)
         attr=attr[list(model.cc.names)]
 

@@ -31,6 +31,9 @@ pretrain_arg.add_argument('--min_tvd',type=float,default=0.02,
                           help='if tvd<min_tvd then stop pretrain')
 pretrain_arg.add_argument('--pretrain_iter',type=int,default=10000,
                           help='if iter>pretrain_iter then stop pretrain')
+pretrain_arg.add_argument('--pretrain_labeler',type=str2bool,default=False,
+                          help='''whether to train the labeler on real images
+                          during pretraining''')
 
 #Network
 net_arg = add_argument_group('Network')

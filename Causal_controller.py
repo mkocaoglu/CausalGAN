@@ -48,11 +48,12 @@ class CausalController(object):
         with tf.variable_scope('causal_controller',reuse=reuse) as vs:
             self.graph=graph
             self.n_hidden=n_hidden
-            self.train = train
             if indep_causal:
                 NodeClass=UniformNode
             else:
                 NodeClass=CausalNode
+
+            self.step= tf.Variable(0, name='step', trainable=False)
 
             NodeClass.batch_size=batch_size
             self.node_names, self.parent_names=zip(*graph)
@@ -77,6 +78,10 @@ class CausalController(object):
         self.__dict__.update(self.node_dict)
 
         self.var = tf.contrib.framework.get_variables(vs)
+
+        trainable=tf.get_collection('trainable_variables')
+        self.train_var=[v for v in self.var if v in trainable]
+
 
     @property
     def feed_z(self):#might have to makethese phw/default

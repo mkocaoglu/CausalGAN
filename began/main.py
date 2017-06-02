@@ -12,6 +12,28 @@ debug = debugger.Pdb().set_trace
 
 
 '''
+
+If anything, decreasing gamma_label to 0.5 made things worse. Even though
+k_l < 0 during almost the whole training, still celebA_0531_035710 had a
+Disc_labeler that didn't work on real images. This is strange given that is was
+the only objective for those variables. Source of bug unknown.
+
+Going to try with continuous labels, and allowing disc_labeler to train during
+pretraining. see what happens
+
+    pretrain_arg.add_argument('--pretrain_labeler',type=str2bool,default=False,
+                              help=whether to train the labeler on real images
+                              during pretraining)
+
+    self.dl_optim=self.dlr_optimizer.minimize(trainer.d_loss_real_label)
+    if self.config.pretrain_labeler:
+        self.pretrain_op = tf.group(self.c_optim,self.dcc_optim,self.dl_optim)
+    else:
+        self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
+
+
+-----
+
 gamma_label was 1.0 instead of 0.5 and this caused d_labeler to never learn the
 labels
 
@@ -120,14 +142,13 @@ def main(trainer,config):
 
     if config.is_pretrain:
         trainer.pretrain()
-    elif config.is_train:
+    if config.is_train:
         trainer.train()
     else:
         if not config.load_path:
             raise Exception("[!] You should specify `load_path` to load a pretrained model")
 
         trainer.intervention()
-        #trainer.test()
 
 def get_model(config=None):
     if not None:

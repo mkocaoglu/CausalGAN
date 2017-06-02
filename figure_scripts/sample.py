@@ -264,7 +264,6 @@ def interpret_dict( a_dict, model,n_times=1, on_logits=True):
     return p_a_dict
 
 
-
 def slice_dict(feed_dict, rows):
     '''
     conditional sampling requires doing only certain indicies depending
@@ -278,12 +277,6 @@ def slice_dict(feed_dict, rows):
     return fd_out
 
 
-#def get_remaining(rows, batch_size):
-#    '''
-#    this function takes a list/array of rows and returns
-#    some subset of them of size batch_size
-#
-#    '''
 def did_succeed( output_dict, cond_dict ):
     '''
     Used in rejection sampling:
@@ -304,10 +297,6 @@ def did_succeed( output_dict, cond_dict ):
         val=np.squeeze(output_dict[key])
         cond1=np.sign(val)==np.sign(cond)
         cond2=np.abs(val)>np.abs(cond)
-
-        #print('WARNING:using hardcoded success condition')
-        #cond1=val<0.8
-        #cond2=val>0.6
 
         return cond1*cond2
 
