@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-means = pd.read_csv("./data/means",header = None)
-means = dict(zip(means[0],means[1]))
+#means = pd.read_csv("./data/means",header = None)
+#means = dict(zip(means[0],means[1]))
 
 intervention_dicts={
     'example_dict':{

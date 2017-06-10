@@ -55,6 +55,15 @@ visualize_arg.add_argument('--sample_model', type=str2bool,default=False,
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
 visualize_arg.add_argument('--cond_dict_name',type=str, default=None)
 
+
+encode_arg = add_argument_group('encode')
+encode_arg.add_argument('--encode_image',type=str2bool, default=False)
+encode_arg.add_argument('--en_image_path',type=str)
+encode_arg.add_argument('--en_image_name',type=str)
+encode_arg.add_argument('--en_load_path',type=str,default='')
+encode_arg.add_argument('--en_is_train',type=str2bool,default=False)
+
+
 #I'm strongly worried this line will override flags in main.py so I commented it out
 #visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
 #Ref: flags:
@@ -70,6 +79,18 @@ if __name__=='__main__':
 
     Examples:
     To run intervention2d, the following works:
+
+
+    #Encode tested:
+        
+        (with or without en_load_path)
+    python visualize.py --encode_image True --en_image_path
+    ./custom_images/processed/Dimakis.png --en_image_name alx1 --model_type dcgan
+    --graph big_causal_graph --checkpoint_dir ./checkpoint/scratch --en_is_train
+    True --en_load_path
+    checkpoint/scratch/celebA_64_64_64/encode_alx1/save/Encode.model-1
+
+
 
     #Tested
     python visualize.py --model_type dcgan --sample_model True
@@ -131,7 +152,14 @@ if __name__=='__main__':
         else:
             raise ValueError('need do_dict_name xor cond_dict_name')
 
+    if config.encode_image:
+        from figure_scripts.encode import Encoder
+        encoder=Encoder(model,config.en_image_path,
+                        config.en_image_name,
+                        config.en_load_path)
 
+        if config.en_is_train:
+            encoder.train()
 
     #Interventional Joint
     ##This considers trunc exponential labels

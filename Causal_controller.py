@@ -4,8 +4,6 @@ slim = tf.contrib.slim
 
 
 
-
-
 class CausalController(object):
     def __init__(self,graph,batch_size=1,indep_causal=False,n_hidden=10,input_dict=None,reuse=None):
         '''a causal graph is specified as follows:
@@ -62,7 +60,7 @@ class CausalController(object):
                 #normal mode, use random uniform noise asexogenous
                 self.nodes=[NodeClass(name=n) for n in self.node_names]
             else:
-                self.nodes=[NodeClass(name=n,input_z=input_dict[name]) for n in self.node_names]
+                self.nodes=[NodeClass(name=n,input_z=input_dict[n]) for n in self.node_names]
 
 
             #={n:CausalNode(n) for n in self.node_names}

@@ -40,6 +40,7 @@ def norm_img(image, data_format=None):
     image = image/127.5 - 1.
     if data_format:
         image = to_nhwc(image, data_format)
+    image=image.astype(np.float32)
     return image
 def denorm_img(norm, data_format):
     return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
@@ -50,7 +51,7 @@ def read_prepared_uint8_image(img_path):
     img_path should point to a uint8 image that is
     already cropped and resized
     '''
-    cropped_image=scipy.misc.imread(path)
+    cropped_image=scipy.misc.imread(img_path)
     if not np.all( np.array([64,64,3])==cropped_image.shape):
         raise ValueError('image must already be cropped and resized:',img_path)
     #TODO: warn if wrong dtype

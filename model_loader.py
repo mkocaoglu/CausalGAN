@@ -89,6 +89,8 @@ def get_model(name):
         else:
             if not dcgan.load(FLAGS.checkpoint_dir):
                 print ("Warning: [!] Train a model first, then run test mode")
+                print ("Warning: [!] initializing dcgan variables as noise")
+                dcgan.sess.run(tf.global_variables_initializer())
 
         return dcgan
 
