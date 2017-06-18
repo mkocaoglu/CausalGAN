@@ -134,8 +134,8 @@ def lrelu(x,leak=0.2,name='lrelu'):
 #        self._label_logit=self._label
 #        self.z=self._label
 
-def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format):
-    with tf.variable_scope("G") as vs:
+def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format,reuse=None):
+    with tf.variable_scope("G",reuse=reuse) as vs:
         x = slim.fully_connected(z, np.prod([8, 8, hidden_num]),activation_fn=None,scope='fc1')
         x = reshape(x, 8, 8, hidden_num, data_format)
 

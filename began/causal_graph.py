@@ -150,6 +150,9 @@ MSO_smiling = [
         ['Mouth_Slightly_Open',[]]
        ]
 
+mustache=[
+    ['Mustache',[]]
+    ]
 male_ind_mustache = [
         ['Male',[]],
         ['Mustache',[]]
@@ -198,6 +201,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = MYESO
     elif causal_model == 'Smiling_MSO':
         graph = Smiling_MSO
+    elif causal_model == 'mustache':
+        graph = mustache
     elif causal_model == 'MSO_smiling':
         graph = MSO_smiling
     elif causal_model == 'male_mustache_lipstick':

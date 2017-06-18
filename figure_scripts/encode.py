@@ -9,6 +9,7 @@ import pandas as pd
 from itertools import combinations
 import sys
 from Causal_controller import *
+from began.models import GeneratorCNN
 from utils import to_nhwc,read_prepared_uint8_image,make_encode_dir
 
 from utils import transform, inverse_transform #dcgan img norm
@@ -33,7 +34,7 @@ class Encoder:
     model_name = "Encode.model"
     model_type= 'encoder'
     summ_col='encoder_summaries'
-    def __init__(self,model,image,image_name=None,load_path=''):
+    def __init__(self,model,image,image_name=None,max_tr_steps=50000,load_path=''):
         '''
         image is assumed to be a path to a precropped 64x64x3 uint8 image
         '''
@@ -41,7 +42,7 @@ class Encoder:
         #Some hardcoded defaults here
         self.log_step=500
         self.lr=0.0005
-        self.max_tr_steps=50000
+        self.max_tr_steps=max_tr_steps
 
         self.model=model
         self.load_path=load_path
@@ -64,8 +65,11 @@ class Encoder:
         #self.uint_x/G ; 3D [0,255]
         #self.x/G ; 4D [-1,1]
         self.uint_x=read_prepared_uint8_image(image)#x is [0,255]
-        x=norm_img(self.uint_x,self.data_format)
-        self.x=tf.expand_dims(x,0)#batch_size=1
+
+        print('Read image shape',self.uint_x.shape)
+        self.x=norm_img(np.expand_dims(self.uint_x,0),self.data_format)#bs=1
+        #self.x=norm_img(tf.expand_dims(self.uint_x,0),self.data_format)#bs=1
+        print('Shape after norm:',self.x.get_shape().as_list())
 
 
         ##All variables created under encoder have uniform init
@@ -89,6 +93,7 @@ class Encoder:
 
         #all encode vars created by now
         self.saver = tf.train.Saver(var_list=self.var)
+        print('Summaries will be written to ',self.model_dir)
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
         #load or initialize enmodel variables
@@ -98,7 +103,8 @@ class Encoder:
             self.cc=CausalController(graph=model.graph, input_dict=encode_var, reuse=True)
             self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
             self.z_fake_labels=self.fake_labels_logits
-            self.z_gen = noise_like_z( self.model.z_gen,'en_z_gen')
+            #self.z_gen = noise_like_z( self.model.z_gen,'en_z_gen')
+            self.z_gen=encode_var['gen']
             self.z= tf.concat( [self.z_gen, self.z_fake_labels], axis=1 , name='z')
 
             self.G=model.generator( self.z , bs=1, reuse=True)
@@ -109,18 +115,23 @@ class Encoder:
 
                 self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
                 self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
-                self.z_gen = noise_like_z( self.model.z_gen,'en_z_gen')
+                #self.z_gen = noise_like_z( self.model.z_gen,'en_z_gen')
+                self.z_gen=encode_var['gen']
                 self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
 
                 self.G,_ = GeneratorCNN(
                         self.z, model.conv_hidden_num, model.channel,
-                        model.repeat_num, model.data_format)
+                        model.repeat_num, model.data_format,reuse=True)
 
         #unclear how scope with adam param works
         #with tf.variable_scope('encoderGD') as scope:
 
         #use L1 loss
-        self.g_loss_image = tf.reduce_mean(tf.abs(self.x - self.G))
+        #self.g_loss_image = tf.reduce_mean(tf.abs(self.x - self.G))
+
+        #use L2 loss
+        self.g_loss_image = tf.reduce_mean(tf.square(self.x - self.G))
+
         g_loss_sum=tf.summary.scalar( 'encoder/g_loss_image',\
                           self.g_loss_image,self.summ_col)
 
@@ -155,6 +166,9 @@ class Encoder:
             self.model.sess.run(init)
 
     def save(self, step=None):
+        if step is None:
+            step=self.sess.run(self.step)
+
         if not os.path.exists(self.save_dir):
             print 'Creating Directory:',self.save_dir
             os.makedirs(self.save_dir)
@@ -197,8 +211,10 @@ class Encoder:
 
                 print("[{}/{}] Reconstr Loss_G: {:.6f}".format(counter,max_step,g_loss))
 
-            if counter % 50*self.log_step == 0:
+            if counter % (10.*self.log_step) == 0:
                 self.save(step=step)
+
+        self.save()
 
 
 

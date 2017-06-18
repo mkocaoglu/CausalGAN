@@ -12,6 +12,32 @@ debug = debugger.Pdb().set_trace
 
 
 '''
+Less frequenty logs
+            #if step % (self.log_step * 10) == 0:
+            if step % (self.log_step * 50) == 0:
+
+
+Using squared loss seemed to work for wasserstein but interestingly not for
+mustache. One thing left to try is to use rounding on the labels.
+
+    (from before)
+        self.d_squarediff_real_label=tf.square(self.D_real_labels  - self.real_labels)
+        self.d_squarediff_fake_label=tf.square(self.D_fake_labels  - self.fake_labels)
+        self.g_squarediff_label=tf.square(self.fake_labels  -  self.D_fake_labels)
+
+Also:
+    (instead of 1000 logit for integer)
+            'min_logit':-5.*ones
+            'max_logit':5*ones
+
+
+train_arg.add_argument('--label_loss',type=str,default='absdiff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--round_fake_labels',type=str2bool,default=False,
+                       help=Whether the label outputs of the causal
+                       controller should be rounded first before calculating
+                       the loss of generator or d-labeler
+
+
 
 If anything, decreasing gamma_label to 0.5 made things worse. Even though
 k_l < 0 during almost the whole training, still celebA_0531_035710 had a

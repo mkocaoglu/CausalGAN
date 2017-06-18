@@ -170,8 +170,8 @@ def get_loader(config, root, batch_size, scale_size, data_format,
             'mean':label_means,
             'min_label':0.*ones,
             'max_label':1.*ones,
-            'min_logit':-100.*ones,
-            'max_logit':100*ones,
+            'min_logit':-5.*ones,
+            'max_logit':5*ones,
         })
 
 

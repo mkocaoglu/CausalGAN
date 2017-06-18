@@ -82,6 +82,12 @@ train_arg.add_argument('--num_gpu', type=int, default=1,
                       first k of n detected. If use_gpu=True but num_gpu not\
                       specified will default to 1')
 
+train_arg.add_argument('--label_loss',type=str,default='absdiff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--round_fake_labels',type=str2bool,default=False,
+                       help='''Whether the label outputs of the causal
+                       controller should be rounded first before calculating
+                       the loss of generator or d-labeler''')
+
 # Misc
 misc_arg = add_argument_group('Misc')
 misc_arg.add_argument('--data_dir', type=str, default='data')

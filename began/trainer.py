@@ -144,25 +144,42 @@ class Trainer(object):
             print('Attempting to load pretrain model:',config.pt_load_path)
             self.pt_saver.restor(config.pt_load_path)
 
-        self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(var_list=self.var)
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
         print('self.model_dir:',self.model_dir)
-        sv = tf.train.Supervisor(logdir=self.model_dir,
-                                is_chief=True,
-                                saver=self.saver,
-                                summary_op=None,
-                                summary_writer=self.summary_writer,
-                                save_model_secs=300,
-                                global_step=self.step,
-                                ready_for_local_init_op=None)
-
         gpu_options = tf.GPUOptions(allow_growth=True,
                                   per_process_gpu_memory_fraction=0.333)
         sess_config = tf.ConfigProto(allow_soft_placement=True,
                                     gpu_options=gpu_options)
 
-        self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+
+        #if config.encode_image:
+        #if True:
+        if False:
+            #Hack because I can have graph.finalize be called
+            #doesn't use queuerunners but should be no problem?
+            sm=tf.train.SessionManager()
+            self.sess=sm.prepare_session(
+                                    master='',
+                                    saver=self.saver,
+                                    checkpoint_dir=self.model_dir,
+                                    config=sess_config,
+                                   )
+
+        else:
+            #Main way to go
+            sv = tf.train.Supervisor(logdir=self.model_dir,
+                                    is_chief=True,
+                                    saver=self.saver,
+                                    summary_op=None,
+                                    summary_writer=self.summary_writer,
+                                    save_model_secs=300,
+                                    global_step=self.step,
+                                    ready_for_local_init_op=None)
+            self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+
+
 
         #if not self.is_train:
         #    # dirty way to bypass graph finilization error
@@ -278,7 +295,8 @@ class Trainer(object):
                 print("[{}/{}] Loss_D: {:.6f} Loss_G: {:.6f} measure: {:.4f}, k_t: {:.4f}". \
                       format(step, self.max_step, d_loss, g_loss, measure, k_t))
 
-            if step % (self.log_step * 10) == 0:
+            #if step % (self.log_step * 10) == 0:
+            if step % (self.log_step * 50) == 0:
                 x_fake = self.generate(feed_fixed_z, self.model_dir, idx=step)
                 #self.autoencode(x_fixed, self.model_dir, idx=step, x_fake=x_fake)
                 self.autoencode(data_fixed, self.model_dir, idx=step, x_fake=x_fake)
@@ -413,21 +431,37 @@ class Trainer(object):
         else:
             raise ValueError('shouldnt happen')
 
+        #Should we round fake labels before calc loss?
+        if self.config.round_fake_labels:
+            fake_labels=tf.round(self.fake_labels)
+        else:
+            fake_labels=self.fake_labels
+
         self.d_xe_real_label=sxe(self.D_real_labels_logits,self.real_labels)
-        self.d_xe_fake_label=sxe(self.D_fake_labels_logits,self.fake_labels)
+        self.d_xe_fake_label=sxe(self.D_fake_labels_logits,fake_labels)
         self.g_xe_label=sxe(self.fake_labels_logits, self.D_fake_labels)
 
-        #self.d_loss_real_label = tf.reduce_mean(self.d_xe_real_label)
-        #self.d_loss_fake_label = tf.reduce_mean(self.d_xe_fake_label)
-        #self.g_loss_label=tf.reduce_mean(self.g_xe_label)
-
         self.d_absdiff_real_label=tf.abs(self.D_real_labels  - self.real_labels)
-        self.d_absdiff_fake_label=tf.abs(self.D_fake_labels  - self.fake_labels)
-        self.g_absdiff_label=tf.abs(self.fake_labels  -  self.D_fake_labels)
+        self.d_absdiff_fake_label=tf.abs(self.D_fake_labels  - fake_labels)
+        self.g_absdiff_label=tf.abs(fake_labels  -  self.D_fake_labels)
 
-        self.d_loss_real_label = tf.reduce_mean(self.d_absdiff_real_label)
-        self.d_loss_fake_label = tf.reduce_mean(self.d_absdiff_fake_label)
-        self.g_loss_label = tf.reduce_mean(self.g_absdiff_label)
+        self.d_squarediff_real_label=tf.square(self.D_real_labels  - self.real_labels)
+        self.d_squarediff_fake_label=tf.square(self.D_fake_labels  - fake_labels)
+        self.g_squarediff_label=tf.square(fake_labels  -  self.D_fake_labels)
+
+
+        if self.config.label_loss=='xe':
+            self.d_loss_real_label = tf.reduce_mean(self.d_xe_real_label)
+            self.d_loss_fake_label = tf.reduce_mean(self.d_xe_fake_label)
+            self.g_loss_label=tf.reduce_mean(self.g_xe_label)
+        elif self.config.label_loss=='absdiff':
+            self.d_loss_real_label = tf.reduce_mean(self.d_absdiff_real_label)
+            self.d_loss_fake_label = tf.reduce_mean(self.d_absdiff_fake_label)
+            self.g_loss_label = tf.reduce_mean(self.g_absdiff_label)
+        elif self.config.label_loss=='squarediff':
+            self.d_loss_real_label = tf.reduce_mean(self.d_squarediff_real_label)
+            self.d_loss_fake_label = tf.reduce_mean(self.d_squarediff_fake_label)
+            self.g_loss_label = tf.reduce_mean(self.g_squarediff_label)
 
 
         self.G = denorm_img(G, self.data_format)
@@ -479,6 +513,8 @@ class Trainer(object):
         self.tower_dict['tower_g_loss_label'].append(self.g_loss_label)
         self.tower_dict['tower_d_loss_real_label'].append(self.d_loss_real_label)
         self.tower_dict['tower_d_loss_fake_label'].append(self.d_loss_fake_label)
+
+        self.var=self.G_var+self.D_var+self.dcc_var+self.cc.var+[self.g_step]
 
     def build_model(self):
         self.k_t = tf.get_variable(name='k_t',initializer=0.,trainable=False)

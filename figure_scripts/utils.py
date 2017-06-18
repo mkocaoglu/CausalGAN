@@ -25,23 +25,36 @@ from six.moves import xrange
 
 pp = pprint.PrettyPrinter()
 
-def nchw_to_nhwc(x):
-    return tf.transpose(x, [0, 2, 3, 1])
 def nhwc_to_nchw(x):
     return tf.transpose(x, [0, 3, 1, 2])
+def to_nchw_numpy(image):
+    if image.shape[3] in [1, 3]:
+        new_image = image.transpose([0, 3, 1, 2])
+    else:
+        new_image = image
+    return new_image
 
+def norm_img(image, data_format=None):
+    #image = tf.cast(image,tf.float32)/127.5 - 1.
+    image = image/127.5 - 1.
+    #if data_format:
+        #image = to_nhwc(image, data_format)
+    if data_format=='NCHW':
+        image = to_nchw_numpy(image)
+
+    image=tf.cast(image,tf.float32)
+    return image
+
+
+#Denorming
+def nchw_to_nhwc(x):
+    return tf.transpose(x, [0, 2, 3, 1])
 def to_nhwc(image, data_format):
     if data_format == 'NCHW':
         new_image = nchw_to_nhwc(image)
     else:
         new_image = image
     return new_image
-def norm_img(image, data_format=None):
-    image = image/127.5 - 1.
-    if data_format:
-        image = to_nhwc(image, data_format)
-    image=image.astype(np.float32)
-    return image
 def denorm_img(norm, data_format):
     return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
 
@@ -59,9 +72,9 @@ def read_prepared_uint8_image(img_path):
 
 def make_encode_dir(model,image_name):
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         result_dir=model.model_dir
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         print('DCGAN')
         result_dir=model.checkpoint_dir
     encode_dir=os.path.join(result_dir,'encode_'+str(image_name))
@@ -71,9 +84,9 @@ def make_encode_dir(model,image_name):
 
 def make_sample_dir(model):
     #Terminology
-    if model.model_name=='began':
+    if model.model_type=='began':
         result_dir=model.model_dir
-    elif model.model_name=='dcgan':
+    elif model.model_type=='dcgan':
         print('DCGAN')
         result_dir=model.checkpoint_dir
 
@@ -83,14 +96,14 @@ def make_sample_dir(model):
 
 
 #both
-def save_figure_images(model_name, tensor, filename, size, padding=2,
+def save_figure_images(model_type, tensor, filename, size, padding=2,
                        normalize=False, scale_each=False):
 
     nrow=size[0]
 
-    if model_name=='began':
+    if model_type=='began':
         began_save_image(tensor,filename,nrow,padding,normalize,scale_each)
-    elif model_name=='dcgan':
+    elif model_type=='dcgan':
         #images = np.split(tensor,len(tensor))
         images=tensor
         dcgan_save_images(images,size,filename)

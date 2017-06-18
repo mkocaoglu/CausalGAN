@@ -62,7 +62,7 @@ encode_arg.add_argument('--en_image_path',type=str)
 encode_arg.add_argument('--en_image_name',type=str)
 encode_arg.add_argument('--en_load_path',type=str,default='')
 encode_arg.add_argument('--en_is_train',type=str2bool,default=False)
-
+encode_arg.add_argument('--en_max_tr_steps',type=int,default=50000)
 
 #I'm strongly worried this line will override flags in main.py so I commented it out
 #visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
@@ -82,7 +82,7 @@ if __name__=='__main__':
 
 
     #Encode tested:
-        
+
         (with or without en_load_path)
     python visualize.py --encode_image True --en_image_path
     ./custom_images/processed/Dimakis.png --en_image_name alx1 --model_type dcgan
@@ -156,6 +156,7 @@ if __name__=='__main__':
         from figure_scripts.encode import Encoder
         encoder=Encoder(model,config.en_image_path,
                         config.en_image_name,
+                        config.en_max_tr_steps,
                         config.en_load_path)
 
         if config.en_is_train:
