@@ -34,6 +34,10 @@ pretrain_arg.add_argument('--pretrain_iter',type=int,default=10000,
 pretrain_arg.add_argument('--pretrain_labeler',type=str2bool,default=False,
                           help='''whether to train the labeler on real images
                           during pretraining''')
+pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=False,
+                          help='''whether the discriminator should be
+                          factorized according to the structure of the graph
+                          to speed convergence''')
 
 #Network
 net_arg = add_argument_group('Network')
@@ -44,6 +48,11 @@ net_arg.add_argument('--conv_hidden_num', type=int, default=128,
                      choices=[64, 128],help='n in the paper')
 net_arg.add_argument('--separate_labeler', type=str2bool, default=True)
 net_arg.add_argument('--z_num', type=int, default=64, choices=[64, 128])
+net_arg.add_argument('--cc_n_layers',type=int, default=3,
+                     help='''this is the number of neural network fc layers
+                     between the causes of a neuron and the neuron itsef.''')
+net_arg.add_argument('--cc_n_hidden',type=int, default=10,
+                     help='''number of neurons per layer in causal controller''')
 
 # Data
 data_arg = add_argument_group('Data')

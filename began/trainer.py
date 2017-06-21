@@ -135,14 +135,15 @@ class Trainer(object):
         self.build_model()####multigpu stuff here
 
         self.pt_var=self.cc.var+self.dcc_var
-        self.pt_saver=tf.train.Saver(var_list=self.pt_var)
+
+        #Save dcc vars too??
+        #self.pt_saver=tf.train.Saver(var_list=self.pt_var)
+        self.pt_saver=tf.train.Saver(var_list=self.cc.var)
+
         self.pt_dir=os.path.join(self.model_dir,'pretrain')
         if not os.path.exists(self.pt_dir):
             os.mkdir(self.pt_dir)
 
-        if config.pt_load_path:
-            print('Attempting to load pretrain model:',config.pt_load_path)
-            self.pt_saver.restor(config.pt_load_path)
 
         self.saver = tf.train.Saver(var_list=self.var)
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
@@ -180,6 +181,9 @@ class Trainer(object):
             self.sess = sv.prepare_or_wait_for_session(config=sess_config)
 
 
+        if config.pt_load_path:
+            print('Attempting to load pretrain model:',config.pt_load_path)
+            self.pt_saver.restore(self.sess,config.pt_load_path)
 
         #if not self.is_train:
         #    # dirty way to bypass graph finilization error
@@ -240,7 +244,7 @@ class Trainer(object):
                       format(step, self.max_step, c_loss, dcc_loss))
 
             if counter %(10*self.log_step)==0:
-                self.pt_saver.save(self.sess,self.pt_dir)
+                self.pt_saver.save(self.sess,self.pt_dir+'/CC_Model',result['step'])
 
         else:
             stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
@@ -338,7 +342,11 @@ class Trainer(object):
         self.real_labels_list=[self.data_loader[name] for name in label_names]
         self.real_labels=tf.concat(self.real_labels_list,-1)
 
-        self.cc=CausalController(self.graph,self.batch_size,self.config.indep_causal)
+#(self,graph,batch_size=1,indep_causal=False,n_layers=3,n_hidden=10,input_dict=None,reuse=None)
+        self.cc=CausalController(self.graph,self.batch_size,
+                        indep_causal=self.config.indep_causal,
+                        n_layers=self.config.cc_n_layers,
+                        n_hidden=self.config.cc_n_hidden)
 
         #maybe needs reshaped? [bs,] -> [bs,1]
         self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
@@ -346,8 +354,19 @@ class Trainer(object):
         #print('shape of fake_labels:',self.fake_labels.get_shape().as_list())
 
         n_hidden=self.config.critic_hidden_size
-        self.dcc_real,self.dcc_real_logit,self.dcc_var0=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
+        #self.real_label_dict={n:self.data_loader[n] for n in self.cc.node_names}
+        #self.fake_label_dict={n:self.cc.node_dict[n].label for n in self.cc.node_names}
+
+        #Pretrain node by node by computing a new discriminator for each node
+        #given the true value of its parents
+        if self.config.pt_factorized:
+            self.DCC=FactorizedNetwork(self.graph,self.DCC)
+
+        self.dcc_real,self.dcc_real_logit,self.dcc_var=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
         self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,reuse=True,n_hidden=n_hidden)
+
+
+
 
         #z_num is 64 or 128 in paper
         self.z_gen = tf.random_uniform(

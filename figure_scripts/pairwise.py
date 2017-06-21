@@ -46,6 +46,7 @@ def calc_tvd(data,attr):
     tvd=0.5*diff.abs().sum()
     return tvd
 
+
 def crosstab(model,step=None,result_dir=None,report_tvd=True):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs
@@ -138,10 +139,12 @@ def crosstab(model,step=None,result_dir=None,report_tvd=True):
             lab_f.write('Node: '+name+'\n')
             gldf_f.write('Node: '+name+'\n')
 
+            true_marg=np.mean((attr[name]>0.5).values)
             lab_marg=(joint[name]['g_fake_label'] > 0.5).astype('int')
             dlf_marg=(joint[name]['d_fake_label'] > 0.5).astype('int')
 
-            lab_f.write('  mean='+str(np.mean(lab_marg))+'\n')
+            lab_f.write('  mean='+str(np.mean(lab_marg))+'\t'+\
+                        'true mean='+str(true_marg)+'\n')
             dlf_f.write('  mean='+str(np.mean(dlf_marg))+'\n')
 
             gldf_df=pd.DataFrame(data=np.hstack([lab_marg,dlf_marg]),columns=['glabel','dfake'])

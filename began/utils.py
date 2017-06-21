@@ -52,7 +52,7 @@ def prepare_dirs_and_logger(config):
         config.model_dir = os.path.join(config.log_dir, config.model_name)
     config.data_path = os.path.join(config.data_dir, config.dataset)
 
-    if config.is_train:
+    if not config.load_path:
         config.log_code_dir=os.path.join(config.model_dir,'code')
         for path in [config.log_dir, config.data_dir,
                      config.model_dir, config.log_code_dir]:

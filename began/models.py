@@ -242,6 +242,32 @@ def DiscriminatorW(labels,batch_size, reuse=None, n_hidden=10):
         variables = tf.contrib.framework.get_variables(scope)
         return tf.nn.sigmoid(h3),h3,variables
 
+def FactorizedNetwork(graph,Net):
+    node_names, parent_names=zip(*graph)
+
+    def fDCC(labels,batch_size, reuse=None, n_hidden=10):
+        with tf.variable_scope('gfactorized',reuse=reuse):
+            list_labels=tf.unstack(labels,axis=1)
+            label_dict={n:l for n,l in zip(node_names,list_labels)}
+            parent_inputs=[ [label_dict[n] for n in p] for p in parent_names]
+            inputs=[tf.stack( [label_dict[n]]+par,axis=1) for n,par in zip(node_names,parent_inputs)]
+
+            #dcc_dict={}
+            logit_sum=0
+            net_var=[]
+            for n,x in zip(node_names,inputs):
+                with tf.variable_scope(n,reuse=reuse):
+                    prob,log,var=Net(x,batch_size,reuse,n_hidden)
+                    logit_sum+=log
+                    net_var+=var
+
+            logit_sum/=len(list_labels)#optional
+            prob=tf.nn.sigmoid(logit_sum)
+        return prob,logit_sum,net_var
+
+    return fDCC
+
+
 
 def Grad_Penalty(real_data,fake_data,Discriminator,config):
     batch_size=config.batch_size

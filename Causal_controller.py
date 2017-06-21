@@ -5,7 +5,20 @@ slim = tf.contrib.slim
 
 
 class CausalController(object):
-    def __init__(self,graph,batch_size=1,indep_causal=False,n_hidden=10,input_dict=None,reuse=None):
+    def load(sess,path):
+        '''
+        sess is a tf.Session object
+        path is the path of the file you want to load, (not the directory)
+        Example
+        ./checkpoint/somemodel/saved/model.ckpt-3000
+        (leave off the extensions)
+        '''
+        if not hasattr(self,saver):
+            self.saver=tf.train.saver(var_list=self.cc.var)
+        print('Attempting to load model:',path)
+        self.saver.restore(sess,path)
+
+    def __init__(self,graph,batch_size=1,indep_causal=False,n_layers=3,n_hidden=10,input_dict=None,reuse=None):
         '''a causal graph is specified as follows:
             just supply a list of pairs (node, node_parents)
 
@@ -50,6 +63,9 @@ class CausalController(object):
                 NodeClass=UniformNode
             else:
                 NodeClass=CausalNode
+                print('Using ',n_layers,'between each causal node')
+                NodeClass.n_layers=n_layers
+                NodeClass.n_hidden=self.n_hidden
 
             self.step= tf.Variable(0, name='step', trainable=False)
 
@@ -117,10 +133,11 @@ class CausalNode(object):
     _label_logit=None
     _label=None
     parents=[]#list of CausalNodes
+    n_layers=3
+    n_hidden=10
 
-    def __init__(self,train=True,name=None,n_hidden=10,input_z=None,reuse=None):
+    def __init__(self,train=True,name=None,input_z=None,reuse=None):
         self.name=name
-        self.n_hidden=n_hidden#also is z_dim
         self.train = train
         self.reuse=reuse
 
@@ -128,7 +145,7 @@ class CausalNode(object):
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
         with tf.variable_scope(self.name):
-            self.z=input_z or  tf.random_uniform( 
+            self.z=input_z or  tf.random_uniform(
                     (self.batch_size,self.n_hidden),minval=-1.0,maxval=1.0)
             if debug:
                 print 'self.',self.name,' using input_z ', input_z
@@ -141,9 +158,10 @@ class CausalNode(object):
         tf_parents=[self.z]+[node.label_logit for node in self.parents]
         with tf.variable_scope(self.name,reuse=self.reuse):
             vec_parents=tf.concat(tf_parents,-1)
-            h0=slim.fully_connected(vec_parents,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer0')
-            h1=slim.fully_connected(h0,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer1')
-            self._label_logit = slim.fully_connected(h1,1,activation_fn=None,scope='proj')
+            h=vec_parents
+            for l in range(self.n_layers-1):
+                h=slim.fully_connected(h,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer'+str(l))
+            self._label_logit = slim.fully_connected(h,1,activation_fn=None,scope='proj')
             self._label=tf.nn.sigmoid( self._label_logit )
             if debug:
                 print 'self.',self.name,' has setup _label=',self._label

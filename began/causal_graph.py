@@ -164,6 +164,12 @@ male_smiling_lipstick=[
        ['Smiling', ['Male']]
        ]
 
+MSL=[
+       ['Male'   , []],
+       ['Wearing_Lipstick'  , ['Male']],
+       ['Smiling', ['Male','Wearing_Lipstick']]
+       ]
+
 MYESO=[
     ['Male',[]],
     ['Young',['Male']],
@@ -207,6 +213,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = MSO_smiling
     elif causal_model == 'male_mustache_lipstick':
         graph = male_mustache_lipstick
+    elif causal_model == 'MSL':
+        graph = MSL
     elif causal_model == 'new_big_causal_graph':
         graph = new_big_causal_graph
 

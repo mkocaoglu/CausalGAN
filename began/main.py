@@ -12,6 +12,16 @@ debug = debugger.Pdb().set_trace
 
 
 '''
+Pretraining is having difficulty with big_causal_graph. Trying to increase
+number of layers between causal nodes
+
+    net_arg.add_argument('--n_cc_layers',type=int, default=3,
+                         help=this is the number of neural network fc layers
+                         between the causes of a neuron and the neuron itsef.
+
+
+
+Remark (about below): this ended up seemly helping mustache
 Less frequenty logs
             #if step % (self.log_step * 10) == 0:
             if step % (self.log_step * 50) == 0:
