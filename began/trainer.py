@@ -145,7 +145,12 @@ class Trainer(object):
             os.mkdir(self.pt_dir)
 
 
+        ##This line is kind of a big mistake.
+        ##Should really not have it
         self.saver = tf.train.Saver(var_list=self.var)
+
+        #Should be like this
+        #self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
         print('self.model_dir:',self.model_dir)
@@ -158,7 +163,7 @@ class Trainer(object):
         #if config.encode_image:
         #if True:
         if False:
-            #Hack because I can have graph.finalize be called
+            #Hack for encoding because I can't have graph.finalize be called
             #doesn't use queuerunners but should be no problem?
             sm=tf.train.SessionManager()
             self.sess=sm.prepare_session(
@@ -168,29 +173,42 @@ class Trainer(object):
                                     config=sess_config,
                                    )
 
+        elif False:
+        #elif True:
+            self.sess=tf.Session()
+            self.sess.run(tf.global_variables_initializer())
+
+            ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                print(" [*] Success to read {}".format(ckpt_name))
+
         else:
             #Main way to go
-            sv = tf.train.Supervisor(logdir=self.model_dir,
+            sv = tf.train.Supervisor(
+                                    #logdir=self.model_dir,
                                     is_chief=True,
                                     saver=self.saver,
                                     summary_op=None,
                                     summary_writer=self.summary_writer,
                                     save_model_secs=300,
                                     global_step=self.step,
-                                    ready_for_local_init_op=None)
+                                    ready_for_local_init_op=None
+                                    )
             self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+
+            ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+                self.saver.restore(self.sess, os.path.join(self.model_dir, ckpt_name))
+                print(" [*] Success to read {}".format(ckpt_name))
 
 
         if config.pt_load_path:
             print('Attempting to load pretrain model:',config.pt_load_path)
             self.pt_saver.restore(self.sess,config.pt_load_path)
 
-        #if not self.is_train:
-        #    # dirty way to bypass graph finilization error
-        #    g = tf.get_default_graph()
-        #    g._finalized = False
-
-        #    self.build_test_model()
 
     def pretrain(self):
         step,global_step=self.sess.run([self.cc.step,self.g_step])
@@ -623,6 +641,7 @@ class Trainer(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
+        self.c_optim =self.c_optimizer.apply_gradients(c_grads)
         self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
         self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
 
