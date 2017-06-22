@@ -53,6 +53,8 @@ intervention_dicts={
     #'repMustache':{'Mustache':np.repeat([0.2,-2],64)},
     #'repMustache':{'Mustache':np.repeat([1,-1],64)},
     'perMustache':{'Mustache':'percentile'},
+    'perMSO':{'MSO':'percentile'},
+    'perEyeglasses':{'Eyeglasses':'percentile'},
 
     'mMustache':{'Mustache':[0.6,-0.6]},
     'mLipstick':{'Wearing_Lipstick':[0.1,-0.1]},

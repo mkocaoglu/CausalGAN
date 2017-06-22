@@ -25,7 +25,7 @@ os.system(mystr)
 mystr = 'python visualize.py --model_type dcgan --sample_model True --cross_tab True --do_dict_name interpolation --dataset celebA --input_height 108 --is_train False --is_crop True --graph %s --checkpoint_dir ./checkpoint/%d --noCC True'%(graph_name, model_ID)
 os.system(mystr)
 mystr = 'python visualize.py --model_type dcgan --sample_model True --cross_tab True --do_dict_name interpolation_in_z --dataset celebA --input_height 108 --is_train False --is_crop True --graph %s --checkpoint_dir ./checkpoint/%d --noCC True'%(graph_name, model_ID)
-print "done!" 
+print "done!"
 
 
 
