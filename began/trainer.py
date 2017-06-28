@@ -147,10 +147,11 @@ class Trainer(object):
 
         ##This line is kind of a big mistake.
         ##Should really not have it
-        self.saver = tf.train.Saver(var_list=self.var)
+        #self.saver = tf.train.Saver(var_list=self.var)
+        #print('WARNING: SAVER TAKES VAR LIST DEPRECATED')
 
         #Should be like this
-        #self.saver = tf.train.Saver()
+        self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=4)
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
         print('self.model_dir:',self.model_dir)
@@ -187,7 +188,7 @@ class Trainer(object):
         else:
             #Main way to go
             sv = tf.train.Supervisor(
-                                    #logdir=self.model_dir,
+                                    logdir=self.model_dir,
                                     is_chief=True,
                                     saver=self.saver,
                                     summary_op=None,
@@ -198,16 +199,20 @@ class Trainer(object):
                                     )
             self.sess = sv.prepare_or_wait_for_session(config=sess_config)
 
-            ckpt = tf.train.get_checkpoint_state(self.model_dir)
-            if ckpt and ckpt.model_checkpoint_path:
-                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-                self.saver.restore(self.sess, os.path.join(self.model_dir, ckpt_name))
-                print(" [*] Success to read {}".format(ckpt_name))
+            #ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            #if ckpt and ckpt.model_checkpoint_path:
+            #    ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            #    self.saver.restore(self.sess, os.path.join(self.model_dir, ckpt_name))
+            #    print(" [*] Success to read {}".format(ckpt_name))
 
 
         if config.pt_load_path:
             print('Attempting to load pretrain model:',config.pt_load_path)
             self.pt_saver.restore(self.sess,config.pt_load_path)
+
+            print('Check tvd after restore')
+            info=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
+            print('tvd after load:',info['tvd'])
 
 
     def pretrain(self):
@@ -216,15 +221,17 @@ class Trainer(object):
 
         stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
 
-        def break_pretrain(stats):
-            return (stats['tvd']<self.config.min_tvd)
+        def break_pretrain(stats,counter):
+            c1=counter>=self.config.min_pretrain_iter
+            c2= (stats['tvd']<self.config.min_tvd)
+            return (c1 and c2)
 
         for counter in trange(self.config.pretrain_iter):
             #Check for early exit
             if counter %(10*self.log_step)==0:
                 stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
                 print('ptstep:',counter,'  TVD:',stats['tvd'])
-                if break_pretrain(stats):
+                if break_pretrain(stats,counter):
                     print('Completed Pretrain by TVD Qualification')
                     break
 
@@ -266,6 +273,7 @@ class Trainer(object):
 
         else:
             stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
+            self.pt_saver.save(self.sess,self.pt_dir+'/CC_Model',self.cc.step)
             print('Completed Pretrain by Exhaustin all Pretrain Steps!')
 
         print('step:',step,'  TVD:',stats['tvd'])
@@ -332,9 +340,11 @@ class Trainer(object):
 
                 for name,node in self.cc.node_dict.items():
                     do_dict={name:'percentile'}
-                    cond_dict={name:'percentile'}
                     do_dict_name='per'+name
-                    cond_dict_name='per'+name
+                    cond_dict={name:'int'}
+                    cond_dict_name='int'+name
+                    #cond_dict={name:'percentile'}
+                    #cond_dict_name='per'+name
                     intervention2d( self, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
                     condition2d( self, cond_dict=cond_dict, cond_dict_name=cond_dict_name, on_logits=True)
 
@@ -367,7 +377,8 @@ class Trainer(object):
                         n_hidden=self.config.cc_n_hidden)
 
         #maybe needs reshaped? [bs,] -> [bs,1]
-        self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
+        #self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
+        self.fake_labels=self.cc.labels
         self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
         #print('shape of fake_labels:',self.fake_labels.get_shape().as_list())
 
@@ -397,7 +408,10 @@ class Trainer(object):
         self.z_fd.update({'z_gen':self.z_gen})
 
         #self.z= tf.concat( [self.fake_labels_logits, self.z_gen],axis=-1,name='z')
-        self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
+        if self.config.round_fake_labels:
+            self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
+        else:
+            self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
 
 
         G, self.G_var = GeneratorCNN(

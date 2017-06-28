@@ -11,17 +11,59 @@ import sys
 
 from utils import save_figure_images#makes grid image plots
 
+#convenience functions
+from utils import make_sample_dir,guess_model_step,infer_grid_image_shape
+
 
 from IPython.core import debugger
 debug = debugger.Pdb().set_trace
 
 
+def find_logit_percentile(model, key, per):
+    data=[]
+    for _ in range(30):
+        data.append(model.sess.run(model.cc.node_dict[key].label_logit))
+    D=np.vstack(data)
+    pos_logits,neg_logits=D[D>0], D[D<0]
+    pos_tile = np.percentile(pos_logits,per)
+    neg_tile = np.percentile(neg_logits,100-per)
+    return pos_tile,neg_tile
 
-def get_joint(model, do_dict=None, N=50,return_discrete=True,step=''):
+def fixed_label_diversity(model, config,step=''):
+    sample_dir=make_sample_dir(model)
+    str_step=str(step) or guess_model_step(model)
+
+    N=64#per image
+    n_combo=5#n label combinations
+
+    #0,1 label combinations
+    fixed_labels=model.attr.sample(n_combo)[model.cc.node_names]
+    size=infer_grid_image_shape(N)
+
+    for j, fx_label in enumerate(fixed_labels.values):
+        fx_label=np.reshape(fx_label,[1,-1])
+        fx_label=np.tile(fx_label,[N,1])
+        do_dict={model.cc.labels: fx_label}
+
+        images, feed_dict= sample(model, do_dict=do_dict)
+        fx_file=os.path.join(sample_dir, str_step+'fxlab'+str(j)+'.pdf')
+        save_figure_images(model.model_type,images,fx_file,size=size)
+
+    #which image is what label
+    fixed_labels=fixed_labels.reset_index(drop=True)
+    fixed_labels.to_csv(os.path.join(sample_dir,str_step+'fxlab'+'.csv'))
+
+
+def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete=True):
     '''
-    do_dict is intended to be a distribution of interventions. Pass a
-    distribution to get the average (discrete) g/fake label joint over that
-    distribution
+    Returns a dictionary of dataframes of samples.
+    Each dataframe correponds to a different tensor i.e. cc labels, d_labeler
+    labels etc.
+
+    int_do_dict and int_cond_dict indicate that just a simple +1 or 0 should be
+    passed in
+    ex: int_do_dict={'Wearing_Lipstick':+1}
+
 
     Ex: if intervention=+1 corresponds to logits uniform in [0,0.6], pass
     np.linspace(0,0.6,n)
@@ -29,84 +71,100 @@ def get_joint(model, do_dict=None, N=50,return_discrete=True,step=''):
     N is number of batches to sample at each location in logitspace (num_labels
     dimensional)
     '''
-    str_step=str(step)
 
-    if do_dict is not None:
+    #values are either +1 or -1 in cond and do dict
 
-        print 'do_dict:',do_dict
-        p_do_dict=interpret_dict( do_dict, model, n_times=N,on_logits=True)
-        print 'interpreted p_do_dict:',p_do_dict
+    do_dict,cond_dict={},{}
+    if int_do_dict is not None:
+        for key,value in int_do_dict.items():
+            #Intervene in the middle of where the model is used to operating
+            print('calculating percentile...')
+            data=[]
+            for _ in range(30):
+                data.append(model.sess.run(model.cc.node_dict[key].label_logit))
+            D=np.vstack(data)
+            pos_logits,neg_logits=D[D>0], D[D<0]
+            if value == 1:
+                intv = np.percentile(pos_logits,50)
+            elif value == 0:
+                intv = np.percentile(neg_logits,50)
+            else:
+                raise ValueError('pass either +1 or 0')
+            do_dict[key]=np.repeat([intv],N)
 
-        lengths = [ len(v) for v in p_do_dict.values() if hasattr(v,'__len__') ]
-        print 'lengths',lengths
 
-        #n_batches=len(p_do_dict[token]/N)
-        print 'len product_do_dict',len(p_do_dict[token])
+    if int_cond_dict is not None:
+        for key,value in int_cond_dict.items():
+            eps=3.
+            if value == 1:
+                cond_dict[key]=np.repeat([+eps],N)
+            elif value == 0:
+                cond_dict[key]=np.repeat([-eps],N)
+            else:
+                raise ValueError('pass either +1 or 0')
 
-        feed_dict = do2feed(p_do_dict, model)#{tensor:array}
-        fds=chunks(feed_dict,model.batch_size)
-    else:
-        def gen_fd():
-            while True:
-                yield None
-        fds=gen_fd()
+    #print 'getjoint: cond_dict:',cond_dict
+    #print 'getjoint: do_dict:',do_dict
 
-
-    #print('WARNING! using only N=100 samples:DEBUG mode')
-    #N=100#to go quicker
-
-    print 'Calculating joint distribution'
-    n_batches=N
-
-    labels, d_fake_labels= [],[]
     #Terminology
     if model.model_type=='began':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_fake_labels
+        D_real_labels=model.D_real_labels
     elif model.model_type=='dcgan':
         fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
+        D_real_labels=model.D_labels_for_real
 
-#        outputs=[]
-#        for fd in fds:
-#            out=model.sess.run(fetch_dict, fd)
-#            outputs.append(out['G'])
-#        return np.vstack(outputs), feed_dict
+    fetch_dict={'d_fake_labels':D_fake_labels,
+                'cc_labels':model.cc.labels}
 
-    #for n in range(n_batches):
+    if model.model_type=='began':#dcgan not fully connected
+        if not cond_dict and not do_dict:
+            #Havent coded conditioning on real data
+            fetch_dict.update({'d_real_labels':D_real_labels})
 
-    for step in trange(n_batches):
-        fd=next(fds)
-        if step==0:
-            if fd is not None:
-                print 'FD',fd
 
-        lab,dfl=model.sess.run([fake_labels,D_fake_labels],feed_dict=fd)
+    print 'Calculating joint distribution'
+    result,_=sample(model, cond_dict=cond_dict, do_dict=do_dict,N=N,
+                    fetch=fetch_dict,return_failures=False)
+    print 'fetd keys:',fetch_dict.keys()
 
-        labels.append(lab)
-        d_fake_labels.append(dfl)
+    result={k:result[k] for k in fetch_dict.keys()}
+
 
     n_labels=len(model.cc.node_names)
-    list_labels=np.split( np.vstack(labels),n_labels, axis=1)
-    list_d_fake_labels=np.split( np.vstack(d_fake_labels),n_labels, axis=1)
+    #list_labels=np.split( result['cfl'],n_labels, axis=1)
+    #list_d_fake_labels=np.split(result['dfl'],n_labels, axis=1)
+    #list_d_real_labels=np.split(result['drl'],n_labels, axis=1)
+    list_result={k:np.split(val,n_labels, axis=1) for k,val in result.items()}
 
-    joint={}
+    pd_joint={}
+    for key,r in list_result.items():
+        joint={}
+        for name,val in zip(model.cc.node_names,r):
+            int_val=(val>0.5).astype('int')
+            joint[name]=int_val.ravel()
+        pd_joint[key]=pd.DataFrame.from_dict(joint)
+
+    return pd_joint
+
+
+
+
     for name, lab, dfl in zip(model.cc.node_names,list_labels,list_d_fake_labels):
-        #Create dictionary:
-            #node_name -> 
-                        #'g_fake_label'->val
-                        #'d_fake_label'->val
-
         if return_discrete:
-            lab_val=(lab>0.5).astype('int')
+            cfl_val=(lab>0.5).astype('int')
             dfl_val=(dfl>0.5).astype('int')
 
-        joint[name]={
-                'g_fake_label':lab_val,
-                'd_fake_label':dfl_val
-                }
+        joint['dfl'][name]=dfl_val
+        joint['cfl'][name]=cfl_val
 
-    return joint
+
+    cfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
+    dfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
+
+    return cfl,dfl
 
 
 
@@ -186,7 +244,7 @@ def do2feed( do_dict, model, on_logits=True):
         try:
             feed_dict[tensor]=np.reshape(value,shape)
         except Exception,e:
-            print 'Unexpected difficulty reshaping inputs:',tensor, tf_shape, np.size(value)
+            print 'Unexpected difficulty reshaping inputs:',tensor.name, tf_shape, len(value), np.size(value)
             raise e
     return feed_dict
 
@@ -287,8 +345,8 @@ def did_succeed( output_dict, cond_dict ):
     than the condition specified
     '''
     test_key=cond_dict.keys()[0]
-    print('output_dict:',np.squeeze(output_dict[test_key]))
-    print('cond_dict:',cond_dict[test_key])
+    #print('output_dict:',np.squeeze(output_dict[test_key]))
+    #print('cond_dict:',cond_dict[test_key])
 
 
     #definition success:
@@ -297,51 +355,76 @@ def did_succeed( output_dict, cond_dict ):
         val=np.squeeze(output_dict[key])
         cond1=np.sign(val)==np.sign(cond)
         cond2=np.abs(val)>np.abs(cond)
-
         return cond1*cond2
 
 
     scoreboard=[is_win(key) for key in cond_dict]
-    print('scoreboard', scoreboard)
+    #print('scoreboard', scoreboard)
     all_victories_bool=np.logical_and.reduce(scoreboard)
     return all_victories_bool.flatten()
 
 
-def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
+def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
+           on_logits=True,return_failures=True):
     '''
-    #don't use fetch
     fetch should be a list of tensors to do sess.run on
     do_dict is a list of strings or tensors of the form:
     {'Male':1, model.z_gen:[0,1], model.cc.Smiling:[0.1,0.9]}
+
+    N is used only if cond_dict and do_dict are None
     '''
+
+    #do_dict= do_dict or {}
+    #cond_dict= cond_dict or {}
+
+    #Handle the case where len querry doesn't divide batch_size
+    a_dict=cond_dict or do_dict
+    if a_dict:
+        nsamples=len(a_dict.values()[0])
+    elif N:
+        nsamples=N
+    else:
+        raise ValueError('either pass a dictionary or N')
+
+
+    #Pad to be batch_size divisible
+    npad=(64-nsamples)%64
+    if npad>0:
+        print("Warn. nsamples doesnt divide batch_size, pad=",npad)
+    #N+=npad
+
+    if do_dict:
+        for k in do_dict.keys():
+            keypad=np.tile(do_dict[k][0],[npad])
+            do_dict[k]=np.concatenate([do_dict[k],keypad])
+
+    if cond_dict:
+        for k in cond_dict.keys():
+            keypad=np.tile(cond_dict[k][0],[npad])
+            cond_dict[k]=np.concatenate([cond_dict[k],keypad])
+
+
     verbose=False
-    if fetch:
-        raise ValueError('manual fetch not supported')
+    #verbose=True
 
-    if cond_dict and do_dict:
-        raise ValueError('simultaneous condition and\
-                         intervention not supported')
-
-    print('sampler recieved dictionary:',cond_dict or do_dict)
-
-
-    #check_tensors_dict = interpret_dict( cond_dict, model, on_logits=on_logits)
-
-    print('given cond_dict', cond_dict )#None
 
 
     #expand dict with products of sets of interventions/conditions
-    do_dict = interpret_dict( do_dict, model, on_logits=on_logits)
-    cond_dict = interpret_dict( cond_dict, model,on_logits=on_logits)#{string:array}
+    print("Warning, no interpret in sample")
+    do_dict= do_dict or {}
+    #do_dict = interpret_dict( do_dict, model, on_logits=on_logits)
+    #cond_dict = interpret_dict( cond_dict, model,on_logits=on_logits)#{string:array}
 
-    print('actual cond_dict', cond_dict )#{}
+    #print('actual cond_dict', cond_dict )#{}
+    #print('actual do_dict', do_dict )#{}
 
     #replace strings with tensors appropriately
     feed_dict = do2feed(do_dict, model, on_logits=on_logits)#{tensor:array}
     fetch_dict= cond2fetch(cond_dict,model,on_logits=on_logits) #{string:tensor}
     fetch_dict.update(fetch or {'G':model.G})
 
-    print('feed_dict',feed_dict)
+    if verbose:
+        print('feed_dict',feed_dict)
     print('fetch_dict',fetch_dict)
 
     if not cond_dict and do_dict:
@@ -350,17 +433,39 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
 
         fds=chunks(feed_dict,model.batch_size)
 
-        outputs=[]
+        outputs={k:[] for k in fetch_dict.keys()}
         for fd in fds:
             out=model.sess.run(fetch_dict, fd)
-            outputs.append(out['G'])
-        return np.vstack(outputs), feed_dict
+            #outputs.append(out['G'])
+            for k,val in out.items():
+                outputs[k].append(val)
 
-    elif cond_dict and not do_dict:
+        for k in outputs.keys():
+            outputs[k]=np.vstack(outputs[k])[:nsamples]
+        return outputs,feed_dict
+        #return np.vstack(outputs), feed_dict
+
+    elif not cond_dict and not do_dict:
+        #neither passed, but get N samples
+        assert(N>0)
+        print 'sampling model N=',N,' times'
+        fds=chunks({'idx':range(npad+N)},model.batch_size)
+
+        outputs={k:[] for k in fetch_dict.keys()}
+        for fd in fds:
+            out=model.sess.run(fetch_dict)
+            for k,val in out.items():
+                outputs[k].append(val)
+        for k in outputs.keys():
+            outputs[k]=np.vstack(outputs[k])[:nsamples]
+        return outputs, feed_dict
+
+
+    #elif cond_dict and not do_dict:
+    elif cond_dict:
     #Could also pass do_dict here to be interesting
         ##Implements rejection sampling
         print('sampler mode:Conditional')
-
 
         rows=np.arange( len(cond_dict.values()[0]))#what idx do we need
         assert(len(rows)>=model.batch_size)#should already be true.
@@ -368,16 +473,17 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
         print('nrows:',len(rows))
 
         #init
-        print('WARNING: max_fail too high')
-        max_fail=150
+        max_fail=450
         #max_fail=10000
         n_fails=np.zeros_like(rows)
         remaining_rows=rows.copy()
         completed_rows=[]
+        bad_rows=set()
 
         #null=lambda :[-1 for r in rows]
         outputs={key:[-1 for r in rows]for key in fetch_dict}
-        print('n keys in outputs:',len(outputs.keys()))
+        if verbose:
+            print('n keys in outputs:',len(outputs.keys()))
 
         #debug()
 
@@ -410,10 +516,6 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
             fail_idx=iter_rows[~bool_pass]
 
 
-            good_rows=set( iter_rows[bool_pass] )
-            #print('good_rows',good_rows)
-            bad_rows=set( rows[ n_fails>=max_fail ] )
-            #print('bad_rows',bad_rows)
 
             #yuck
             for key in out:
@@ -429,17 +531,39 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None, on_logits=True):
                     if verbose:
                         print('key:',key,' shape giveup:',shape)
 
+            good_rows=set( iter_rows[bool_pass] )
+            #print('good_rows',good_rows)
+            bad_rows=set( rows[ n_fails>=max_fail ] )
+            #print('bad_rows',bad_rows)
+
 
             ##Remove rows
             remaining_rows=list( set(remaining_rows)-good_rows-bad_rows )
 
             #debug()
 
-            print('conditioning took',ii,' tries')
-            print('n_fails:10',n_fails[:10])
+        print('conditioning took',ii,' tries')
+        n_fails.sort()
+        print('10 most fail counts(limit=',max_fail,'):',n_fails[-10:])
 
-        #Tempory since for now we are only interested in 'G'
-        return np.stack(outputs['G']),cond_dict
+
+        if not return_failures:
+            #useful for pdf calculations.
+            #not useful for image grids
+            print 'Not returning failures!..',
+            for k in outputs.keys():
+                good_bool=n_fails<max_fail
+                print '..Returning', np.sum(good_bool),'/',len(cond_dict.values()[0])
+                outputs[k]=[outputs[k][i] for i in good_bool]
+
+        for k in outputs.keys():
+            #print 'tobestacked:',len(outputs[k])
+            #print 'tobestacked:',outputs[k][0].shape
+            #outputs[k]=np.vstack(outputs[k])
+            outputs[k]=np.stack(outputs[k])[:nsamples]
+
+
+        return outputs,cond_dict
 
     else:
         raise Exception('This should not happen')
@@ -478,16 +602,41 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
                 cond_dict[key]=[0.5*cond_min,0.5*cond_max]
                 print('Condition dict used:',cond_dict)
 
+            elif value=='int':
+                #for integer pretrained models
+                #eps=0.1 #usually logits are around 4-20
+                eps=3 #usually logits are around 4-10
+                #sigmoid(3) ~ 0.95
+                cond_dict[key]=np.repeat([+eps,-eps],64) #logit on either size of 0
             elif value=='percentile':
-                #fetch=cond2fetch(cond_dict)
-                print('...calculating percentile')
+                ##I'm changing this to do 50th percentile
+                #of positive or of negative class
+                print('calculating percentile...')
                 data=[]
                 for _ in range(30):
                     data.append(model.sess.run(model.cc.node_dict[key].label_logit))
                 D=np.vstack(data)
-                print('dat',D.flatten())
-                cond_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
-                print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
+                pos_logits,neg_logits=D[D>0], D[D<0]
+                print("Conditioning on 5th percentile")
+                pos_intv = np.percentile(pos_logits,5)
+                neg_intv = np.percentile(neg_logits,95)
+                cond_dict[key]=np.repeat([pos_intv,neg_intv],64)
+                print('percentile5 for',key,'is',np.percentile(D,5))
+                print('percentile25 for',key,'is',np.percentile(D,25))
+                print('percentile50 for',key,'is',np.percentile(D,50))
+                print('percentile75 for',key,'is',np.percentile(D,75))
+                print('percentile95 for',key,'is',np.percentile(D,95))
+
+                #OLD:
+                ##fetch=cond2fetch(cond_dict)
+                #print('...calculating percentile')
+                #data=[]
+                #for _ in range(30):
+                #    data.append(model.sess.run(model.cc.node_dict[key].label_logit))
+                #D=np.vstack(data)
+                #print('dat',D.flatten())
+                #cond_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
+                #print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
 
 
             else:
@@ -526,7 +675,8 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     else:
         N=np.prod(lengths)
         if N%8==0:
-            size=[N/8,8]
+            #size=[N/8,8]
+            size=[8,N/8]
         else:
             size=[8,8]
 
@@ -545,9 +695,10 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     if not os.path.exists(sample_dir):
         os.mkdir(sample_dir)
 
-    images, _= sample(model, cond_dict=cond_dict,on_logits=on_logits)
+    out, _= sample(model, cond_dict=cond_dict,on_logits=on_logits)
+    images=out['G']
 
-    print 'Images shape:',images.shape
+    #print 'Images shape:',images.shape
 
 
     #cond_file=os.path.join(sample_dir, str_step+str(cond_dict_name)+'_cond'+'.png')
@@ -556,7 +707,6 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     #if os.path.exists(cond_file):
     #    cond_file='new'+cond_file #don't overwrite
 
-    print '[*] saving condition2d:',cond_file
     save_figure_images(model.model_type,images,cond_file,size=size)
 
 
@@ -585,15 +735,30 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
                 itv_min,itv_max=model.intervention_range[key]
                 do_dict[key]=np.linspace(itv_min,itv_max,8)
 
+            elif value=='int':
+                #for integer pretrained models
+                #eps=0.1 #usually logits are around 4-20
+                eps=3 #usually logits are around 4-10
+                #sigmoid(3) ~ 0.95
+                do_dict[key]=np.repeat([-eps,+eps],64) #logit on either size of 0
+
             elif value=='percentile':
-                print('...calculating percentile')
+                ##I'm changing this to do 50th percentile
+                #of positive or of negative class
+                print('calculating percentile...')
                 data=[]
                 for _ in range(30):
                     data.append(model.sess.run(model.cc.node_dict[key].label_logit))
                 D=np.vstack(data)
-                #print('dat',D.flatten())
-                do_dict[key]=np.repeat([np.percentile(D,95),np.percentile(D,5)],64)
-                print('percentiles for',key,'are',[np.percentile(D,5),np.percentile(D,95)])
+                pos_logits,neg_logits=D[D>0], D[D<0]
+                pos_intv = np.percentile(pos_logits,50)
+                neg_intv = np.percentile(neg_logits,50)
+                do_dict[key]=np.repeat([pos_intv,neg_intv],64)
+                print('percentile5 for',key,'is',np.percentile(D,5))
+                print('percentile25 for',key,'is',np.percentile(D,25))
+                print('percentile50 for',key,'is',np.percentile(D,50))
+                print('percentile75 for',key,'is',np.percentile(D,75))
+                print('percentile95 for',key,'is',np.percentile(D,95))
             else:
                 #otherwise pass a number, list, or array
                 assert(not isinstance(value,str))
@@ -629,10 +794,10 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     else:
         N=np.prod(lengths)
         if N%8==0:
-            size=[N/8,8]
+            #size=[N/8,8]
+            size=[8,N/8]
         else:
             size=[8,8]
-
 
     #Terminology
     if model.model_type=='began':
@@ -648,7 +813,8 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
         os.mkdir(sample_dir)
 
     #print 'do_dict DEBUG:',do_dict
-    images, feed_dict= sample(model, do_dict=do_dict,on_logits=on_logits)
+    out, feed_dict= sample(model, do_dict=do_dict,on_logits=on_logits)
+    images=out['G']
 
 
     itv_file=os.path.join(sample_dir, str_step+str(do_dict_name)+'_intv'+'.pdf')
@@ -657,7 +823,6 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     #if os.path.exists(itv_file):
     #    itv_file='new'+itv_file #don't overwrite
 
-    print '[*] saving intervention2d:',itv_file
     save_figure_images(model.model_type,images,itv_file,size=size)
 
 

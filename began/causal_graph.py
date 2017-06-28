@@ -109,6 +109,17 @@ old_big_causal_graph=[
     ]
 #old_big_causal_graph=big_causal_graph#fyi
 
+small_causal_graph=[
+        ['Young',[]],
+        ['Male',[]],
+        ['Mustache',        ['Male','Young']],
+        ['Smiling',         ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young']],
+        ['Mouth_Slightly_Open',['Male','Young','Smiling']],
+        ['Narrow_Eyes',        ['Male','Young','Smiling']],
+    ]
+
+
 big_causal_graph=[
         ['Young',[]],
         ['Male',[]],
@@ -145,6 +156,17 @@ Smiling_MSO = [
         ['Mouth_Slightly_Open',['Smiling']]
        ]
 
+SN = [
+        ['Smiling',[]],
+        ['Narrow_Eyes',['Smiling']]
+       ]
+
+UM = [
+        ['Mustache',[]],
+        ['Male',['Mustache']]
+       ]
+
+
 MSO_smiling = [
         ['Smiling',['Mouth_Slightly_Open']],
         ['Mouth_Slightly_Open',[]]
@@ -163,8 +185,13 @@ male_smiling_lipstick=[
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male']]
        ]
+SLM=[
+       ['Smiling'   , []],
+       ['Wearing_Lipstick'  , ['Smiling']],
+       ['Male', ['Smiling','Wearing_Lipstick']]
+       ]
 
-MSL=[
+MLS=[
        ['Male'   , []],
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male','Wearing_Lipstick']]
@@ -189,6 +216,8 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
 
     if causal_model == 'male.young.smiling':
         graph=standard_graph
+    elif causal_model == 'small_causal_graph':
+        graph=small_causal_graph
     elif causal_model == 'subset1':
         graph=subset1_nodes
     elif causal_model == 'male_causes_beard':
@@ -213,8 +242,14 @@ def get_causal_graph(causal_model=None,*args,**kwargs):
         graph = MSO_smiling
     elif causal_model == 'male_mustache_lipstick':
         graph = male_mustache_lipstick
-    elif causal_model == 'MSL':
-        graph = MSL
+    elif causal_model == 'UM':
+        graph = UM
+    elif causal_model == 'SN':
+        graph = SN
+    elif causal_model == 'MLS':
+        graph = MLS
+    elif causal_model == 'SLM':
+        graph = SLM
     elif causal_model == 'new_big_causal_graph':
         graph = new_big_causal_graph
 

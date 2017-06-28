@@ -13,7 +13,8 @@ graph_name = 'male_smiling_lipstick_complete'
 graph = get_causal_graph(graph_name)
 name_list = [i[0] for i in graph]
 model_ID = 50
-path = '/Users/mkocaoglu/OneDrive/CausalGAN_model_config'
+#path = '/Users/mkocaoglu/OneDrive/CausalGAN_model_config'
+path = '.'
 
 os.chdir(path)
 for name in name_list:
@@ -25,6 +26,7 @@ os.system(mystr)
 mystr = 'python visualize.py --model_type dcgan --sample_model True --cross_tab True --do_dict_name interpolation --dataset celebA --input_height 108 --is_train False --is_crop True --graph %s --checkpoint_dir ./checkpoint/%d --noCC True'%(graph_name, model_ID)
 os.system(mystr)
 mystr = 'python visualize.py --model_type dcgan --sample_model True --cross_tab True --do_dict_name interpolation_in_z --dataset celebA --input_height 108 --is_train False --is_crop True --graph %s --checkpoint_dir ./checkpoint/%d --noCC True'%(graph_name, model_ID)
+os.system(mystr)
 print "done!"
 
 

@@ -41,8 +41,10 @@ class DCGAN(object):
          input_fname_pattern='*.jpg', checkpoint_dir=None, sample_dir=None,
          YoungDim = 10, MaleDim = 10, SmilingDim = 10, LabelDim = 10, hidden_size = 10,
          z_dim_Image=100, intervene_on = None, graph = None,
-         label_specific_noise = None, is_train = None, loss_function = None, gamma_k = None, gamma_m = None, gamma_l = None, lambda_k = None, lambda_m = None, lambda_l = None,  
-         pretrain_LabelerR = False, pretrain_LabelerR_no_of_epochs = None, fakeLabels_distribution = None, label_type = None, model_ID = None):#'big_causal_graph'
+         label_specific_noise = None, is_train = None, loss_function = None, gamma_k = None, gamma_m = None, gamma_l = None, lambda_k = None, lambda_m = None, lambda_l = None,
+         pretrain_LabelerR = False, pretrain_LabelerR_no_of_epochs = None,
+               fakeLabels_distribution = None, label_type = None, model_ID =
+               None, cc_checkpoint=''):#'big_causal_graph'
 
     self.sess = sess
     self.is_crop = is_crop
@@ -56,6 +58,7 @@ class DCGAN(object):
     self.pretrain_LabelerR_no_of_epochs = pretrain_LabelerR_no_of_epochs
     self.fakeLabels_distribution = fakeLabels_distribution
     self.model_ID = model_ID
+    self.cc_checkpoint=cc_checkpoint
 
     self.label_type = label_type # discrete vs continuous
 
@@ -63,7 +66,7 @@ class DCGAN(object):
     self.gamma_k = tf.get_variable(name='gamma_k',initializer=0.8,trainable=False)
     #gamma_k#1.0#tolerates up to labelerR = 2 labelerG
     self.lambda_k = lambda_k#0.05
-    
+
     self.TINY = 10**-8
 
     #self.m_t = tf.get_variable(name='m_t',initializer=1.,trainable=False) # mt is the closed loop feedback coefficient to balance the loss between LL(label losses) and LGAN
@@ -73,7 +76,7 @@ class DCGAN(object):
     #self.l_t = tf.get_variable(name='l_t',initializer=0.,trainable=False)
     self.gamma_l = gamma_l#self.label_loss_hyperparameter
     self.lambda_l = lambda_l#0.005
-    
+
     self.input_height = input_height
     self.input_width = input_width
     self.output_height = output_height
@@ -129,10 +132,10 @@ class DCGAN(object):
     #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     self.checkpoint_dir=checkpoint_dir
     if not os.path.exists(checkpoint_dir):
+      print('Making directory:',checkpoint_dir)
       os.makedirs(checkpoint_dir)
     if not os.path.exists(checkpoint_dir+'/train_images/'):
       os.makedirs(checkpoint_dir+'/train_images/')
-    
 
     self.build_model()
 
@@ -157,13 +160,39 @@ class DCGAN(object):
     #Old
     #self.z_gen = tf.placeholder(tf.float32, [None, self.z_gen_dim], name='z_gen')#needed
     #New:
-    self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
+    #self.z_gen = tf.random_uniform( [self.batch_size, self.z_gen_dim],minval=-1.0, maxval=1.0,name='z_gen')
+    print('WARNING: z_gen 0.5 to -0.5')
+    self.z_gen = tf.random_uniform( [self.batch_size,self.z_gen_dim],minval=-0.5, maxval=0.5,name='z_gen')
 
     #CC (New)
-    self.cc=CausalController(graph = self.graph, batch_size = self.batch_size)
-    self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
-    self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
-    
+    with tf.variable_scope('tower'):
+        self.cc=CausalController(graph=self.graph,batch_size=self.batch_size,n_layers=6)
+
+    self.fake_labels= self.cc.labels
+
+
+    readd_noise=True
+    #readd_noise=False
+
+    if not readd_noise:
+        #Don't add noise to integer model {0.3,0.7}
+        self.fake_labels=0.3+0.4*tf.round(self.fake_labels)#0.3-0.7#low entropy
+    elif readd_noise:
+        #Add noise to integer model  [0.3,0.7]
+        #eta=tf.random_uniform([self.batch_size,1],minval=0,maxval=1)
+        eta=1.
+        is_pos=tf.round(self.fake_labels)#bool for class membership
+        is_neg=1-is_pos
+        self.fake_labels=0.5 + is_pos*0.2*eta - is_neg*0.2*eta#[0.3,0.7]label
+        #self.fake_labels=0.5 + is_pos*0.2*eta - is_neg*0.2*eta + 0.1*(is_pos-is_neg)
+
+
+    self.fake_labels_logits= -tf.log(1/(self.fake_labels+self.TINY)-1)
+    #tf.concat( self.cc.list_label_logits(),-1 )
+
+    #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
+
+
     ##########################################
     ### From When no Causal Controller is used
 
@@ -298,31 +327,14 @@ class DCGAN(object):
     #self.g_lossLabels_Young_sum = scalar_summary("g_loss_label_young", self.g_lossLabels_Young)
     #self.g_lossLabels_Smiling_sum = scalar_summary("g_loss_label_smiling", self.g_lossLabels_Smiling)
 
-    self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels)) # shuffle to avoid any correlated behavior with discriminator
-    self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
+    #self.DCC_real, self.DCC_real_logits = self.discriminator_CC(tf.random_shuffle(self.realLabels)) # shuffle to avoid any correlated behavior with discriminator
+    #self.DCC_fake, self.DCC_fake_logits = self.discriminator_CC(self.fake_labels, reuse=True)
 
-    self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
-    self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
-    self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
+    #self.dcc_loss_real = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_real_logits, tf.ones_like(self.DCC_real)))
+    #self.dcc_loss_fake = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits, tf.zeros_like(self.DCC_fake)))
+    #self.c_loss = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.DCC_fake_logits,tf.ones_like(self.DCC_fake)))
 
-    #This is a better way to do summary
-    #you don't have to assign them to a variable and group them later
-    #the / helps organize them in tensorboard
-    ave_dcc_real=tf.reduce_mean(self.DCC_real)
-    std_dcc_real=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_real-self.DCC_real)))
-    ave_dcc_fake=tf.reduce_mean(self.DCC_fake)
-    std_dcc_fake=tf.sqrt(tf.reduce_mean(tf.square(ave_dcc_fake-self.DCC_fake)))
-    tf.summary.scalar('dcc/real_dcc_ave',ave_dcc_real)
-    tf.summary.scalar('dcc/real_dcc_std',std_dcc_real)
-    tf.summary.scalar('dcc/fake_dcc_ave',ave_dcc_fake)
-    tf.summary.scalar('dcc/fake_dcc_std',std_dcc_fake)
-    tf.summary.histogram('dcc/real_hist',self.DCC_real)
-    tf.summary.histogram('dcc/fake_hist',self.DCC_fake)
 
-    self.dcc_loss_real_sum = scalar_summary("dcc_loss_real", self.dcc_loss_real)
-    self.dcc_loss_fake_sum = scalar_summary("dcc_loss_fake", self.dcc_loss_fake)
-    self.dcc_loss = self.dcc_loss_real+self.dcc_loss_fake
-    self.dcc_loss_sum = scalar_summary("dcc_loss", self.dcc_loss)
 
     self.d_loss_real = tf.reduce_mean(
       sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
@@ -337,7 +349,6 @@ class DCGAN(object):
     self.g_loss_without_labels = self.g_lossGAN
     self.g_loss_labels_sum = scalar_summary( 'g_loss_labelerR', self.g_lossLabels)
     self.g_lossGAN_sum = scalar_summary( 'g_lossGAN', self.g_lossGAN)
-    self.c_loss_sum = scalar_summary("c_loss", self.c_loss)
     self.g_loss_on_z_sum = scalar_summary('g_loss_on_z', self.g_loss_on_z)
 
     self.k_t_sum = scalar_summary( 'coeff_of_-LabelerG_loss, k_t', self.k_t)
@@ -368,15 +379,22 @@ class DCGAN(object):
     self.d_vars = [var for var in t_vars if 'discriminator' in var.name ]
     self.g_vars = [var for var in t_vars if 'generator' in var.name ]
     self.dz_vars = [var for var in t_vars if 'disc_z_labeler' in var.name]
-    self.dcc_vars = [var for var in t_vars if 'disc_CC' in var.name ]
-    self.c_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope='causal_controller')
+
+
+    #self.saver_vars=self.dl_vars+self.d_vars+self.g_vars+self.dz_vars#misses moving variables k_t, b_n, etc.
+    V=tf.global_variables()
+    self.saver_vars=filter(lambda x:x not in self.cc.var,V)
+
     #make sure working:(delete later)
-    print 'you have ',len(self.c_vars),' many causal weights'
+    #print 'you have ',len(self.c_vars),' many causal weights'
+    print 'you have ',len(self.cc.train_var),' many causal weights'
     #OLD
     #self.c_vars = [var for var in t_vars if 'c_' in var.name ]
 
 
-    self.saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1)
+    self.saver = tf.train.Saver(keep_checkpoint_every_n_hours = 1,
+                               var_list=self.saver_vars)
+    #self.cc_saver=tf.train.Saver(var_list=self.c_vars)
 
 
     #New: Causal summaries:
@@ -449,11 +467,6 @@ class DCGAN(object):
 
     #tf.constant(0, dtype=tf.float32, name='zero'),tf.constant(1, dtype=tf.float32, name='one')) )
     # #c_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    c_optim = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.c_loss, var_list=self.c_vars)
-    # #dcc_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-    dcc_optim = tf.train.AdamOptimizer(0.00008) \
-              .minimize(self.dcc_loss, var_list=self.dcc_vars)
     try:
       tf.global_variables_initializer().run()
     except:
@@ -464,8 +477,12 @@ class DCGAN(object):
     else:
       print(" [!] Load failed...")
 
+    if self.cc_checkpoint:
+        self.cc.load(self.sess,self.cc_checkpoint)
+    else:
+        print(' no cc_checkpoint given')
+
     #old
-    #self.dcc_sum = merge_summary([self.dcc_loss_real_sum, self.dcc_loss_fake_sum, self.dcc_loss_sum])
     #self.c_sum = merge_summary([self.g_loss_sum, self.c_loss_sum, \
     #  self.zMaleLabel_sum, self.zYoungLabel_sum, self.zSmilingLabel_sum,\
     #  self.zMaleLabel_std_sum, self.zYoungLabel_std_sum, self.zSmilingLabel_std_sum,self.g_lossLabels_Male_sum,\
@@ -525,7 +542,7 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u 
+      return u
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
       lower, upper, scale = 0, 0.2, 1/25.0
@@ -545,13 +562,13 @@ class DCGAN(object):
     def label_mapper(u,name, label_type):
       if label_type == 'discrete':
         return 0.5+np.array(u)*0.2
-      elif label_type == 'continuous':    
+      elif label_type == 'continuous':
         if self.label_specific_noise:
           return p_dependent_noise(u,name)
         else:
           return p_independent_noise(u)
       else:
-        raise Exception("label type is misspecified!")  
+        raise Exception("label type is misspecified!")
 
 
     def make_summary(name, val):
@@ -693,10 +710,9 @@ class DCGAN(object):
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
-          _,_,_,summary_str=self.sess.run([c_optim, d_label_optim, dcc_optim, self.summary_op], feed_dict=fd)
+          _,_,summary_str=self.sess.run([c_optim, d_label_optim, self.summary_op], feed_dict=fd)
 
           #_, summary_str = self.sess.run([d_label_optim, self.summary_op], feed_dict=fd)
-          #_, summary_str = self.sess.run([dcc_optim, self.summary_op], feed_dict=fd)
           #_, summary_str = self.sess.run([c_optim, self.summary_op], feed_dict=fd)
           self.writer.add_summary(summary_str, counter)
           #self.writer.add_summary(sum_tvd,result['step'])
@@ -764,9 +780,11 @@ class DCGAN(object):
           #   do_dict={name:[0.84,-0.84]}
           #   do_dict_name=name
           #   intervention2d( self, fetch=self.G, do_dict=do_dict,do_dict_name=do_dict_name,step=counter)
-          
+
           for name in name_list:
-           images = self.sess.run(self.G, feed_dict={self.z_gen:z_gen_fixed[name], self.fake_labels_logits: -np.log(1/(fixed_noises[name]+self.TINY)-1)})
+           images = self.sess.run(self.G, feed_dict={
+               self.z_gen:z_gen_fixed[name],
+               self.fake_labels_logits: -np.log(1/(fixed_noises[name]+self.TINY)-1)})
            save_images(images, [8, 8], self.checkpoint_dir +'/train_images'+'/test_arange_%s%s.png' % (name,counter))
           #self.save(self.checkpoint_dir, counter)
           #if np.mod(counter,900)==0:
@@ -1252,8 +1270,14 @@ class DCGAN(object):
             os.path.join(checkpoint_dir,model_name),
             global_step=step)
 
+  #def cc_load(self, checkpoint):
+  #  print(" [*] CCReading checkpoints...",checkpoint)
+  #  #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
+  #  self.cc_saver.restore(self.sess,checkpoint)
+  #  print(" [*] CC Success to read {}".format(ckpt_name))
+
   def load(self, checkpoint_dir):
-    print(" [*] Reading checkpoints...")
+    print(" [*] Reading checkpoints...",checkpoint_dir)
     #checkpoint_dir = os.path.join(checkpoint_dir, self.model_dir)
     ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
     if ckpt and ckpt.model_checkpoint_path:

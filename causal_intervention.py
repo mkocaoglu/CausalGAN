@@ -72,6 +72,30 @@ intervention_dicts={
 
     'perMale':{'Male':'percentile'},
 
+    'perEyeglasses':{'Eyeglasses':'percentile'},
+    'perNarrow':{'Narrow_Eyes':'percentile'},
+    'perNarrow_Eyes':{'Narrow_Eyes':'percentile'},
+    'perLipstick':{'Wearing_Lipstick':'percentile'},
+    'perWearing_Lipstick':{'Wearing_Lipstick':'percentile'},
+    'perMustache':{'Mustache':'percentile'},
+    'perMale':{'Male':'percentile'},
+    'perYoung':{'Young':'percentile'},
+    'perBald':{'Bald':'percentile'},
+    'perSmiling':{'Smiling':'percentile'},
+    'perMSO':{'Mouth_Slightly_Open':'percentile'},
+    'perMouth_Slightly_Open':{'Mouth_Slightly_Open':'percentile'},
+
+    'intEyeglasses':{'Eyeglasses':'int'},
+    'intNarrow':{'Narrow_Eyes':'int'},
+    'intLipstick':{'Wearing_Lipstick':'int'},
+    'intMustache':{'Mustache':'int'},
+    'intMale':{'Male':'int'},
+    'intYoung':{'Young':'int'},
+    'intBald':{'Bald':'int'},
+    'intSmiling':{'Smiling':'int'},
+    'intMSO':{'Mouth_Slightly_Open':'int'},
+
+
     'd_Young':{'Young':'model_default'},
     'd_Smiling':{'Smiling':'model_default'},
     'd_Gray':{'Gray_Hair':'model_default'},

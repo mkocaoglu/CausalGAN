@@ -11,13 +11,10 @@ import sys
 from model_loader import get_model
 import json
 from figure_scripts.pairwise import crosstab
-from figure_scripts.sample import intervention2d
-from figure_scripts.sample import intervention_noCC
-from figure_scripts.sample import intervention_sweep_noCC
-from figure_scripts.sample import fixed_label_diversity_noCC
-from figure_scripts.sample import two_point_interpolation
-from figure_scripts.sample import two_point_interpolation_in_z
+from figure_scripts.distributions import record_interventional
+from figure_scripts.sample import intervention2d,condition2d,fixed_label_diversity
 from causal_intervention import get_do_dict
+from causal_conditioning import get_cond_dict
 
 def str2bool(v):
     #return (v is True) or (v.lower() in ('true', '1'))
@@ -36,20 +33,40 @@ def add_argument_group(name):
 visualize_arg = add_argument_group('visualize')
 visualize_arg.add_argument('--model_type', type=str,default=None)
 
-visualize_arg.add_argument('--checkpoint_dir', type=str,default=None)
 #Which visualizations to do?
-visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,\
-                          help='Tabulates pairwise marginal distributions\
-                          and saves them to text files')
-visualize_arg.add_argument('--sample_model', type=str2bool,default=False,\
-                          help='Tells program to do sampling for do_dict and\
-                           other arguments provided. Run this to do\
-                           intervention2d for example')
+visualize_arg.add_argument('--cross_tab',type=str2bool,default=False,
+                          help='''Tabulates pairwise marginal distributions
+                          and saves them to text files''')
+
+visualize_arg.add_argument('--record_interventional', type=str2bool,default=False,
+                          help='''records samples from the joint distribution for
+                           each intervening node for each intervening value.
+                           Also d_fake_labels and g_labels each get their own
+                           csv that should be loaded with pd.read_csv().
+                           Therefore, this makes n_labels*2*2 many csv files''')
+
+
+visualize_arg.add_argument('--sample_model', type=str2bool,default=False,
+                          help='''Tells program to do sampling for do_dict and
+                           other arguments provided. Run this to do
+                           intervention2d for example''')
 
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
+visualize_arg.add_argument('--cond_dict_name',type=str, default=None)
+visualize_arg.add_argument('--fld',type=str2bool, default=False,
+                          help='''This is to assess the diversity of images for
+                          a single fixed label''')
 
-visualize_arg.add_argument('--noCC',type=str2bool, default=False)
+
+encode_arg = add_argument_group('encode')
+encode_arg.add_argument('--encode_image',type=str2bool, default=False)
+encode_arg.add_argument('--en_image_path',type=str)
+encode_arg.add_argument('--en_image_name',type=str)
+encode_arg.add_argument('--en_load_path',type=str,default='')
+encode_arg.add_argument('--en_is_train',type=str2bool,default=False)
+encode_arg.add_argument('--en_max_tr_steps',type=int,default=50000)
+
 #I'm strongly worried this line will override flags in main.py so I commented it out
 #visualize_arg.add_argument('--checkpoint_dir',type=str, default=None)
 #Ref: flags:
@@ -64,8 +81,19 @@ if __name__=='__main__':
     you would like to produce (followed by True)
 
     Examples:
-
     To run intervention2d, the following works:
+
+
+    #Encode tested:
+
+        (with or without en_load_path)
+    python visualize.py --encode_image True --en_image_path
+    ./custom_images/processed/Dimakis.png --en_image_name alx1 --model_type dcgan
+    --graph big_causal_graph --checkpoint_dir ./checkpoint/scratch --en_is_train
+    True --en_load_path
+    checkpoint/scratch/celebA_64_64_64/encode_alx1/save/Encode.model-1
+
+
 
     #Tested
     python visualize.py --model_type dcgan --sample_model True
@@ -99,40 +127,68 @@ if __name__=='__main__':
 
     config, unparsed = parser.parse_known_args()
     print 'The config you passed to visualize:',config
-    print config.noCC
-    if config.noCC:
-        model_type= 'dcgan'#config.model_type
-        model=get_model(model_type)
-        model.model_type=model_type
-        if config.sample_model:
-            if config.do_dict_name:
-                
-                if config.do_dict_name == 'fixed_label_diversity':
-                    fixed_label_diversity_noCC(model, config, fetch=model.G, do_dict_name=config.do_dict_name, on_logits=True)
-                elif config.do_dict_name == 'interpolation':
-                    two_point_interpolation(model, config, fetch=model.G, do_dict_name=config.do_dict_name, on_logits=True)
-                elif config.do_dict_name == 'interpolation_in_z':
-                    two_point_interpolation_in_z(model, config, fetch=model.G, do_dict_name=config.do_dict_name, on_logits=True)
-                else:
-                    do_dict=get_do_dict( config.do_dict_name )
-                    print do_dict
-                    intervention_noCC(model, config, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
-                    intervention_sweep_noCC(model, config, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
 
-    else:
-        #Get model
-        model_type= config.model_type
-        model=get_model(model_type)
-        model.model_type=model_type
-        if config.cross_tab:
-            crosstab(model)
+    #Get model
+    model_type= config.model_type
+    model=get_model(model_type)
+    model.model_type=model_type
 
-        if config.sample_model:
-            if config.do_dict_name:
-                do_dict=get_do_dict( config.do_dict_name )
-                intervention2d( model, fetch=model.G, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
+
+    if config.cross_tab:
+        crosstab(model)
+
+    if config.record_interventional:
+        print('Recording csv of interventional distribution')
+        record_interventional(model)
+
+    if config.sample_model:
+        if config.cond_dict_name and config.do_dict_name:
+            raise ValueError('simultaneous condition and intervention not supported')
+        if config.do_dict_name:
+            if config.do_dict_name=='all':
+                do_dicts=['per'+n for n in model.cc.node_names]
             else:
-                raise ValueError('need do_dict_name')
+                do_dicts=[config.do_dict_name]
+
+            for do_dict_name in do_dicts:
+                do_dict=get_do_dict( do_dict_name )
+                intervention2d( model, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
+
+        elif config.cond_dict_name:
+            if config.cond_dict_name=='all':
+                cond_dicts=['int'+n for n in model.cc.node_names]
+            else:
+                cond_dicts=[config.cond_dict_name]
+
+            for cond_name in cond_dicts:
+                cond_dict=get_cond_dict( cond_name )
+                condition2d( model, cond_dict=cond_dict,cond_dict_name=cond_name, on_logits=True)
+
+        if config.fld:
+            fixed_label_diversity(model, config)
+
+        else:
+            raise ValueError('need do_dict_name xor cond_dict_name')
+
+    if config.encode_image:
+        from figure_scripts.encode import Encoder
+        encoder=Encoder(model,config.en_image_path,
+                        config.en_image_name,
+                        config.en_max_tr_steps,
+                        config.en_load_path)
+
+        if config.en_is_train:
+            encoder.train()
+
+    #Interventional Joint
+    ##This considers trunc exponential labels
+
+    #If one were to get interventional joint: do so in python like so
+
+
+
+
+
 
 
 

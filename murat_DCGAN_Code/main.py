@@ -44,14 +44,14 @@ flags.DEFINE_float("lambda_k", None, "increment for k_t")
 flags.DEFINE_float("lambda_m", None, "increment for m_t")
 flags.DEFINE_float("lambda_l", None, "increment for l_t")
 flags.DEFINE_string("label_type", None, "continuous vs discrete labels")
+flags.DEFINE_string("cc_checkpoint", '', "checkpoint for causal_controller")
 FLAGS = flags.FLAGS
 
 
 def main(_):
 
-  pp.pprint(flags.FLAGS.__flags)
-
   FLAGS = get_config(flags.FLAGS, flags.FLAGS.model_ID)
+  pp.pprint(flags.FLAGS.__flags)
 
   if FLAGS.input_width is None:
     FLAGS.input_width = FLAGS.input_height
@@ -93,7 +93,11 @@ def main(_):
         pretrain_LabelerR = FLAGS.pretrain_LabelerR,
         pretrain_LabelerR_no_of_epochs = FLAGS.pretrain_LabelerR_no_of_epochs,
         fakeLabels_distribution = FLAGS.fakeLabels_distribution,
-        gamma_k = FLAGS.gamma_k, gamma_m = FLAGS.gamma_m, gamma_l = FLAGS.gamma_l, lambda_k = FLAGS.lambda_k, lambda_m = FLAGS.lambda_m, lambda_l = FLAGS.lambda_l, model_ID = FLAGS.model_ID,label_type = FLAGS.label_type)
+        gamma_k = FLAGS.gamma_k, gamma_m = FLAGS.gamma_m, gamma_l =
+        FLAGS.gamma_l, lambda_k = FLAGS.lambda_k, lambda_m = FLAGS.lambda_m,
+        lambda_l = FLAGS.lambda_l, model_ID = FLAGS.model_ID,
+        label_type = FLAGS.label_type,
+        cc_checkpoint=FLAGS.cc_checkpoint)
 
     #show_all_variables()
     if FLAGS.is_train:

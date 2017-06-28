@@ -3,6 +3,7 @@ data/
 logs/
 final_checkpoints
 checkpoint/
+figures/
 *.pyc
 .DS_Store
 .ipynb_checkpoints

@@ -93,13 +93,32 @@ def make_sample_dir(model):
     sample_dir=os.path.join(result_dir,'sample_figures')
     if not os.path.exists(sample_dir):
         os.mkdir(sample_dir)
+    return sample_dir
+
+def guess_model_step(model):
+    if model.model_type=='began':
+        str_step=str( model.sess.run(model.step) )+'_'
+    elif model.model_type=='dcgan':
+        result_dir=model.checkpoint_dir
+        ckpt = tf.train.get_checkpoint_state(result_dir)
+        ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+        str_step=ckpt_name[-5:]+'_'
+    return str_step
+
+def infer_grid_image_shape(N):
+    if N%8==0:
+        size=[8,N//8]
+    else:
+        size=[8,8]
+    return size
 
 
-#both
-def save_figure_images(model_type, tensor, filename, size, padding=2,
-                       normalize=False, scale_each=False):
+def save_figure_images(model_type, tensor, filename, size, padding=2, normalize=False, scale_each=False):
 
-    nrow=size[0]
+    print('[*] saving:',filename)
+
+    #nrow=size[0]
+    nrow=size[1]#Was this number per row and now number of rows?
 
     if model_type=='began':
         began_save_image(tensor,filename,nrow,padding,normalize,scale_each)

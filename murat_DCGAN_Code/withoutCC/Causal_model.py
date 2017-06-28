@@ -534,13 +534,13 @@ class DCGAN(object):
     def label_mapper(u,name, label_type):
       if label_type == 'discrete':
         return 0.5+np.array(u)*0.2
-      elif label_type == 'continuous':    
+      elif label_type == 'continuous':
         if self.label_specific_noise:
           return p_dependent_noise(u,name)
         else:
           return p_independent_noise(u)
       else:
-        raise Exception("label type is misspecified!")  
+        raise Exception("label type is misspecified!")
 
 
     def make_summary(name, val):

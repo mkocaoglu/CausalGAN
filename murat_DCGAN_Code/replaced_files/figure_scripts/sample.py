@@ -224,7 +224,7 @@ def intervention_wCC(model, config, fetch=None, do_dict=None, do_dict_name=None,
     sample_dir=os.path.join(result_dir,'sample_figures')
     if not os.path.exists(sample_dir):
         os.mkdir(sample_dir)
-    
+
 
     z_gen_fixed = np.random.uniform(-noise_range, noise_range, size=(32, model.z_gen_dim)) # first 32 z_gen is the same as next 32
     z_gen_fixed = np.tile(z_gen_fixed,[2,1])

@@ -22,13 +22,30 @@ condition_dicts={
     'Mustache':{'Mustache':[0.2,-2]},
 
 
-    'perEyeglasses':{'Eyeglasses':'percentile'},
-    'perNarrow':{'Narrow_Eyes':'percentile'},
+    'perEyeglasses':{'Eyeglasses':'per'},
+    'perNarrow':{'Narrow_Eyes':'per'},
+    'perLipstick':{'Wearing_Lipstick':'per'},
+    'perMustache':{'Mustache':'per'},
+    'perMale':{'Male':'per'},
+    'perYoung':{'Young':'per'},
+    'perBald':{'Bald':'per'},
+    'perSmiling':{'Smiling':'per'},
+    'perMSO':{'Mouth_Slightly_Open':'per'},
 
-    'perLipstick':{'Wearing_Lipstick':'percentile'},
-    'perMustache':{'Mustache':'percentile'},
-    'perBald':{'Bald':'percentile'},
-    'perSmiling':{'Smiling':'percentile'},
+    'intEyeglasses':{'Eyeglasses':'int'},
+    'intNarrow':{'Narrow_Eyes':'int'},
+    'intNarrow_Eyes':{'Narrow_Eyes':'int'},
+    'intLipstick':{'Wearing_Lipstick':'int'},
+    'intWearing_Lipstick':{'Wearing_Lipstick':'int'},
+    'intMustache':{'Mustache':'int'},
+    'intMale':{'Male':'int'},
+    'intYoung':{'Young':'int'},
+    'intBald':{'Bald':'int'},
+    'intSmiling':{'Smiling':'int'},
+    'intMSO':{'Mouth_Slightly_Open':'int'},
+    'intMouth_Slightly_Open':{'Mouth_Slightly_Open':'int'},
+
+
 
     'MSO':{'Mouth_Slightly_Open':[1,-1]},
 

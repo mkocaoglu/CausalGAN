@@ -20,7 +20,7 @@ pretrain_arg.add_argument('--is_pretrain',type=str2bool,default=True,
                          help='to do pretraining')
 pretrain_arg.add_argument('--only_pretrain', action='store_true',
                          help='simply complete pretrain and exit')
-pretrain_arg.add_argument('--pretrain_type',type=str,default='gan',choices=['wasserstein','gan'])
+pretrain_arg.add_argument('--pretrain_type',type=str,default='wasserstein',choices=['wasserstein','gan'])
 pretrain_arg.add_argument('--lambda_W',type=float,default=0.1,
                           help='penalty for gradient of W critic')
 pretrain_arg.add_argument('--n_critic',type=int,default=25,
@@ -29,12 +29,16 @@ pretrain_arg.add_argument('--critic_hidden_size',type=int,default=10,
                          help='hidden_size for critic of discriminator')
 pretrain_arg.add_argument('--min_tvd',type=float,default=0.02,
                           help='if tvd<min_tvd then stop pretrain')
+pretrain_arg.add_argument('--min_pretrain_iter',type=int,default=10000,
+                          help='''pretrain for at least this long. This is to
+                          avoid being able to get a low tvd without labels
+                          being clustered near integers''')
 pretrain_arg.add_argument('--pretrain_iter',type=int,default=10000,
                           help='if iter>pretrain_iter then stop pretrain')
 pretrain_arg.add_argument('--pretrain_labeler',type=str2bool,default=False,
                           help='''whether to train the labeler on real images
                           during pretraining''')
-pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=False,
+pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=True,
                           help='''whether the discriminator should be
                           factorized according to the structure of the graph
                           to speed convergence''')
@@ -48,7 +52,7 @@ net_arg.add_argument('--conv_hidden_num', type=int, default=128,
                      choices=[64, 128],help='n in the paper')
 net_arg.add_argument('--separate_labeler', type=str2bool, default=True)
 net_arg.add_argument('--z_num', type=int, default=64, choices=[64, 128])
-net_arg.add_argument('--cc_n_layers',type=int, default=3,
+net_arg.add_argument('--cc_n_layers',type=int, default=6,
                      help='''this is the number of neural network fc layers
                      between the causes of a neuron and the neuron itsef.''')
 net_arg.add_argument('--cc_n_hidden',type=int, default=10,
@@ -71,7 +75,7 @@ train_arg = add_argument_group('Training')
 train_arg.add_argument('--is_train', type=str2bool, default=True)
 train_arg.add_argument('--optimizer', type=str, default='adam')
 train_arg.add_argument('--max_step', type=int, default=500000)
-train_arg.add_argument('--noisy_labels', type=str2bool, default=True)
+train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
 train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
 train_arg.add_argument('--d_lr', type=float, default=0.00008)
 train_arg.add_argument('--g_lr', type=float, default=0.00008)
@@ -91,8 +95,8 @@ train_arg.add_argument('--num_gpu', type=int, default=1,
                       first k of n detected. If use_gpu=True but num_gpu not\
                       specified will default to 1')
 
-train_arg.add_argument('--label_loss',type=str,default='absdiff',choices=['xe','absdiff','squarediff'])
-train_arg.add_argument('--round_fake_labels',type=str2bool,default=False,
+train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
                        help='''Whether the label outputs of the causal
                        controller should be rounded first before calculating
                        the loss of generator or d-labeler''')

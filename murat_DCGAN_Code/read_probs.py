@@ -40,7 +40,7 @@ for k in file_no_range:
 #         pairwise_flag =1
 #       elif pairwise_flag:
 #==============================================================================
-        
+
     print my_dict
   else:
       f = open(path+str(1000*k) +'_glabel_crosstab.txt')
@@ -55,7 +55,7 @@ for k in file_no_range:
           flag = 1
         elif line[0:7] == '  mean=' and flag == 1:
           my_dict[name].append(float(line[8::]))
-          flag =0      
+          flag =0
 x = file_no_range
 counter = 0
 for i in my_dict.keys():
@@ -69,6 +69,6 @@ for i in my_dict.keys():
 #plt.legend(loc='upper left')
 #plt.ylim(0,3.0)
 #plt.show()
-      
+
 #line#f.read()
 #for i in range(1,32):

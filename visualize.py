@@ -12,7 +12,7 @@ from model_loader import get_model
 import json
 from figure_scripts.pairwise import crosstab
 from figure_scripts.distributions import record_interventional
-from figure_scripts.sample import intervention2d,condition2d
+from figure_scripts.sample import intervention2d,condition2d,fixed_label_diversity
 from causal_intervention import get_do_dict
 from causal_conditioning import get_cond_dict
 
@@ -54,6 +54,9 @@ visualize_arg.add_argument('--sample_model', type=str2bool,default=False,
 
 visualize_arg.add_argument('--do_dict_name',type=str, default=None)
 visualize_arg.add_argument('--cond_dict_name',type=str, default=None)
+visualize_arg.add_argument('--fld',type=str2bool, default=False,
+                          help='''This is to assess the diversity of images for
+                          a single fixed label''')
 
 
 encode_arg = add_argument_group('encode')
@@ -142,12 +145,27 @@ if __name__=='__main__':
         if config.cond_dict_name and config.do_dict_name:
             raise ValueError('simultaneous condition and intervention not supported')
         if config.do_dict_name:
-            do_dict=get_do_dict( config.do_dict_name )
-            intervention2d( model, do_dict=do_dict, do_dict_name=config.do_dict_name, on_logits=True)
+            if config.do_dict_name=='all':
+                do_dicts=['per'+n for n in model.cc.node_names]
+            else:
+                do_dicts=[config.do_dict_name]
+
+            for do_dict_name in do_dicts:
+                do_dict=get_do_dict( do_dict_name )
+                intervention2d( model, do_dict=do_dict, do_dict_name=do_dict_name, on_logits=True)
 
         elif config.cond_dict_name:
-            cond_dict=get_cond_dict( config.cond_dict_name )
-            condition2d( model, cond_dict=cond_dict, cond_dict_name=config.cond_dict_name, on_logits=True)
+            if config.cond_dict_name=='all':
+                cond_dicts=['int'+n for n in model.cc.node_names]
+            else:
+                cond_dicts=[config.cond_dict_name]
+
+            for cond_name in cond_dicts:
+                cond_dict=get_cond_dict( cond_name )
+                condition2d( model, cond_dict=cond_dict,cond_dict_name=cond_name, on_logits=True)
+
+        if config.fld:
+            fixed_label_diversity(model, config)
 
         else:
             raise ValueError('need do_dict_name xor cond_dict_name')

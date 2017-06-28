@@ -8,9 +8,39 @@ from tqdm import trange,tqdm
 import pandas as pd
 from itertools import combinations, product
 import sys
-from utils import save_figure_images,make_sample_dir
+from utils import save_figure_images,make_sample_dir,guess_model_step
 
-from sample import get_joint
+from sample import get_joint,sample
+
+
+
+def get_pdf(model, do_dict=None,cond_dict=None,name='',N=6400,return_discrete=True,step=''):
+    str_step=str(step) or guess_model_step(model)
+
+    joint=get_joint(model,int_do_dict=do_dict,int_cond_dict=cond_dict,N=N,return_discrete=return_discrete)
+
+    sample_dir=make_sample_dir(model)
+
+    if name:
+        name+='_'
+    f_pdf=os.path.join(sample_dir,str_step+name+'dist'+'.csv')
+
+    pdf=pd.DataFrame.from_dict({k:val.mean() for k,val in joint.items()})
+
+    print 'get pdf cond_dict:',cond_dict
+    if not do_dict and not cond_dict:
+        data=model.attr.mean()
+        pdf['data']=data
+    if not do_dict and cond_dict:
+        bool_cond=np.logical_and.reduce([model.attr[k]==v for k,v in cond_dict.items()])
+        attr=model.attr[bool_cond]
+        pdf['data']=attr.mean()
+
+    print 'Writing to file',f_pdf
+    pdf.to_csv(f_pdf)
+
+    return pdf
+
 
 
 

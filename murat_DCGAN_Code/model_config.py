@@ -309,7 +309,7 @@ def get_config(FLAGS,model_ID):
     FLAGS.pretrain_LabelerR_no_of_epochs = 3
     FLAGS.fakeLabels_distribution = "real_joint"
     FLAGS.gamma_k = 0.5
-    FLAGS.gamma_m = 4.0 
+    FLAGS.gamma_m = 4.0
     FLAGS.gamma_l = 2.0 # made more extreme
     FLAGS.lambda_k = 0.05
     FLAGS.lambda_m = 0.05
@@ -343,7 +343,7 @@ def get_config(FLAGS,model_ID):
     FLAGS.pretrain_LabelerR_no_of_epochs = 3
     FLAGS.fakeLabels_distribution = "real_joint"
     FLAGS.gamma_k = 0.5
-    FLAGS.gamma_m = 4.0 
+    FLAGS.gamma_m = 4.0
     FLAGS.gamma_l = 0.0001 # made more extreme as it was becoming active at some point for 20
     FLAGS.lambda_k = 0.05
     FLAGS.lambda_m = 0.05
@@ -375,7 +375,7 @@ def get_config(FLAGS,model_ID):
     FLAGS.pretrain_LabelerR_no_of_epochs = 3
     FLAGS.fakeLabels_distribution = "real_joint"
     FLAGS.gamma_k = 0.5
-    FLAGS.gamma_m = 4.0 
+    FLAGS.gamma_m = 4.0
     FLAGS.gamma_l = 20.0 # made more extreme
     FLAGS.lambda_k = 0.05
     FLAGS.lambda_m = 0.05
@@ -710,7 +710,8 @@ def get_config(FLAGS,model_ID):
 # 45 for self.rec_loss_coeff=1
   elif model_ID == 44:
     FLAGS.is_train = True
-    FLAGS.graph = "big_causal_graph"
+    #FLAGS.graph = "big_causal_graph"
+    FLAGS.graph = "complete_big_causal_graph"
     FLAGS.loss_function = 1
     FLAGS.pretrain_LabelerR = False
     FLAGS.pretrain_LabelerR_no_of_epochs = 3
