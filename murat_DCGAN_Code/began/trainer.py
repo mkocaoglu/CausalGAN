@@ -122,21 +122,45 @@ class Trainer(object):
         self.saver = tf.train.Saver()
         self.summary_writer = tf.summary.FileWriter(self.model_dir)
 
-        sv = tf.train.Supervisor(logdir=self.model_dir,
-                                is_chief=True,
-                                saver=self.saver,
-                                summary_op=None,
-                                summary_writer=self.summary_writer,
-                                save_model_secs=300,
-                                global_step=self.step,
-                                ready_for_local_init_op=None)
+        no_sup=True
+        if no_sup:
 
-        gpu_options = tf.GPUOptions(allow_growth=True,
-                                  per_process_gpu_memory_fraction=0.333)
-        sess_config = tf.ConfigProto(allow_soft_placement=True,
-                                    gpu_options=gpu_options)
+            #sm=tf.train.SessionManager()
+            #self.sess=sm.prepare_session(
+            #                master='',
+            #                saver=self.saver,
+            #                checkpoint_dir=self.model_dir,
+            #                config=sess_config,
+            #               )
 
-        self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+
+            self.sess=tf.Session()
+            self.sess.run(tf.global_variables_initializer())
+
+            ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            if ckpt and ckpt.model_checkpoint_path:
+                ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+                self.saver.restore(self.sess, os.path.join(checkpoint_dir, ckpt_name))
+                print(" [*] Success to read {}".format(ckpt_name))
+
+
+        else:
+
+            sv = tf.train.Supervisor(logdir=self.model_dir,
+                                    is_chief=True,
+                                    saver=self.saver,
+                                    summary_op=None,
+                                    summary_writer=self.summary_writer,
+                                    save_model_secs=300,
+                                    global_step=self.step,
+                                    ready_for_local_init_op=None)
+
+            gpu_options = tf.GPUOptions(allow_growth=True,
+                                      per_process_gpu_memory_fraction=0.333)
+            sess_config = tf.ConfigProto(allow_soft_placement=True,
+                                        gpu_options=gpu_options)
+
+            self.sess = sv.prepare_or_wait_for_session(config=sess_config)
 
         #if not self.is_train:
         #    # dirty way to bypass graph finilization error

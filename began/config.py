@@ -42,6 +42,10 @@ pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=True,
                           help='''whether the discriminator should be
                           factorized according to the structure of the graph
                           to speed convergence''')
+pretrain_arg.add_argument('--pt_penalize_each_grad',type=str2bool,default=True,
+                          help='''whether to enforce that the gradient penalty
+                          for each component is close to 1, rather than
+                          enforcing that their average is close to 1''')
 
 #Network
 net_arg = add_argument_group('Network')
@@ -88,6 +92,7 @@ train_arg.add_argument('--zeta', type=float, default=0.5)
 train_arg.add_argument('--lambda_k', type=float, default=0.001)
 train_arg.add_argument('--lambda_l', type=float, default=0.00008)
 train_arg.add_argument('--lambda_z', type=float, default=0.01)
+train_arg.add_argument('--no_third_margin', type=str2bool, default=False)
 train_arg.add_argument('--indep_causal', type=str2bool, default=False)
 train_arg.add_argument('--use_gpu', type=str2bool, default=True)
 train_arg.add_argument('--num_gpu', type=int, default=1,

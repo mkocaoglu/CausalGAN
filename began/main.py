@@ -14,61 +14,20 @@ debug = debugger.Pdb().set_trace
 '''
 TODO:
     Get rid of Supervisor. It's creating backwards compatability issues
-    Update config defaults
     Allow config to default to json during loading
     Make data symlinks so that we can keep models on other partitions
 '''
 
-
 '''
-!!!!!Rounding cc outputs was a huge success!!!
-Also I made some crucial adjustments to conditioning and intervening.
-This calls for resetting began defaults.
-
-    def break_pretrain(stats,counter):
-        c1=counter>=self.config.min_pretrain_iter
-        c2= (stats['tvd']<self.config.min_tvd)
-        return (c1 and c2)
-
-pretrain_arg.add_argument('--min_pretrain_iter',type=int,default=5000,
-                          help=pretrain for at least this long. This is to
-                          avoid being able to get a low tvd without labels
-                          being clustered near integers)
-pretrain_arg.add_argument('--pretrain_type',type=str,default='wasserstein',choices=['wasserstein','gan'])
-pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=True,
-net_arg.add_argument('--cc_n_layers',type=int, default=6,
-train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
-train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
-train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
-
-
-pretrain_arg.add_argument('--pretrain_type',type=str,default='gan',choices=['wasserstein','gan'])
-pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=False,
-net_arg.add_argument('--cc_n_layers',type=int, default=3,
-train_arg.add_argument('--label_loss',type=str,default='absdiff',choices=['xe','absdiff','squarediff'])
-train_arg.add_argument('--round_fake_labels',type=str2bool,default=False,
-train_arg.add_argument('--noisy_labels', type=str2bool, default=True)
-
-
-
-
-Trying to round labels before passed to generator as well..
-        if self.config.round_fake_labels:
-            self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
+I'm testing to see if the third margin is necessary at all:
+        if not self.config.no_third_margin:
+            #normal mode
+            #Careful on z_t sign!
+            self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
         else:
-            self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
-
-
-
-Tried to load some previous models. Running into terrible errors
-Basically this line:
-
-        self.saver = tf.train.Saver(var_list=self.var)
-
-makes it so that only trainable variables are saved by Saver. Then when
-supervisor tries to restore model, there are unintialized Adam and step
-parameters
-
+            #can we get away without this complicated third margin?
+            print('Warning: not using third margin')
+            self.g_loss = self.g_loss_image + 1.*self.g_loss_label
 
 
 

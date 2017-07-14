@@ -152,10 +152,10 @@ def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format,reuse=None):
     variables = tf.contrib.framework.get_variables(vs)
     return out, variables
 
-def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_format):
+def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_format,reuse=None):
     with tf.variable_scope("D") as vs:
         # Encoder
-        with tf.variable_scope('encoder'):
+        with tf.variable_scope('encoder',reuse=reuse):
             x = slim.conv2d(x, hidden_num, 3, 1, activation_fn=tf.nn.elu,
                             data_format=data_format,scope='conv0')
 
@@ -175,7 +175,7 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
             z = x = slim.fully_connected(x, z_num, activation_fn=None,scope='proj')
 
         # Decoder
-        with tf.variable_scope('decoder'):
+        with tf.variable_scope('decoder',reuse=reuse):
             x = slim.fully_connected(x, np.prod([8, 8, hidden_num]), activation_fn=None)
             x = reshape(x, 8, 8, hidden_num, data_format)
 
@@ -186,7 +186,6 @@ def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_forma
                                 data_format=data_format,scope='conv'+str(idx)+'b')
                 if idx < repeat_num - 1:
                     x = upscale(x, 2, data_format)
-
             out = slim.conv2d(x, input_channel, 3, 1, activation_fn=None,
                               data_format=data_format,scope='proj')
 
@@ -254,15 +253,18 @@ def FactorizedNetwork(graph,Net):
 
             #dcc_dict={}
             logit_sum=0
+            list_logits=[]
             net_var=[]
             for n,x in zip(node_names,inputs):
                 with tf.variable_scope(n,reuse=reuse):
                     prob,log,var=Net(x,batch_size,reuse,n_hidden)
+                    list_logits.append(log)
                     logit_sum+=log
                     net_var+=var
 
             logit_sum/=len(list_labels)#optional
             prob=tf.nn.sigmoid(logit_sum)
+
         return prob,logit_sum,net_var
 
     return fDCC

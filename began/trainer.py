@@ -433,6 +433,8 @@ class Trainer(object):
                 self.conv_hidden_num, self.data_format)
         AE_G, AE_x = tf.split(d_out, 2)
 
+        #self.norm_AE_G = AE_G #for reference later in encoder
+
         self.D_encode_G, self.D_encode_x=tf.split(self.D_z, 2)#axis=0 by default
 
         if not self.separate_labeler:
@@ -536,11 +538,15 @@ class Trainer(object):
         self.d_loss_image=self.d_loss_real       -   self.k_t*self.d_loss_fake
         self.d_loss_label=self.d_loss_real_label -   self.l_t*self.d_loss_fake_label
         self.d_loss=self.d_loss_image+self.d_loss_label
-        self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
 
-        #Careful on z_t sign!
-        self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
-        #end loss
+        if not self.config.no_third_margin:
+            #normal mode
+            #Careful on z_t sign!
+            self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
+        else:
+            #can we get away without this complicated third margin?
+            print('Warning: not using third margin')
+            self.g_loss = self.g_loss_image + 1.*self.g_loss_label
 
         #pretrain:
         c_grad=self.c_optimizer.compute_gradients(self.c_loss,
@@ -577,19 +583,8 @@ class Trainer(object):
         else:
             raise Exception("[!] Caution! Paper didn't use {} opimizer other than Adam".format(config.optimizer))
         self.g_optimizer, self.d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
-
         self.c_optimizer, self.dcc_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
-
-
         self.dlr_optimizer = optimizer(self.g_lr)
-
-
-        #g_tower_grads=[]
-        #d_tower_grads=[]
-        #tower_g_loss_image=[]
-        #tower_d_loss_real=[]
-        #tower_g_loss_label=[]
-        #tower_d_loss_real_label=[]
 
         self.tower_dict=dict(
                     c_tower_grads=[],
@@ -802,7 +797,7 @@ class Trainer(object):
 
         all_images=None
         for i in range(nrow):
-            idx,z_fixed = self.sess.run([self.g_step,self.z_fd])
+            idx,z_fixed = self.sess.run([self.step,self.z_fd])
             feed_fixed_z={self.z_fd[k]:val for k,val in z_fixed.items()}
             images = self.sess.run(self.G, feed_dict=feed_fixed_z)
 

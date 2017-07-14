@@ -758,6 +758,22 @@ def get_config(FLAGS,model_ID):
     FLAGS.label_type = 'continuous'
     return FLAGS
 
+  elif model_ID == 461:
+    FLAGS.is_train = True
+    FLAGS.graph = "SLM"
+    FLAGS.loss_function = 1
+    FLAGS.pretrain_LabelerR = False
+    FLAGS.pretrain_LabelerR_no_of_epochs = 3
+    FLAGS.fakeLabels_distribution = "real_joint"
+    FLAGS.gamma_k = -1.0
+    FLAGS.gamma_m = -1.0 # set to 1/gamma_k in the code
+    FLAGS.gamma_l = -1.0 # made more extreme
+    FLAGS.lambda_k = 0.05
+    FLAGS.lambda_m = 0.05
+    FLAGS.lambda_l = 0.001
+    FLAGS.label_type = 'continuous'
+    return FLAGS
+
 # try different causal graphs
 
   elif model_ID == 47:

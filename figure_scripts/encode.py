@@ -9,7 +9,7 @@ import pandas as pd
 from itertools import combinations
 import sys
 from Causal_controller import *
-from began.models import GeneratorCNN
+from began.models import GeneratorCNN, DiscriminatorCNN
 from utils import to_nhwc,read_prepared_uint8_image,make_encode_dir
 
 from utils import transform, inverse_transform #dcgan img norm
@@ -123,6 +123,28 @@ class Encoder:
                         self.z, model.conv_hidden_num, model.channel,
                         model.repeat_num, model.data_format,reuse=True)
 
+                d_out, self.D_zG, self.D_var = DiscriminatorCNN(
+                        self.G, model.channel, model.z_num,
+                    model.repeat_num, model.conv_hidden_num,
+                    model.data_format,reuse=True)
+
+                _   , self.D_zX, _           = DiscriminatorCNN(
+                        self.x, model.channel, model.z_num,
+                    model.repeat_num, model.conv_hidden_num,
+                    model.data_format,reuse=True)
+                self.norm_AE_G=d_out
+
+                #AE_G, AE_x = tf.split(d_out, 2)
+                self.AE_G=denorm_img(self.norm_AE_G, model.data_format)
+            self.aeg_sum=tf.summary.image('encoder/AE_G',self.AE_G)
+
+        node_summaries=[]
+        for node in self.cc.nodes:
+            with tf.name_scope(node.name):
+                ave_label=tf.reduce_mean(node.label)
+                node_summaries.append(tf.summary.scalar('ave',ave_label))
+
+
         #unclear how scope with adam param works
         #with tf.variable_scope('encoderGD') as scope:
 
@@ -130,7 +152,13 @@ class Encoder:
         #self.g_loss_image = tf.reduce_mean(tf.abs(self.x - self.G))
 
         #use L2 loss
-        self.g_loss_image = tf.reduce_mean(tf.square(self.x - self.G))
+        #self.g_loss_image = tf.reduce_mean(tf.square(self.x - self.G))
+
+        #use autoencoder reconstruction loss  #3.1.1 series
+        #self.g_loss_image = tf.reduce_mean(tf.abs(self.x - self.norm_AE_G))
+
+        #use L1 in autoencoded space# 3.2
+        self.g_loss_image = tf.reduce_mean(tf.abs(self.D_zX - self.D_zG))
 
         g_loss_sum=tf.summary.scalar( 'encoder/g_loss_image',\
                           self.g_loss_image,self.summ_col)
@@ -145,7 +173,12 @@ class Encoder:
 
         #self.summary_op=tf.summary.merge_all(self.summ_col)
         #self.summary_op=tf.summary.merge_all(self.summ_col)
-        self.summary_op=tf.summary.merge([g_loss_sum,gimg_sum])
+
+        if model.model_type=='dcgan':
+            self.summary_op=tf.summary.merge([g_loss_sum,gimg_sum]+node_summaries)
+        elif model.model_type=='began':
+            self.summary_op=tf.summary.merge([g_loss_sum,gimg_sum,self.aeg_sum]+node_summaries)
+
 
         #print 'encoder summaries:',self.summ_col
         #print 'encoder summaries:',tf.get_collection(self.summ_col)

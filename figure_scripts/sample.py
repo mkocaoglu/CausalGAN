@@ -47,7 +47,7 @@ def fixed_label_diversity(model, config,step=''):
 
         images, feed_dict= sample(model, do_dict=do_dict)
         fx_file=os.path.join(sample_dir, str_step+'fxlab'+str(j)+'.pdf')
-        save_figure_images(model.model_type,images,fx_file,size=size)
+        save_figure_images(model.model_type,images['G'],fx_file,size=size)
 
     #which image is what label
     fixed_labels=fixed_labels.reset_index(drop=True)
@@ -137,6 +137,9 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     #list_labels=np.split( result['cfl'],n_labels, axis=1)
     #list_d_fake_labels=np.split(result['dfl'],n_labels, axis=1)
     #list_d_real_labels=np.split(result['drl'],n_labels, axis=1)
+    for k in result.keys():
+        print 'valshape',result[k].shape
+        print 'result',result[k]
     list_result={k:np.split(val,n_labels, axis=1) for k,val in result.items()}
 
     pd_joint={}
@@ -393,15 +396,16 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
         print("Warn. nsamples doesnt divide batch_size, pad=",npad)
     #N+=npad
 
-    if do_dict:
-        for k in do_dict.keys():
-            keypad=np.tile(do_dict[k][0],[npad])
-            do_dict[k]=np.concatenate([do_dict[k],keypad])
+    if npad>0:
+        if do_dict:
+            for k in do_dict.keys():
+                keypad=np.tile(do_dict[k][0],[npad])
+                do_dict[k]=np.concatenate([do_dict[k],keypad])
 
-    if cond_dict:
-        for k in cond_dict.keys():
-            keypad=np.tile(cond_dict[k][0],[npad])
-            cond_dict[k]=np.concatenate([cond_dict[k],keypad])
+        if cond_dict:
+            for k in cond_dict.keys():
+                keypad=np.tile(cond_dict[k][0],[npad])
+                cond_dict[k]=np.concatenate([cond_dict[k],keypad])
 
 
     verbose=False
@@ -410,7 +414,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
 
 
     #expand dict with products of sets of interventions/conditions
-    print("Warning, no interpret in sample")
+    if verbose:
+        print("Warning, no interpret in sample")
     do_dict= do_dict or {}
     #do_dict = interpret_dict( do_dict, model, on_logits=on_logits)
     #cond_dict = interpret_dict( cond_dict, model,on_logits=on_logits)#{string:array}
@@ -423,13 +428,18 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
     fetch_dict= cond2fetch(cond_dict,model,on_logits=on_logits) #{string:tensor}
     fetch_dict.update(fetch or {'G':model.G})
 
+
+    #print('actual cond_dict', cond_dict )#{}
+    #print('actual do_dict', do_dict )#{}
+
     if verbose:
         print('feed_dict',feed_dict)
-    print('fetch_dict',fetch_dict)
+        print('fetch_dict',fetch_dict)
 
     if not cond_dict and do_dict:
         #Simply do intervention w/o loop
-        print('sampler mode:Interventional')
+        if verbose:
+            print('sampler mode:Interventional')
 
         fds=chunks(feed_dict,model.batch_size)
 
@@ -448,7 +458,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
     elif not cond_dict and not do_dict:
         #neither passed, but get N samples
         assert(N>0)
-        print 'sampling model N=',N,' times'
+        if verbose:
+            print 'sampling model N=',N,' times'
         fds=chunks({'idx':range(npad+N)},model.batch_size)
 
         outputs={k:[] for k in fetch_dict.keys()}
@@ -465,15 +476,18 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
     elif cond_dict:
     #Could also pass do_dict here to be interesting
         ##Implements rejection sampling
-        print('sampler mode:Conditional')
+        if verbose:
+            print('sampler mode:Conditional')
+            print('conddict',cond_dict)
 
         rows=np.arange( len(cond_dict.values()[0]))#what idx do we need
         assert(len(rows)>=model.batch_size)#should already be true.
 
-        print('nrows:',len(rows))
+        if verbose:
+            print('nrows:',len(rows))
 
         #init
-        max_fail=450
+        max_fail=4000
         #max_fail=10000
         n_fails=np.zeros_like(rows)
         remaining_rows=rows.copy()
@@ -481,7 +495,9 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
         bad_rows=set()
 
         #null=lambda :[-1 for r in rows]
-        outputs={key:[-1 for r in rows]for key in fetch_dict}
+        if verbose:
+            print('cond fetch_dict',fetch_dict)
+        outputs={key:[np.zeros(fetch_dict[key].get_shape().as_list()[1:]) for r in rows] for key in fetch_dict}
         if verbose:
             print('n keys in outputs:',len(outputs.keys()))
 
@@ -492,12 +508,16 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
             #debug()
             ii+=1
             #loop
+            if not return_failures:
+                if len(completed_rows)>=nsamples:
+                    if verbose:
+                        print('Have enough for now; breaking')
+                    break
             iter_rows=remaining_rows[:model.batch_size]
             n_pad = model.batch_size - len(iter_rows)
             if verbose:
-                print('Iter:',ii)
-                print('iter_rows:',len(iter_rows),':',iter_rows)
-                print('n_pad:',n_pad)
+                print('Iter:',ii, 'to go:',len(iter_rows))
+                #print('iter_rows:',len(iter_rows),':',iter_rows)
             #iter_rows.extend( [iter_rows[-1]]*n_pad )#just duplicate
             pad_iter_rows=list(iter_rows)+ ( [iter_rows[-1]]*n_pad )
 
@@ -516,7 +536,6 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
             fail_idx=iter_rows[~bool_pass]
 
 
-
             #yuck
             for key in out:
                 for i,row_pass in enumerate(bool_pass):
@@ -525,16 +544,19 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
                         outputs[key][idx]=out[key][i]
                     else:
                         n_fails[idx]+=1
+
+            good_rows=set( iter_rows[bool_pass] )
+            completed_rows.extend(list(good_rows))
+            #print('good_rows',good_rows)
+            bad_rows=set( rows[ n_fails>=max_fail ] )
+            #print('bad_rows',bad_rows)
+
+            for key in out:
                 for idx_giveup in bad_rows:
                     shape=fetch_dict[key].get_shape().as_list()[1:]
                     outputs[key][idx_giveup]=np.zeros(shape)
                     if verbose:
                         print('key:',key,' shape giveup:',shape)
-
-            good_rows=set( iter_rows[bool_pass] )
-            #print('good_rows',good_rows)
-            bad_rows=set( rows[ n_fails>=max_fail ] )
-            #print('bad_rows',bad_rows)
 
 
             ##Remove rows
@@ -542,25 +564,48 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
 
             #debug()
 
-        print('conditioning took',ii,' tries')
-        n_fails.sort()
-        print('10 most fail counts(limit=',max_fail,'):',n_fails[-10:])
+        if verbose:
+            print('conditioning took',ii,' tries')
+            n_fails.sort()
+            print('10 most fail counts(limit=',max_fail,'):',n_fails[-10:])
+
+        if verbose:
+            print('means:')
+            for k in outputs.keys():
+                for v in outputs[k]:
+                    print np.mean(v)
 
 
         if not return_failures:
             #useful for pdf calculations.
             #not useful for image grids
-            print 'Not returning failures!..',
+            if verbose:
+                print 'Not returning failures!..',
             for k in outputs.keys():
-                good_bool=n_fails<max_fail
-                print '..Returning', np.sum(good_bool),'/',len(cond_dict.values()[0])
-                outputs[k]=[outputs[k][i] for i in good_bool]
+                outputs[k]=[outputs[k][i] for i in completed_rows]
+                if verbose:
+                    print '..Returning', len(completed_rows),'/',len(cond_dict.values()[0])
+        else:
+            for k in outputs.keys():
+                outputs[k]=outputs[k][:nsamples]
 
         for k in outputs.keys():
-            #print 'tobestacked:',len(outputs[k])
-            #print 'tobestacked:',outputs[k][0].shape
-            #outputs[k]=np.vstack(outputs[k])
-            outputs[k]=np.stack(outputs[k])[:nsamples]
+            if verbose:
+                print 'tobestacked:',len(outputs[k])
+                print 'tobestacked:',isinstance(outputs[k][0],np.ndarray)
+
+            values=outputs[k][:nsamples]
+            if verbose:
+                for v in values:
+                    try:
+                        print v.shape
+                    except:
+                        print type(v)
+
+            if len(fetch_dict[k].get_shape().as_list())>1:
+                outputs[k]=np.stack(outputs[k])
+            else:
+                outputs[k]=np.concatenate(outputs[k])
 
 
         return outputs,cond_dict

@@ -9,7 +9,6 @@ import pandas as pd
 from itertools import combinations, product
 import sys
 from utils import save_figure_images,make_sample_dir,guess_model_step
-
 from sample import get_joint,sample
 
 
@@ -27,7 +26,7 @@ def get_pdf(model, do_dict=None,cond_dict=None,name='',N=6400,return_discrete=Tr
 
     pdf=pd.DataFrame.from_dict({k:val.mean() for k,val in joint.items()})
 
-    print 'get pdf cond_dict:',cond_dict
+    #print 'get pdf cond_dict:',cond_dict
     if not do_dict and not cond_dict:
         data=model.attr.mean()
         pdf['data']=data
@@ -36,7 +35,7 @@ def get_pdf(model, do_dict=None,cond_dict=None,name='',N=6400,return_discrete=Tr
         attr=model.attr[bool_cond]
         pdf['data']=attr.mean()
 
-    print 'Writing to file',f_pdf
+    #print 'Writing to file',f_pdf
     pdf.to_csv(f_pdf)
 
     return pdf
