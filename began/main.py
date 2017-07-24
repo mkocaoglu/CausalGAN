@@ -15,10 +15,104 @@ debug = debugger.Pdb().set_trace
 TODO:
     Get rid of Supervisor. It's creating backwards compatability issues
     Allow config to default to json during loading
-    Make data symlinks so that we can keep models on other partitions
+    Allow causal controller to train on its own without began (lower gpu mem)
+
+    Allow batch_size PlaceHolder for causal controller
+        faster tvd calculation
+        larger batch might help pretraining(limited at 16 right now)
+
+
+    #This should be switched for node.label
+        tf_parents=[self.z]+[node.label_logit for node in self.parents]
+
 '''
 
 '''
+Probably each factor should have its own optimizer
+Need to finally move pt stuff inside of Causal_Controller.py
+
+#CC
+    #def __init__(self,graph,batch_size=1,indep_causal=False,n_layers=3,n_hidden=10,input_dict=None,reuse=None):
+    def __init__(self,graph,config,batch_size=1,input_dict=None,reuse=None):
+
+
+#Trainer
+        #self.cc=CausalController(self.graph,config,self.batch_size)
+        #                indep_causal=self.config.indep_causal,
+        #                n_layers=self.config.cc_n_layers,
+        #                n_hidden=self.config.cc_n_hidden,
+        #                config=config)
+        self.cc=CausalController(self.graph,config,self.batch_size)
+
+        #self.fake_labels=self.cc.labels
+        #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
+        self.fake_labels=self.cc.fake_labels
+        self.fake_labels_logits=self.cc.fake_labels_logits
+
+
+
+Small but modest improvement from fixing gradient penalty.
+DiscW only has 4 layers.. so I think best to try to increase that.
+Maybe also increase n neurons to 15
+
+def DiscriminatorW(labels,batch_size, n_hidden, config, reuse=None):
+def DiscriminatorW(labels,batch_size, n_hidden=10, reuse=None):
+
+        h=labels
+        act_fn=lrelu
+        n_neurons=n_hidden
+        for i in range(config.critic_layers):
+            if i==config.critic_layers-1:
+                act_fn=None
+                n_neurons=1
+
+            scp='WD'+str(i)
+            h = slim.fully_connected(h,n_neurons,activation_fn=act_fn,scope=scp)
+
+        #h0 = slim.fully_connected(labels,n_hidden,activation_fn=lrelu,scope='WD0')
+        #h1 = slim.fully_connected(h0,n_hidden,activation_fn=lrelu,scope='WD1')
+        #h2 = slim.fully_connected(h1,n_hidden,activation_fn=lrelu,scope='WD2')
+        #h3 = slim.fully_connected(h2,1,activation_fn=None,scope='WD3')
+
+        return tf.nn.sigmoid(h),h,variables
+        #return tf.nn.sigmoid(h3),h3,variables
+
+I'm making several changes that are necessary to penalize the gradient of each
+dcc component.
+
+
+self.dcc_dict=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
+#self.dcc_real,self.dcc_real_logit,self.dcc_var=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
+#self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,n_hidden=n_hidden)
+
+
+models.py
+for n,rx,fx in zip(node_names,real_inputs,fake_inputs):
+    with tf.variable_scope(n):
+        prob,log,var=Net(rx,batch_size,n_hidden,reuse)
+        dcc_dict['real_prob'][n]=prob
+        dcc_dict['real_logit'][n]=log
+        dcc_dict['var'][n]=var
+
+        prob,log,_  =Net(rx,batch_size,n_hidden,reuse=True)
+        dcc_dict['fake_prob'][n]=prob
+        dcc_dict['fake_logit'][n]=log
+
+        list_logits.append(log)
+        logit_sum+=log
+        net_var+=var
+
+        grad_cost,slopes=Grad_Penalty(rx,fx,Net,config)
+        dcc_dict['grad_cost']=grad_cost
+        dcc_dict['slopes']=slopes
+
+
+
+
+
+
+----------------
+Turns out yes!
 I'm testing to see if the third margin is necessary at all:
         if not self.config.no_third_margin:
             #normal mode

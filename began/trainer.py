@@ -370,17 +370,13 @@ class Trainer(object):
         self.real_labels_list=[self.data_loader[name] for name in label_names]
         self.real_labels=tf.concat(self.real_labels_list,-1)
 
-#(self,graph,batch_size=1,indep_causal=False,n_layers=3,n_hidden=10,input_dict=None,reuse=None)
-        self.cc=CausalController(self.graph,self.batch_size,
-                        indep_causal=self.config.indep_causal,
-                        n_layers=self.config.cc_n_layers,
-                        n_hidden=self.config.cc_n_hidden)
+        self.cc=CausalController(self.graph,config,self.batch_size)
 
-        #maybe needs reshaped? [bs,] -> [bs,1]
-        #self.fake_labels= tf.concat( self.cc.list_labels(),-1 )
-        self.fake_labels=self.cc.labels
-        self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
-        #print('shape of fake_labels:',self.fake_labels.get_shape().as_list())
+        #self.fake_labels=self.cc.labels
+        #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
+        self.fake_labels=self.cc.fake_labels
+        self.fake_labels_logits=self.cc.fake_labels_logits
+
 
         n_hidden=self.config.critic_hidden_size
         #self.real_label_dict={n:self.data_loader[n] for n in self.cc.node_names}
@@ -388,14 +384,22 @@ class Trainer(object):
 
         #Pretrain node by node by computing a new discriminator for each node
         #given the true value of its parents
+
+
+
         if self.config.pt_factorized:
-            self.DCC=FactorizedNetwork(self.graph,self.DCC)
-
-        self.dcc_real,self.dcc_real_logit,self.dcc_var=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
-        self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,reuse=True,n_hidden=n_hidden)
+            self.DCC=FactorizedNetwork(self.graph,self.DCC,self.config)
 
 
+        #self.dcc_real,self.dcc_real_logit,self.dcc_var=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
+        #self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,n_hidden=n_hidden)
+        self.dcc_dict=self.DCC(self.real_labels,self.fake_labels,self.batch_size,n_hidden=n_hidden)
 
+        self.dcc_real=tf.add_n(self.dcc_dict['real_prob'].values())/len(self.cc.node_names)
+        self.dcc_real=tf.add_n(self.dcc_dict['fake_prob'].values())/len(self.cc.node_names)
+        self.dcc_real_logit=tf.add_n(self.dcc_dict['real_logit'].values())/len(self.cc.node_names)
+        self.dcc_fake_logit=tf.add_n(self.dcc_dict['fake_logit'].values())/len(self.cc.node_names)
+        self.dcc_var=list(chain.from_iterable(self.dcc_dict['var'].values()))
 
         #z_num is 64 or 128 in paper
         self.z_gen = tf.random_uniform(
@@ -477,7 +481,11 @@ class Trainer(object):
         elif self.config.pretrain_type=='wasserstein':
             self.dcc_diff = self.dcc_fake_logit - self.dcc_real_logit
             self.dcc_gan_loss=tf.reduce_mean(self.dcc_diff)
-            self.dcc_grad_loss,self.dcc_slopes=Grad_Penalty(self.real_labels,self.fake_labels,self.DCC,self.config)
+
+            self.dcc_grad_loss=tf.add_n(self.dcc_dict['grad_cost'].values())/len(self.cc)
+            #self.dcc_slopes=list(chain.from_iterable(self.dcc_dict['slopes'].values()))
+            #self.dcc_grad_loss,self.dcc_slopes=Grad_Penalty(self.real_labels,self.fake_labels,self.DCC,self.config)
+
             self.dcc_loss=self.dcc_gan_loss+self.dcc_grad_loss
             self.c_loss=-tf.reduce_mean(self.dcc_fake_logit)
 
@@ -755,7 +763,7 @@ class Trainer(object):
         elif self.config.pretrain_type=='wasserstein':
             summary_stats('dcc/real_dcc_logit',self.dcc_real_logit,hist=True)
             summary_stats('dcc/fake_dcc_logit',self.dcc_fake_logit,hist=True)
-            summary_stats('dcc/slopes',self.dcc_slopes,hist=True)
+            #summary_stats('dcc/slopes',self.dcc_slopes,hist=True)
             tf.summary.scalar('dcc/gan_loss',self.dcc_gan_loss)
             tf.summary.scalar('dcc/grad_loss',self.dcc_grad_loss)
             #summary_stats('dcc/gan_loss',self.dcc_gan_loss)
