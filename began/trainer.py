@@ -57,6 +57,10 @@ def slerp(val, low, high):
 
 class Trainer(object):
     model_type='began'
+
+    @property
+    def default_batch_size(self):
+        return self.sess.run(self.batch_size)
     def __init__(self, config, data_loader,label_stats):
 
         self.config = config
@@ -77,8 +81,7 @@ class Trainer(object):
         self.beta1 = config.beta1
         self.beta2 = config.beta2
         self.optimizer = config.optimizer
-        self.batch_size = config.batch_size
-        self.separate_labeler=config.separate_labeler
+        self.batch_size=tf.placeholder_with_default(config.batch_size,[],name='model_batch_size')
 
         if self.config.pretrain_type=='wasserstein':
             self.DCC=DiscriminatorW
@@ -131,19 +134,13 @@ class Trainer(object):
         self.lr_update_step = config.lr_update_step
 
         self.is_train = config.is_train
-
         self.build_model()####multigpu stuff here
 
-        self.pt_var=self.cc.var+self.dcc_var
-
-        #Save dcc vars too??
-        #self.pt_saver=tf.train.Saver(var_list=self.pt_var)
-        self.pt_saver=tf.train.Saver(var_list=self.cc.var)
-
-        self.pt_dir=os.path.join(self.model_dir,'pretrain')
-        if not os.path.exists(self.pt_dir):
-            os.mkdir(self.pt_dir)
-
+        #self.pt_var=self.cc.var+self.dcc_var
+        #self.pt_saver=tf.train.Saver(var_list=self.cc.var)
+        #self.pt_dir=os.path.join(self.model_dir,'pretrain')
+        #if not os.path.exists(self.pt_dir):
+        #    os.mkdir(self.pt_dir)
 
         ##This line is kind of a big mistake.
         ##Should really not have it
@@ -156,7 +153,8 @@ class Trainer(object):
 
         print('self.model_dir:',self.model_dir)
         gpu_options = tf.GPUOptions(allow_growth=True,
-                                  per_process_gpu_memory_fraction=0.333)
+                                  #per_process_gpu_memory_fraction=0.333)
+                                  per_process_gpu_memory_fraction=0.95)
         sess_config = tf.ConfigProto(allow_soft_placement=True,
                                     gpu_options=gpu_options)
 
@@ -208,59 +206,56 @@ class Trainer(object):
 
         if config.pt_load_path:
             print('Attempting to load pretrain model:',config.pt_load_path)
-            self.pt_saver.restore(self.sess,config.pt_load_path)
+            self.cc.load(self.sess,config.pt_load_path)
 
             print('Check tvd after restore')
-            info=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
+            info=crosstab(self,result_dir=self.cc.model_dir,report_tvd=True)
             print('tvd after load:',info['tvd'])
 
 
     def pretrain(self):
         step,global_step=self.sess.run([self.cc.step,self.g_step])
         assert global_step==0,'if pretraining, model should not be trained already'
+        stats=crosstab(self,result_dir=self.cc.model_dir,report_tvd=True)
 
-        stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
-
-        def break_pretrain(stats,counter):
+        def break_pretrain(label_stats,counter):
             c1=counter>=self.config.min_pretrain_iter
-            c2= (stats['tvd']<self.config.min_tvd)
+            c2= (label_stats['tvd']<self.config.min_tvd)
             return (c1 and c2)
 
         for counter in trange(self.config.pretrain_iter):
             #Check for early exit
             if counter %(10*self.log_step)==0:
-                stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
-                print('ptstep:',counter,'  TVD:',stats['tvd'])
-                if break_pretrain(stats,counter):
+                label_stats=crosstab(self,result_dir=self.cc.model_dir,report_tvd=True)
+                print('ptstep:',counter,'  TVD:',label_stats['tvd'])
+                if break_pretrain(label_stats,counter):
                     print('Completed Pretrain by TVD Qualification')
                     break
 
             #Optimize critic
             if self.config.pretrain_type=='wasserstein':
-                fetch_dict = {"critic_op":self.dcc_optim }
-                for i in range(self.config.n_critic):
-                    result = self.sess.run(fetch_dict)
+                self.cc.critic_update(self.sess)
 
             #one iter causal controller
             fetch_dict = {
-                "pretrain_op": self.pretrain_op,
+                "pretrain_op": self.cc.train_op,
                 'cc_step':self.cc.step,
                 'step':self.step,
             }
             if counter % self.log_step == 0:
                 fetch_dict.update({
                     "summary": self.summary_op,
-                    "c_loss": self.c_loss,
-                    "dcc_loss": self.dcc_loss,
+                    "c_loss": self.cc.c_loss,
+                    "dcc_loss": self.cc.dcc_loss,
                 })
             result = self.sess.run(fetch_dict)
 
             if counter % self.log_step == 0:
                 if counter %(10*self.log_step)==0:
-                    sum_tvd=make_summary('misc/tvd', stats['tvd'])
-                    self.summary_writer.add_summary(sum_tvd,result['step'])
+                    sum_tvd=make_summary('misc/tvd', label_stats['tvd'])
+                    self.summary_writer.add_summary(sum_tvd,result['cc_step'])
 
-                self.summary_writer.add_summary(result['summary'],result['step'])
+                self.summary_writer.add_summary(result['summary'],result['cc_step'])
                 self.summary_writer.flush()
 
                 c_loss = result['c_loss']
@@ -269,14 +264,15 @@ class Trainer(object):
                       format(step, self.max_step, c_loss, dcc_loss))
 
             if counter %(10*self.log_step)==0:
-                self.pt_saver.save(self.sess,self.pt_dir+'/CC_Model',result['step'])
+                self.cc.saver.save(self.sess,self.cc.model_dir,result['cc_step'])
+                #self.pt_saver.save(self.sess,self.cc.model_dir,result['step'])
 
         else:
-            stats=crosstab(self,result_dir=self.pt_dir,report_tvd=True)
-            self.pt_saver.save(self.sess,self.pt_dir+'/CC_Model',self.cc.step)
+            label_stats=crosstab(self,result_dir=self.cc.model_dir,report_tvd=True)
+            self.cc.saver.save(self.sess,self.cc.model_dir,self.cc.step)
             print('Completed Pretrain by Exhaustin all Pretrain Steps!')
 
-        print('step:',step,'  TVD:',stats['tvd'])
+        print('step:',step,'  TVD:',label_stats['tvd'])
 
 
     def train(self):
@@ -370,7 +366,7 @@ class Trainer(object):
         self.real_labels_list=[self.data_loader[name] for name in label_names]
         self.real_labels=tf.concat(self.real_labels_list,-1)
 
-        self.cc=CausalController(self.graph,config,self.batch_size)
+        self.cc=CausalController(self.graph,self.config,self.batch_size)
 
         #self.fake_labels=self.cc.labels
         #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
@@ -378,28 +374,14 @@ class Trainer(object):
         self.fake_labels_logits=self.cc.fake_labels_logits
 
 
-        n_hidden=self.config.critic_hidden_size
-        #self.real_label_dict={n:self.data_loader[n] for n in self.cc.node_names}
-        #self.fake_label_dict={n:self.cc.node_dict[n].label for n in self.cc.node_names}
 
-        #Pretrain node by node by computing a new discriminator for each node
-        #given the true value of its parents
-
-
-
-        if self.config.pt_factorized:
-            self.DCC=FactorizedNetwork(self.graph,self.DCC,self.config)
-
-
-        #self.dcc_real,self.dcc_real_logit,self.dcc_var=self.DCC(self.real_labels,self.batch_size,n_hidden=n_hidden)
-        #self.dcc_fake,self.dcc_fake_logit,self.dcc_var=self.DCC(self.fake_labels,self.batch_size,n_hidden=n_hidden)
-        self.dcc_dict=self.DCC(self.real_labels,self.fake_labels,self.batch_size,n_hidden=n_hidden)
-
-        self.dcc_real=tf.add_n(self.dcc_dict['real_prob'].values())/len(self.cc.node_names)
-        self.dcc_real=tf.add_n(self.dcc_dict['fake_prob'].values())/len(self.cc.node_names)
-        self.dcc_real_logit=tf.add_n(self.dcc_dict['real_logit'].values())/len(self.cc.node_names)
-        self.dcc_fake_logit=tf.add_n(self.dcc_dict['fake_logit'].values())/len(self.cc.node_names)
-        self.dcc_var=list(chain.from_iterable(self.dcc_dict['var'].values()))
+        #n_hidden=self.config.critic_hidden_size
+        #self.dcc_dict=self.DCC(self.real_labels,self.fake_labels,self.batch_size,n_hidden=n_hidden)
+        #self.dcc_real=tf.add_n(self.dcc_dict['real_prob'].values())/len(self.cc.node_names)
+        #self.dcc_real=tf.add_n(self.dcc_dict['fake_prob'].values())/len(self.cc.node_names)
+        #self.dcc_real_logit=tf.add_n(self.dcc_dict['real_logit'].values())/len(self.cc.node_names)
+        #self.dcc_fake_logit=tf.add_n(self.dcc_dict['fake_logit'].values())/len(self.cc.node_names)
+        #self.dcc_var=list(chain.from_iterable(self.dcc_dict['var'].values()))
 
         #z_num is 64 or 128 in paper
         self.z_gen = tf.random_uniform(
@@ -416,7 +398,6 @@ class Trainer(object):
             self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
         else:
             self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
-
 
         G, self.G_var = GeneratorCNN(
                 self.z, self.conv_hidden_num, self.channel,
@@ -441,15 +422,23 @@ class Trainer(object):
 
         self.D_encode_G, self.D_encode_x=tf.split(self.D_z, 2)#axis=0 by default
 
-        if not self.separate_labeler:
+        if not self.config.separate_labeler:
             self.D_fake_labels_logits=tf.slice(self.D_encode_G,[0,0],[-1,n_labels])
             self.D_real_labels_logits=tf.slice(self.D_encode_x,[0,0],[-1,n_labels])
         else:
 
-            label_logits,self.DL_var=Discriminator_labeler(
-                    tf.concat([G, x], 0), len(self.cc.nodes), self.repeat_num,
-                    self.conv_hidden_num, self.data_format)
-            self.D_fake_labels_logits,self.D_real_labels_logits=tf.split(label_logits,2)
+            self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(
+                G, len(self.cc), self.repeat_num,
+                self.conv_hidden_num, self.data_format)
+
+            self.D_real_labels_logits,  _        =Discriminator_labeler(
+                x, len(self.cc), self.repeat_num,
+                self.conv_hidden_num, self.data_format, reuse=True)
+
+            #label_logits,self.DL_var=Discriminator_labeler(
+            #        tf.concat([G, x], 0), len(self.cc.nodes), self.repeat_num,
+            #        self.conv_hidden_num, self.data_format)
+            #self.D_fake_labels_logits,self.D_real_labels_logits=tf.split(label_logits,2)
 
             self.D_var += self.DL_var
 
@@ -469,28 +458,28 @@ class Trainer(object):
                 logits=logits,labels=labels)
 
 
-        #pretrain
-        if self.config.pretrain_type=='gan':
-            self.dcc_xe_real=tf.reduce_mean(sxe(self.dcc_real_logit,1))
-            self.dcc_xe_fake=tf.reduce_mean(sxe(self.dcc_fake_logit,0))
-            self.dcc_loss_real = tf.reduce_mean(self.dcc_xe_real)
-            self.dcc_loss_fake = tf.reduce_mean(self.dcc_xe_fake)
-            self.dcc_loss=self.dcc_loss_real+self.dcc_loss_fake
-            self.c_xe_fake=sxe(self.dcc_fake_logit,1)
-            self.c_loss=tf.reduce_mean(self.c_xe_fake)
-        elif self.config.pretrain_type=='wasserstein':
-            self.dcc_diff = self.dcc_fake_logit - self.dcc_real_logit
-            self.dcc_gan_loss=tf.reduce_mean(self.dcc_diff)
+        ##pretrain
+        #if self.config.pretrain_type=='gan':
+        #    self.dcc_xe_real=tf.reduce_mean(sxe(self.dcc_real_logit,1))
+        #    self.dcc_xe_fake=tf.reduce_mean(sxe(self.dcc_fake_logit,0))
+        #    self.dcc_loss_real = tf.reduce_mean(self.dcc_xe_real)
+        #    self.dcc_loss_fake = tf.reduce_mean(self.dcc_xe_fake)
+        #    self.dcc_loss=self.dcc_loss_real+self.dcc_loss_fake
+        #    self.c_xe_fake=sxe(self.dcc_fake_logit,1)
+        #    self.c_loss=tf.reduce_mean(self.c_xe_fake)
+        #elif self.config.pretrain_type=='wasserstein':
+        #    self.dcc_diff = self.dcc_fake_logit - self.dcc_real_logit
+        #    self.dcc_gan_loss=tf.reduce_mean(self.dcc_diff)
 
-            self.dcc_grad_loss=tf.add_n(self.dcc_dict['grad_cost'].values())/len(self.cc)
-            #self.dcc_slopes=list(chain.from_iterable(self.dcc_dict['slopes'].values()))
-            #self.dcc_grad_loss,self.dcc_slopes=Grad_Penalty(self.real_labels,self.fake_labels,self.DCC,self.config)
+        #    self.dcc_grad_loss=tf.add_n(self.dcc_dict['grad_cost'].values())/len(self.cc)
+        #    #self.dcc_slopes=list(chain.from_iterable(self.dcc_dict['slopes'].values()))
+        #    #self.dcc_grad_loss,self.dcc_slopes=Grad_Penalty(self.real_labels,self.fake_labels,self.DCC,self.config)
 
-            self.dcc_loss=self.dcc_gan_loss+self.dcc_grad_loss
-            self.c_loss=-tf.reduce_mean(self.dcc_fake_logit)
+        #    self.dcc_loss=self.dcc_gan_loss+self.dcc_grad_loss
+        #    self.c_loss=-tf.reduce_mean(self.dcc_fake_logit)
 
-        else:
-            raise ValueError('shouldnt happen')
+        #else:
+        #    raise ValueError('shouldnt happen')
 
         #Should we round fake labels before calc loss?
         if self.config.round_fake_labels:
@@ -524,7 +513,6 @@ class Trainer(object):
             self.d_loss_fake_label = tf.reduce_mean(self.d_squarediff_fake_label)
             self.g_loss_label = tf.reduce_mean(self.g_squarediff_label)
 
-
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
@@ -557,9 +545,8 @@ class Trainer(object):
             self.g_loss = self.g_loss_image + 1.*self.g_loss_label
 
         #pretrain:
-        c_grad=self.c_optimizer.compute_gradients(self.c_loss,
-                                                  var_list=self.cc.train_var)
-        dcc_grad=self.dcc_optimizer.compute_gradients(self.dcc_loss,var_list=self.dcc_var)
+        #c_grad=self.c_optimizer.compute_gradients(self.c_loss,var_list=self.cc.train_var)
+        #dcc_grad=self.dcc_optimizer.compute_gradients(self.dcc_loss,var_list=self.dcc_var)
 
         # Calculate the gradients for the batch of data,
         # on this particular gpu tower.
@@ -568,8 +555,8 @@ class Trainer(object):
         d_grad=self.d_optimizer.compute_gradients(self.d_loss,var_list=self.D_var)
 
 
-        self.tower_dict['c_tower_grads'].append(c_grad)
-        self.tower_dict['dcc_tower_grads'].append(dcc_grad)
+        #self.tower_dict['c_tower_grads'].append(c_grad)
+        #self.tower_dict['dcc_tower_grads'].append(dcc_grad)
 
         self.tower_dict['g_tower_grads'].append(g_grad)
         self.tower_dict['d_tower_grads'].append(d_grad)
@@ -579,7 +566,8 @@ class Trainer(object):
         self.tower_dict['tower_d_loss_real_label'].append(self.d_loss_real_label)
         self.tower_dict['tower_d_loss_fake_label'].append(self.d_loss_fake_label)
 
-        self.var=self.G_var+self.D_var+self.dcc_var+self.cc.var+[self.g_step]
+        #self.var=self.G_var+self.D_var+self.dcc_var+self.cc.var+[self.g_step]
+        self.var=self.G_var+self.D_var+self.cc.dcc_var+self.cc.var+[self.g_step]
 
     def build_model(self):
         self.k_t = tf.get_variable(name='k_t',initializer=0.,trainable=False)
@@ -589,10 +577,11 @@ class Trainer(object):
         if self.optimizer == 'adam':
             optimizer = tf.train.AdamOptimizer
         else:
-            raise Exception("[!] Caution! Paper didn't use {} opimizer other than Adam".format(config.optimizer))
+            raise Exception("[!] Caution! Optimizer untested {}. Only tested Adam".format(config.optimizer))
+
         self.g_optimizer, self.d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
-        self.c_optimizer, self.dcc_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
-        self.dlr_optimizer = optimizer(self.g_lr)
+        #self.c_optimizer, self.dcc_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
+        #self.dlr_optimizer = optimizer(self.g_lr)
 
         self.tower_dict=dict(
                     c_tower_grads=[],
@@ -633,9 +622,7 @@ class Trainer(object):
         g_loss_label      =tf.reduce_mean(self.tower_dict['tower_g_loss_label'])
 
         self.balance_k = self.gamma * d_loss_real - g_loss_image
-        #self.balance_l = self.gamma_label * d_loss_real_label - g_loss_label
         self.balance_l = self.gamma_label * d_loss_real_label - d_loss_fake_label
-        #switch order because g minimizes
         self.balance_z = self.zeta*tf.nn.relu(self.balance_k) - tf.nn.relu(self.balance_l)
 
 
@@ -652,21 +639,21 @@ class Trainer(object):
             self.z_t, tf.clip_by_value(self.z_t + self.lambda_z*self.balance_z, 0, 1))
 
 
-        c_grads=average_gradients(self.tower_dict['c_tower_grads'])
-        dcc_grads=average_gradients(self.tower_dict['dcc_tower_grads'])
+        #c_grads=average_gradients(self.tower_dict['c_tower_grads'])
+        #dcc_grads=average_gradients(self.tower_dict['dcc_tower_grads'])
 
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-        self.c_optim =self.c_optimizer.apply_gradients(c_grads)
-        self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
-        self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
+        #self.c_optim =self.c_optimizer.apply_gradients(c_grads)
+        #self.c_optim =self.c_optimizer.apply_gradients(c_grads,global_step=self.cc.step)
+        #self.dcc_optim = self.dcc_optimizer.apply_gradients(dcc_grads)
 
-        self.dl_optim=self.dlr_optimizer.minimize(self.d_loss_real_label,var_list=self.DL_var)
-        if self.config.pretrain_labeler:
-            self.pretrain_op = tf.group(self.c_optim,self.dcc_optim,self.dl_optim)
-        else:
-            self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
+        #self.dl_optim=self.dlr_optimizer.minimize(self.d_loss_real_label,var_list=self.DL_var)
+        #if self.config.pretrain_labeler:
+        #    self.pretrain_op = tf.group(self.c_optim,self.dcc_optim,self.dl_optim)
+        #else:
+        #    self.pretrain_op = tf.group(self.c_optim,self.dcc_optim)
 
         g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.g_step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
@@ -675,7 +662,8 @@ class Trainer(object):
 
 
         #used as global indicator
-        self.step= tf.add(self.g_step,self.cc.step,name='model_step')
+        #self.step= tf.add(self.g_step,self.cc.step,name='model_step')
+        self.step=self.g_step
 
         ##*#* Interesting but pass this time around
         ## Track the moving averages of all trainable
@@ -687,7 +675,7 @@ class Trainer(object):
         #train_op = tf.group(apply_gradient_op, variables_averages_op)
 
 
-
+        #Move some of these summaries to CC
         #Label summaries
         LabelList=[self.cc.nodes,self.real_labels_list,
                    self.D_fake_labels_list,self.D_real_labels_list]
@@ -695,13 +683,30 @@ class Trainer(object):
             with tf.name_scope(node.name):
                 #TODO:replace with summary_stats
 
-                ##CC summaries:
-                ave_label=tf.reduce_mean(node.label)
-                std_label=tf.sqrt(tf.reduce_mean(tf.square(node.label-ave_label)))
-                tf.summary.scalar('ave',ave_label)
-                tf.summary.scalar('std',std_label)
-                tf.summary.histogram('fake_label_hist',node.label)
-                tf.summary.histogram('real_label_hist',rlabel)
+                ###CC summaries:
+                #ave_label=tf.reduce_mean(node.label)
+                #std_label=tf.sqrt(tf.reduce_mean(tf.square(node.label-ave_label)))
+                #tf.summary.scalar('ave',ave_label)
+                #tf.summary.scalar('std',std_label)
+                #tf.summary.histogram('fake_label_hist',node.label)
+                #tf.summary.histogram('real_label_hist',rlabel)
+
+                #if self.config.is_pretrain:
+                #    tf.summary.scalar('c_loss',node.c_loss)
+                #    tf.summary.scalar('dcc_loss',node.dcc_loss)
+
+                #    if self.config.pretrain_type=='gan':
+                #        summary_stats('dcc_on_real',node.dcc_real,hist=True)
+                #        summary_stats('dcc_on_fake',node.dcc_fake,hist=True)
+
+                #    elif self.config.pretrain_type=='wasserstein':
+                #        summary_stats('dcc_real_logit',node.dcc_real_logit,hist=True)
+                #        summary_stats('dcc_fake_logit',node.dcc_fake_logit,hist=True)
+                #        summary_stats('dcc_slopes',node.dcc_slopes,hist=True)
+                #        tf.summary.scalar('dcc_gan_loss',node.dcc_gan_loss)
+                #        tf.summary.scalar('dcc_grad_loss',node.dcc_grad_loss)
+
+
 
                 ##Disc summaries
                 d_flabel=tf.cast(tf.round(d_fake_label),tf.int32)
@@ -731,8 +736,6 @@ class Trainer(object):
                 tf.summary.scalar('real_label_accuracy',r_acc)
                 tf.summary.scalar('fake_label_accuracy',f_acc)
 
-
-
         ##Summaries picked from last gpu to run
         #tf.summary.scalar('d_loss_real',self.d_loss_real)
         #tf.summary.scalar('d_loss_fake',self.d_loss_fake)
@@ -754,22 +757,9 @@ class Trainer(object):
         tf.summary.scalar("loss/d_loss_fake", self.d_loss_fake),
         tf.summary.scalar("loss/g_loss", self.g_loss),
 
-        if self.config.pretrain_type=='gan':
-            summary_stats('dcc/real_dcc',self.dcc_real,hist=True)
-            summary_stats('dcc/fake_dcc',self.dcc_fake,hist=True)
-            tf.summary.scalar('loss/dcc_real_loss',self.dcc_loss_real)
-            tf.summary.scalar('loss/dcc_fake_loss',self.dcc_loss_fake)
-
-        elif self.config.pretrain_type=='wasserstein':
-            summary_stats('dcc/real_dcc_logit',self.dcc_real_logit,hist=True)
-            summary_stats('dcc/fake_dcc_logit',self.dcc_fake_logit,hist=True)
-            #summary_stats('dcc/slopes',self.dcc_slopes,hist=True)
-            tf.summary.scalar('dcc/gan_loss',self.dcc_gan_loss)
-            tf.summary.scalar('dcc/grad_loss',self.dcc_grad_loss)
-            #summary_stats('dcc/gan_loss',self.dcc_gan_loss)
-            #summary_stats('dcc/grad_loss',self.dcc_grad_loss)
-
-        tf.summary.scalar('loss/c_loss',self.c_loss)
+        if self.config.is_pretrain:
+            tf.summary.scalar('loss/c_loss', self.cc.c_loss)
+            tf.summary.scalar('loss/dcc_loss', self.cc.dcc_loss)
 
         tf.summary.scalar("misc/d_lr", self.d_lr),
         tf.summary.scalar("misc/g_lr", self.g_lr),

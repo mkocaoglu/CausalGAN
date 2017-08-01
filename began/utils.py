@@ -16,13 +16,14 @@ from tensorflow.core.framework import summary_pb2
 def make_summary(name, val):
     return summary_pb2.Summary(value=[summary_pb2.Summary.Value(tag=name, simple_value=val)])
 
-def summary_stats(name,tensor,hist=False):
+def summary_stats(name,tensor,collections=None,hist=False):
+    collections=collections or [tf.GraphKeys.SUMMARIES]
     ave=tf.reduce_mean(tensor)
     std=tf.sqrt(tf.reduce_mean(tf.square(ave-tensor)))
-    tf.summary.scalar(name+'_ave',ave)
-    tf.summary.scalar(name+'_std',std)
+    tf.summary.scalar(name+'_ave',ave,collections)
+    tf.summary.scalar(name+'_std',std,collections)
     if hist:
-        tf.summary.histogram(name+'_hist',tensor)
+        tf.summary.histogram(name+'_hist',tensor,collections)
 
 
 def prepare_dirs_and_logger(config):

@@ -116,6 +116,7 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
         D_fake_labels=model.D_labels_for_fake
         D_real_labels=model.D_labels_for_real
 
+    #fetch_dict={'cc_labels':model.cc.labels}
     fetch_dict={'d_fake_labels':D_fake_labels,
                 'cc_labels':model.cc.labels}
 
@@ -129,14 +130,13 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     result,_=sample(model, cond_dict=cond_dict, do_dict=do_dict,N=N,
                     fetch=fetch_dict,return_failures=False)
     print 'fetd keys:',fetch_dict.keys()
-
     result={k:result[k] for k in fetch_dict.keys()}
-
 
     n_labels=len(model.cc.node_names)
     #list_labels=np.split( result['cfl'],n_labels, axis=1)
     #list_d_fake_labels=np.split(result['dfl'],n_labels, axis=1)
     #list_d_real_labels=np.split(result['drl'],n_labels, axis=1)
+
     for k in result.keys():
         print 'valshape',result[k].shape
         print 'result',result[k]
@@ -153,8 +153,6 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     return pd_joint
 
 
-
-
     for name, lab, dfl in zip(model.cc.node_names,list_labels,list_d_fake_labels):
         if return_discrete:
             cfl_val=(lab>0.5).astype('int')
@@ -167,6 +165,7 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     cfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
     dfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
 
+    print 'get_joint successful'
     return cfl,dfl
 
 
@@ -441,7 +440,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
         if verbose:
             print('sampler mode:Interventional')
 
-        fds=chunks(feed_dict,model.batch_size)
+        #fds=chunks(feed_dict,model.batch_size)
+        fds=chunks(feed_dict,model.default_batch_size)
 
         outputs={k:[] for k in fetch_dict.keys()}
         for fd in fds:
@@ -460,7 +460,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
         assert(N>0)
         if verbose:
             print 'sampling model N=',N,' times'
-        fds=chunks({'idx':range(npad+N)},model.batch_size)
+        #fds=chunks({'idx':range(npad+N)},model.batch_size)
+        fds=chunks({'idx':range(npad+N)},model.default_batch_size)
 
         outputs={k:[] for k in fetch_dict.keys()}
         for fd in fds:

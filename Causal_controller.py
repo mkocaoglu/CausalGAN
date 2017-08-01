@@ -101,6 +101,8 @@ class CausalController(object):
 
         self.labels=tf.concat(self.list_labels(),-1)
 
+    def __len__(self):
+        return len(self.node_dict)
 
     @property
     def feed_z(self):#might have to makethese phw/default
@@ -148,11 +150,13 @@ class CausalNode(object):
         #Use tf.random_uniform instead of placeholder for noise
         n=self.batch_size*self.n_hidden
         #print 'CN n',n
-        with tf.variable_scope(self.name):
+        with tf.variable_scope(self.name) as vs:
             self.z=input_z or  tf.random_uniform(
                     (self.batch_size,self.n_hidden),minval=-1.0,maxval=1.0)
             if debug:
                 print 'self.',self.name,' using input_z ', input_z
+
+            self.var = tf.contrib.framework.get_variables(vs)
 
     def setup_tensor(self):
         if self._label is not None:#already setup

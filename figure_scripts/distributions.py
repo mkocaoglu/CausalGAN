@@ -35,14 +35,10 @@ def get_pdf(model, do_dict=None,cond_dict=None,name='',N=6400,return_discrete=Tr
         attr=model.attr[bool_cond]
         pdf['data']=attr.mean()
 
-    #print 'Writing to file',f_pdf
+    print 'Writing to file',f_pdf
     pdf.to_csv(f_pdf)
 
     return pdf
-
-
-
-
 
 
 TINY=1e-6

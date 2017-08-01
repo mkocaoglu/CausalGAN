@@ -53,6 +53,12 @@ def crosstab(model,step=None,result_dir=None,report_tvd=True):
     including the marginals and the pairwise comparisons
 
     '''
+
+    #only glabel at the moment
+    #dlabel may not be batch_size independent
+    only_glabel=True
+
+
     result={}
     if step is None:
         str_step=''
@@ -67,37 +73,40 @@ def crosstab(model,step=None,result_dir=None,report_tvd=True):
     print 'Calculating joint distribution with',
     print 'N=',N,' samples'
 
-    n_batches=N/model.batch_size
+    batch_size=64*20 #batch_size=model.batch_size
+
+    n_batches=N/batch_size
+
+
     labels, d_fake_labels= [],[]
+    fake_labels=model.cc.fake_labels
+    result_dir=result_dir or model.cc.model_dir
+    if str_step=='':
+        str_step=str( model.sess.run(model.cc.step) )+'_'
+
     #Terminology
     if model.model_type=='began':
-        fake_labels=model.fake_labels
         D_fake_labels=model.D_fake_labels
-        #result_dir=os.path.join('began',model.model_dir)
-        result_dir=result_dir or model.model_dir
-        if str_step=='':
-            str_step=str( model.sess.run(model.step) )+'_'
-        attr=model.attr[list(model.cc.node_names)]
+        attr=model.attr
     elif model.model_type=='dcgan':
-        fake_labels=model.fake_labels
         D_fake_labels=model.D_labels_for_fake
-        result_dir=result_dir or model.checkpoint_dir
         attr=0.5*(model.attributes+1)
-        attr=attr[list(model.cc.names)]
+
+    attr=attr[model.cc.node_names]
 
     if not os.path.exists(result_dir):
         raise ValueError('result_dir:',result_dir,' does not exist')
 
-    dfl_xtab_fn = os.path.join(result_dir,str_step+'d_fake_label_crosstab.txt')
     lab_xtab_fn = os.path.join(result_dir,str_step+'glabel_crosstab.txt')
+    dfl_xtab_fn = os.path.join(result_dir,str_step+'d_fake_label_crosstab.txt')
     gvsd_xtab_fn = os.path.join(result_dir,str_step+'glabel_vs_dfake_crosstab.txt')
-
 
     #for n in range(n_batches):
     for step in trange(n_batches):
-        lab,dfl=model.sess.run([fake_labels,D_fake_labels])
-        labels.append(lab)
+        lab,dfl=model.sess.run([fake_labels,D_fake_labels],{model.batch_size:batch_size})
         d_fake_labels.append(dfl)
+        labels.append(lab)
+
 
     if report_tvd:
         tvd=calc_tvd(np.vstack(labels),attr)
@@ -146,6 +155,7 @@ def crosstab(model,step=None,result_dir=None,report_tvd=True):
             lab_f.write('  mean='+str(np.mean(lab_marg))+'\t'+\
                         'true mean='+str(true_marg)+'\n')
             dlf_f.write('  mean='+str(np.mean(dlf_marg))+'\n')
+
 
             gldf_df=pd.DataFrame(data=np.hstack([lab_marg,dlf_marg]),columns=['glabel','dfake'])
             gldf_ct=pd.crosstab(index=gldf_df['glabel'],columns=gldf_df['dfake'],margins=True)

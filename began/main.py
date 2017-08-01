@@ -21,6 +21,8 @@ TODO:
         faster tvd calculation
         larger batch might help pretraining(limited at 16 right now)
 
+    speedup crosstab
+    allow only creation of causal controller graph (should also come with pt speedup)
 
     #This should be switched for node.label
         tf_parents=[self.z]+[node.label_logit for node in self.parents]
@@ -28,10 +30,48 @@ TODO:
 '''
 
 '''
+Feeding round(labels) instead of label_logits within cc made a huge difference
+
+Feeding real parents was a bit of a disaster. Not sure why.
+Try not doing that but with passing label instead of label_logit
+        print 'WARNING: cc passes labels and rounds them before use'
+        tf_parents=[self.z]+[tf.round(node.label) for node in self.parents]
+
+
+Trying to feed real parents:
+    real_inputs=tf.concat([label_loader[n] for n in parent_names]+[label_loader[self.name]],axis=1)
+    fake_inputs=tf.concat([label_loader[n] for n in parent_names]+[self.label],axis=1)
+    #real_inputs=tf.concat([label_loader[n] for n in parent_names]+[label_loader[self.name]],axis=1)
+    #fake_inputs=tf.concat([p.label for p in self.parents]+[self.label],axis=1)
+
+Also should pass label in causal controller, not logit
+    #tf_parents=[self.z]+[node.label_logit for node in self.parents]
+    #tf_parents=[self.z]+[node.label for node in self.parents]
+    tf_parents=[self.z]+[tf.round(node.label) for node in self.parents]
+
+
+There was immediate cc output mode collapse.. not sure what happened. I did decrease
+n_critic to 5. I also increased batch_size. I also changed a lot of the code.
+Now to experiment.
+
+
+    config.py
+    misc_arg.add_argument('--build_all', type=str2bool, default=False,
+                         help='normally specifying is_pretrain=False will cause
+                         the pretraining components not to be built and likewise
+                          with is_train=False only the pretrain compoenent will
+                          (possibly) be built. This is here as a debug helper to
+                          enable building out the whole model without doing any
+                          training')
+
+
+
 Probably each factor should have its own optimizer
 Need to finally move pt stuff inside of Causal_Controller.py
 
 #CC
+    cc.batch_size is now placeholder
+
     #def __init__(self,graph,batch_size=1,indep_causal=False,n_layers=3,n_hidden=10,input_dict=None,reuse=None):
     def __init__(self,graph,config,batch_size=1,input_dict=None,reuse=None):
 
@@ -48,6 +88,26 @@ Need to finally move pt stuff inside of Causal_Controller.py
         #self.fake_labels_logits= tf.concat( self.cc.list_label_logits(),-1 )
         self.fake_labels=self.cc.fake_labels
         self.fake_labels_logits=self.cc.fake_labels_logits
+
+        #self.var=self.G_var+self.D_var+self.dcc_var+self.cc.var+[self.g_step]
+        self.var=self.G_var+self.D_var+self.cc.dcc_var+self.cc.var+[self.g_step]
+
+
+        #split up to allow batch_size issues
+            self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(
+                G, len(self.cc), self.repeat_num,
+                self.conv_hidden_num, self.data_format)
+
+            self.D_real_labels_logits,  _        =Discriminator_labeler(
+                x, len(self.cc), self.repeat_num,
+                self.conv_hidden_num, self.data_format, reuse=True)
+
+            #label_logits,self.DL_var=Discriminator_labeler(
+            #        tf.concat([G, x], 0), len(self.cc.nodes), self.repeat_num,
+            #        self.conv_hidden_num, self.data_format)
+            #self.D_fake_labels_logits,self.D_real_labels_logits=tf.split(label_logits,2)
+
+            self.D_var += self.DL_var
 
 
 

@@ -12,7 +12,7 @@ debug = debugger.Pdb().set_trace
 def logodds(p):
     return np.log(p/(1.-p))
 
-def get_label_loader(config, root, batch_size,do_shuffle=True,num_worker=4):
+def get_label_loader(config, root, batch_size,do_shuffle=True,num_worker=16):
     '''This loads the image and the labels through a tensorflow queue.
     All of the labels are loaded regardless of what is specified in graph,
     because this model is gpu throttled anyway so there shouldn't be any
@@ -101,6 +101,7 @@ def get_label_loader(config, root, batch_size,do_shuffle=True,num_worker=4):
         'I don\'t know how long this will take' % min_queue_examples)
     #I think there are 3 other threads used elsewhere
     num_preprocess_threads = max(num_worker-3,1)
+    num_devices=max(1,config.num_gpu)#that are used in backprop
 
     data_batch = tf.train.shuffle_batch(
             dict_data,

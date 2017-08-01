@@ -54,6 +54,7 @@ def get_loader(config, root, batch_size, scale_size, data_format,
 
     #-----------
     #DEBUG
+    #min_fraction_of_examples_in_queue=0.01#have enough to do shuffling
     min_fraction_of_examples_in_queue=0.001#have enough to do shuffling
     #min_fraction_of_examples_in_queue=0.1#have enough to do shuffling
     #-----------

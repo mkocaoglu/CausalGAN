@@ -137,6 +137,7 @@ def Grad_Penalty(real_data,fake_data,Discriminator,config):
     grad_cost = LAMBDA*gradient_penalty
     return grad_cost,slopes
 
+
 def FactorizedNetwork(graph,Net,config):
     node_names, parent_names=zip(*graph)
     def fDCC(real_labels, fake_labels, batch_size, n_hidden=10):
@@ -184,8 +185,8 @@ def FactorizedNetwork(graph,Net,config):
 
 
 
-def Discriminator_labeler(image, output_size, repeat_num, hidden_num, data_format):
-    with tf.variable_scope("discriminator_labeler") as scope:
+def Discriminator_labeler(image, output_size, repeat_num,hidden_num,data_format,reuse=None):
+    with tf.variable_scope("discriminator_labeler",reuse=reuse) as scope:
 
         x = slim.conv2d(image, hidden_num, 3, 1, activation_fn=tf.nn.elu,
                         data_format=data_format,scope='conv0')
