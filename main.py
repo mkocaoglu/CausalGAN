@@ -1,113 +1,140 @@
-import os
-import scipy.misc
 import numpy as np
-
-from model import DCGAN
-from Causal_model import DCGAN as CausalGAN
-
-from utils import pp, visualize, to_json#, show_all_variables
-
 import tensorflow as tf
 
-flags = tf.app.flags
-flags.DEFINE_string("model", "causal", "dcgan to use the original model")
-flags.DEFINE_string("graph", "Provide a graph argument", "causal graph defined in causal_graph.py to use")
-flags.DEFINE_integer("epoch", 30, "Epoch to train [25]")
-flags.DEFINE_float("learning_rate", 0.0002, "Learning rate of for adam [0.0002]")
-flags.DEFINE_float("beta1", 0.5, "Momentum term of adam [0.5]")
-flags.DEFINE_integer("train_size", np.inf, "The size of train images [np.inf]")
-flags.DEFINE_integer("batch_size", 64, "The size of batch images [64]")
-flags.DEFINE_integer("input_height", 108, "The size of image to use (will be center cropped). [108]")
-flags.DEFINE_integer("input_width", None, "The size of image to use (will be center cropped). If None, same value as input_height [None]")
-flags.DEFINE_integer("output_height", 64, "The size of the output images to produce [64]")
-flags.DEFINE_integer("output_width", None, "The size of the output images to produce. If None, same value as output_height [None]")
-flags.DEFINE_integer("c_dim", 3, "Dimension of image color. [3]")
-flags.DEFINE_string("dataset", "celebA", "The name of dataset [celebA, mnist, lsun]")
-flags.DEFINE_string("input_fname_pattern", "*.jpg", "Glob pattern of filename of input images [*]")
-flags.DEFINE_string("checkpoint_dir", "checkpoint", "Directory name to save the checkpoints [checkpoint]")
-flags.DEFINE_string("sample_dir", "samples", "Directory name to save the image samples [samples]")
-flags.DEFINE_boolean("is_train", False, "True for training, False for testing [False]")
-flags.DEFINE_boolean("is_crop", True, "True for training, False for testing [False]")
-flags.DEFINE_boolean("visualize", False, "True for visualizing, False for nothing [False]")
-flags.DEFINE_boolean("label_specific_noise", False, "If True, noise added to real labels are adjusted to require uniform logits")
-FLAGS = flags.FLAGS
+from trainer import Trainer
+from causal_graph import get_causal_graph
+from data_loader import get_loader
+from utils import prepare_dirs_and_logger, save_config
 
-def main(_):
-  pp.pprint(flags.FLAGS.__flags)
-
-  if FLAGS.input_width is None:
-    FLAGS.input_width = FLAGS.input_height
-  if FLAGS.output_width is None:
-    FLAGS.output_width = FLAGS.output_height
-
-  if not os.path.exists(FLAGS.checkpoint_dir):
-    os.makedirs(FLAGS.checkpoint_dir)
-  if not os.path.exists(FLAGS.sample_dir):
-    os.makedirs(FLAGS.sample_dir)
-
-  #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.333)
-  run_config = tf.ConfigProto()
-  run_config.gpu_options.allow_growth=True
-
-  if FLAGS.model == 'causal':
-      GAN=CausalGAN
-  elif FLAGS.model == 'dcgan':
-      GAN=DCGAN
+#Generic configuration arguments
+from config import get_config
+#Submodel specific configurations
+from causal_controller.config import get_config as get_cc_config()
+from causal_dcgan.config import get_config as get_dcgan_config()
+from causal_began.config import get_config as get_began_config()
 
 
-  with tf.Session(config=run_config) as sess:
-    if FLAGS.dataset == 'mnist':
-      dcgan = GAN(
-          sess,
-          input_width=FLAGS.input_width,
-          input_height=FLAGS.input_height,
-          output_width=FLAGS.output_width,
-          output_height=FLAGS.output_height,
-          batch_size=FLAGS.batch_size,
-          y_dim=10,
-          c_dim=1,
-          dataset_name=FLAGS.dataset,
-          input_fname_pattern=FLAGS.input_fname_pattern,
-          is_crop=FLAGS.is_crop,
-          checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir)
+from IPython.core import debugger
+debug = debugger.Pdb().set_trace
+
+
+'''
+    Sometimes I leave notes here as a way to see what the motivation was for the
+    previous models and to highlight what code changes were made. File is copied
+    into log directory.
+'''
+
+
+'''
+TODO:
+    OLD:
+        Get rid of Supervisor. It's creating backwards compatability issues
+        Allow config to default to json during loading
+        Allow causal controller to train on its own without began (lower gpu mem)
+
+        Allow batch_size PlaceHolder for causal controller
+            faster tvd calculation
+            larger batch might help pretraining(limited at 16 right now)
+
+        speedup crosstab
+        allow only creation of causal controller graph (should also come with pt speedup)
+
+        #This should be switched for node.label
+            tf_parents=[self.z]+[node.label_logit for node in self.parents]
+
+
+    save .py files in subfolders as well
+
+'''
+
+'''
+Actually feeding labels works well: doens't need to be rounded and factorized.
+
+Feeding round(labels) instead of label_logits within cc made a huge difference
+
+Feeding real parents was a bit of a disaster. Not sure why.
+Try not doing that but with passing label instead of label_logit
+        print 'WARNING: cc passes labels and rounds them before use'
+        tf_parents=[self.z]+[tf.round(node.label) for node in self.parents]
+
+'''
+
+
+def get_trainer(config):
+
+    #rng = np.random.RandomState(config.random_seed)
+    #tf.set_random_seed(config.random_seed)
+
+    if config.is_train:
+        data_path = config.data_path
+        batch_size = config.batch_size
+        do_shuffle = True
     else:
-      dcgan = GAN(
-          sess,
-          input_width=FLAGS.input_width,
-          input_height=FLAGS.input_height,
-          output_width=FLAGS.output_width,
-          output_height=FLAGS.output_height,
-          batch_size=FLAGS.batch_size,
-          c_dim=FLAGS.c_dim,
-          dataset_name=FLAGS.dataset,
-          input_fname_pattern=FLAGS.input_fname_pattern,
-          is_crop=FLAGS.is_crop,
-          is_train = FLAGS.is_train,
-          checkpoint_dir=FLAGS.checkpoint_dir,
-          sample_dir=FLAGS.sample_dir,
-          graph=FLAGS.graph)
+        #setattr(config, 'batch_size', 64)
+        if config.test_data_path is None:
+            data_path = config.data_path
+        else:
+            data_path = config.test_data_path
+        #batch_size = config.sample_per_image
+        batch_size = config.batch_size
+        do_shuffle = False
 
-    #show_all_variables()
-    if FLAGS.is_train:
-      dcgan.train(FLAGS)
+    data_loader, label_stats= get_loader(config,
+            data_path,config.batch_size,config.input_scale_size,
+            config.data_format,config.split,
+            do_shuffle,config.num_worker,config.is_crop)
+
+    config.graph=get_causal_graph(config.causal_model)
+
+    print 'Config:'
+    print config
+
+    trainer = Trainer(config, data_loader, label_stats)
+    return trainer
+
+
+def main(trainer,config):
+    print 'tf: resetting default graph!'
+    tf.reset_default_graph()#Repeated calls in ipython
+    prepare_dirs_and_logger(config)
+
+    trainer=Trainer(config,cc_config,dcgan_config,began_config)
+
+
+
+    config=get_config()
+    cc_config,_=get_cc_config()
+
+
+
+
+
+    if config.dry_run:
+        #debug()
+        return
+
+    #if config.is_pretrain or config.is_train:
+    if not config.load_path:
+        print('saving config because load path not given')
+        save_config(config)
+
+    if config.is_pretrain:
+        trainer.pretrain()
+    if config.is_train:
+        trainer.train()
     else:
-      if not dcgan.load(FLAGS.checkpoint_dir):
-        raise Exception("[!] Train a model first, then run test mode")
+        if not config.load_path:
+            raise Exception("[!] You should specify `load_path` to load a pretrained model")
 
+        trainer.intervention()
 
-    # to_json("./web/js/layers.js", [dcgan.h0_w, dcgan.h0_b, dcgan.g_bn0],
-    #                 [dcgan.h1_w, dcgan.h1_b, dcgan.g_bn1],
-    #                 [dcgan.h2_w, dcgan.h2_b, dcgan.g_bn2],
-    #                 [dcgan.h3_w, dcgan.h3_b, dcgan.g_bn3],
-    #                 [dcgan.h4_w, dcgan.h4_b, None])
+def get_model(config=None):
+    if not None:
+        config, unparsed = get_config()
+    return get_trainer(config)
 
-    # Below is codes for visualization
-    # OPTION = 0 # male
-    # visualize(sess, dcgan, FLAGS, OPTION)
-    OPTION = 11 # male
-    visualize(sess, dcgan, FLAGS, OPTION)
-
-if __name__ == '__main__':
-  main(0)
-  #tf.app.run()
+if __name__ == "__main__":
+    config, unparsed = get_config()
+    trainer=get_trainer(config)
+    main(trainer,config)
+    ##debug mode: below is main() code

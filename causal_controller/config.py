@@ -1,3 +1,12 @@
+'''
+
+These are the command line parameters that pertain exlusively to the
+CausalController.
+
+'''
+
+
+
 #-*- coding: utf-8 -*-
 import argparse
 
@@ -15,7 +24,7 @@ def add_argument_group(name):
 
 #Pretrain network
 pretrain_arg=add_argument_group('Pretrain')
-pretrain_arg.add_argument('--pt_load_path', type=str, default='',choices=['1','2'])
+pretrain_arg.add_argument('--pt_load_path', type=str, default='')
 pretrain_arg.add_argument('--is_pretrain',type=str2bool,default=True,
                          help='to do pretraining')
 pretrain_arg.add_argument('--only_pretrain', action='store_true',
@@ -60,16 +69,75 @@ pretrain_arg.add_argument('--pt_round_node_labels',type=str2bool,default=True,
 #                          for each component is close to 1, rather than
 #                          enforcing that their average is close to 1''')
 
+#Network
+net_arg = add_argument_group('Network')
+
+net_arg.add_argument('--cc_n_layers',type=int, default=6,
+                     help='''this is the number of neural network fc layers
+                     between the causes of a neuron and the neuron itsef.''')
+net_arg.add_argument('--cc_n_hidden',type=int, default=10,
+                     help='''number of neurons per layer in causal controller''')
+
+# Data
+data_arg = add_argument_group('Data')
+data_arg.add_argument('--causal_model', type=str)
+data_arg.add_argument('--dataset', type=str, default='celebA')
+
+#data_arg.add_argument('--split', type=str, default='train')#WARN never setup
+data_arg.add_argument('--batch_size', type=int, default=16)
+#data_arg.add_argument('--num_worker', type=int, default=4)
+data_arg.add_argument('--num_worker', type=int, default=24,
+     help='number of threads to use for loading and preprocessing data')
+
+# Training / test parameters
+train_arg = add_argument_group('Training')
+
+train_arg.add_argument('--indep_causal', type=str2bool, default=False)#WARN not setup
+
+
+train_arg.add_argument('--use_gpu', type=str2bool, default=True)
+
+train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
+                       help='''Whether the label outputs of the causal
+                       controller should be rounded first before calculating
+                       the loss of generator or d-labeler''')
+
+# Misc
+misc_arg = add_argument_group('Misc')
+misc_arg.add_argument('--build_all', type=str2bool, default=False, #Unsure if functonal
+                     help='''normally specifying is_pretrain=False will cause
+                     the pretraining components not to be built and likewise
+                      with is_train=False only the pretrain compoenent will
+                      (possibly) be built. This is here as a debug helper to
+                      enable building out the whole model without doing any
+                      training''')
 
 
 
+misc_arg.add_argument('--data_dir', type=str, default='data')
+misc_arg.add_argument('--dry_run', action='store_true')
+#misc_arg.add_argument('--dry_run', type=str2bool, default='False')
+
+
+misc_arg.add_argument('--load_path', type=str, default='')
+misc_arg.add_argument('--log_step', type=int, default=100)
+misc_arg.add_argument('--save_step', type=int, default=5000)
+misc_arg.add_argument('--num_log_samples', type=int, default=3)
+misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
+misc_arg.add_argument('--log_dir', type=str, default='logs')
+#misc_arg.add_argument('--test_data_path', type=str, default=None,
+#                      help='directory with images which will be used in test sample generation')
+
+#Doesn't do anything atm
+#misc_arg.add_argument('--random_seed', type=int, default=123)
+#misc_arg.add_argument('--visualize', action='store_true')
 
 
 
 
 def get_config():
     config, unparsed = parser.parse_known_args()
-
     return config, unparsed
 
 if __name__=='__main__':

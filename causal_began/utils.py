@@ -67,35 +67,6 @@ def prepare_dirs_and_logger(config):
             if f.endswith('.py'):
                 shutil.copy2(f,config.log_code_dir)
 
-        #Get model subfolders:
-        began_dir=os.path.join(code_dir,'causal_began')
-        if not os.path.exists(began_dir):
-            print 'Warning!: causal_began dir not found'
-        began_files = [f for f in listdir(began_dir) if isfile(join(began_dir, f))]
-        dst_began=os.path.join(log_code_dir,'causal_began')
-        for f in model_files:
-            if f.endswith('.py'):
-                shutil.copy2(f,dst_began)
-
-        dcgan_dir=os.path.join(code_dir,'causal_dcgan')
-        if not os.path.exists(dcgan_dir):
-            print 'Warning!: causal_dcgan dir not found'
-        dcgan_files = [f for f in listdir(dcgan_dir) if isfile(join(dcgan_dir, f))]
-        dst_dcgan=os.path.join(log_code_dir,'causal_dcgan')
-        for f in model_files:
-            if f.endswith('.py'):
-                shutil.copy2(f,dst_dcgan)
-
-        controller_dir=os.path.join(code_dir,'causal_controller')
-        if not os.path.exists(controller_dir):
-            print 'Warning!: causal_controller dir not found'
-        controller_files = [f for f in listdir(controller_dir) if isfile(join(controller_dir, f))]
-        dst_controller=os.path.join(log_code_dir,'causal_controller')
-        for f in model_files:
-            if f.endswith('.py'):
-                shutil.copy2(f,dst_controller)
-
-
 def get_time():
     return datetime.now().strftime("%m%d_%H%M%S")
 

@@ -15,6 +15,8 @@ A->B, C->D, D->B:
 
 '''
 
+#A reminder of what labels are available
+#Make sure to use caps-sensitive correct spelling
 all_nodes=[
         ['5_o_Clock_Shadow',[]],
         ['Arched_Eyebrows',[]],
@@ -58,65 +60,67 @@ all_nodes=[
         ['Young',[]]
     ]
 
-subset1_nodes=[
-        ['Bald',[]],
+causal_graphs={
+
+'subset1_nodes':[
+    ['Bald',[]],
 #        ['Blurry',[]],
 #        ['Brown_Hair',[]],
 #        ['Bushy_Eyebrows',[]],
 #        ['Chubby',[]],
-        ['Double_Chin',[]],
+    ['Double_Chin',[]],
 #        ['Eyeglasses',[]],
 #        ['Goatee',[]],
 #        ['Gray_Hair',[]],
-        ['Male',[]],
-        ['Mustache',[]],
-        ['No_Beard',[]],
-        ['Smiling',[]],
+    ['Male',[]],
+    ['Mustache',[]],
+    ['No_Beard',[]],
+    ['Smiling',[]],
 #        ['Straight_Hair',[]],
 #        ['Wavy_Hair',[]],
-        ['Wearing_Earrings',[]],
+    ['Wearing_Earrings',[]],
 #        ['Wearing_Hat',[]],
-        ['Wearing_Lipstick',[]],
-        ['Young',[]]
-    ]
+    ['Wearing_Lipstick',[]],
+    ['Young',[]]
+],
 
 
-standard_graph=[
-       ['Male'   , []              ],
-       ['Young'  , []              ],
-       ['Smiling', ['Male','Young']]
-       ]
+'standard_graph':[
+   ['Male'   , []              ],
+   ['Young'  , []              ],
+   ['Smiling', ['Male','Young']]
+   ],
 
-male_causes_beard=[
-        ['Male',[]],
-        ['No_Beard',['Male']],
-    ]
-male_causes_mustache=[
-        ['Male',[]],
-        ['Mustache',['Male']],
-    ]
+'male_causes_beard':[
+    ['Male',[]],
+    ['No_Beard',['Male']],
+],
+'male_causes_mustache':[
+    ['Male',[]],
+    ['Mustache',['Male']],
+],
 
-mustache_causes_male=[
-        ['Male',['Mustache']],
-        ['Mustache',[]],
-    ]
+'mustache_causes_male':[
+    ['Male',['Mustache']],
+    ['Mustache',[]],
+],
 
-young_causes_gray=[
+'young_causes_gray':[
+    ['Young',[]],
+    ['Gray_Hair',['Young']],
+    ],
+
+'gray_causes_young':[
+    ['Young',['Gray_Hair']],
+    ['Gray_Hair',[]],
+    ],
+
+'young_ind_gray':[
         ['Young',[]],
-        ['Gray_Hair',['Young']],
-        ]
-
-gray_causes_young=[
-        ['Young',['Gray_Hair']],
         ['Gray_Hair',[]],
-        ]
+        ],
 
-young_ind_gray=[
-        ['Young',[]],
-        ['Gray_Hair',[]],
-        ]
-
-old_big_causal_graph=[
+'old_big_causal_graph':[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],
@@ -126,9 +130,20 @@ old_big_causal_graph=[
         ['Wearing_Lipstick',['Male','Young']],
         ['Mouth_Slightly_Open',['Smiling']],
         ['Narrow_Eyes',        ['Smiling']],
-    ]
+    ],
 
-big_causal_graph=[
+'small_causal_graph':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Mustache',        ['Male','Young']],
+        ['Smiling',         ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young']],
+        ['Mouth_Slightly_Open',['Male','Young','Smiling']],
+        ['Narrow_Eyes',        ['Male','Young','Smiling']],
+    ],
+
+
+'big_causal_graph':[
         ['Young',[]],
         ['Male',[]],
         ['Eyeglasses',['Young']],
@@ -138,9 +153,9 @@ big_causal_graph=[
         ['Wearing_Lipstick',['Male','Young']],
         ['Mouth_Slightly_Open',['Young','Smiling']],
         ['Narrow_Eyes',        ['Male','Young','Smiling']],
-    ]
+    ],
 
-complete_big_causal_graph=[
+'complete_big_causal_graph':[
         ['Young',[]],
         ['Male',['Young']],
         ['Eyeglasses',['Male','Young']],
@@ -150,115 +165,106 @@ complete_big_causal_graph=[
         ['Wearing_Lipstick',['Male','Young','Eyeglasses','Bald','Mustache','Smiling']],
         ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick']],
         ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-    ]
+    ],
 
-male_ind_mustache = [
+'complete_minimal_graph':[
+        ['Young',[]],
+        ['Male',['Young']],
+        ['Mustache',        ['Male','Young']],
+        ['Wearing_Lipstick',['Male','Young','Mustache']],
+        ['Smiling',         ['Male','Young','Mustache','Wearing_Lipstick']],
+    ],
+
+'male_ind_mustache ': [
         ['Male',[]],
         ['Mustache',[]]
-    ]
+    ],
+'Smiling_MSO ': [
+        ['Smiling',[]],
+        ['Mouth_Slightly_Open',['Smiling']]
+       ],
 
-Male_Young_Eyeglasses=[
+'Male_Young_Eyeglasses':[
     ['Male',[]],
     ['Young',[]],
-    ['Eyeglasses',['Male','Young']]]
+    ['Eyeglasses',['Male','Young']]
+    ],
 
-MYESO=[
+'MYESO':[
     ['Male',[]],
     ['Young',['Male']],
     ['Eyeglasses',['Male','Young']],
     ['Smiling',['Male','Young','Eyeglasses']],
     ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Smiling']],
-    ]
+    ],
 
+'mustache':[
+    ['Mustache',[]]
+    ],
 
-male_smiling_lipstick=[
+'male_ind_mustache ': [
+        ['Male',[]],
+        ['Mustache',[]]
+    ],
+
+'male_smiling_lipstick':[
        ['Male'   , []],
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male']]
-       ]
-male_smiling_lipstick_complete=[
+       ],
+'SLM':[
+       ['Smiling'   , []],
+       ['Wearing_Lipstick'  , ['Smiling']],
+       ['Male', ['Smiling','Wearing_Lipstick']]
+       ],
+'MLS':[
        ['Male'   , []],
        ['Wearing_Lipstick'  , ['Male']],
        ['Smiling', ['Male','Wearing_Lipstick']]
-       ]
+       ],
+'M':[
+    ['Male',[]]
+    ],
 
-Smiling_MSO = [
+'Smiling_MSO ': [
         ['Smiling',[]],
         ['Mouth_Slightly_Open',['Smiling']]
-       ]
+       ],
+'MYESO':[
+    ['Male',[]],
+    ['Young',['Male']],
+    ['Eyeglasses',['Male','Young']],
+    ['Smiling',['Male','Young','Eyeglasses']],
+    ['Mouth_Slightly_Open',['Male','Young','Eyeglasses','Smiling']],
+    ],
 
-MSO_smiling = [
+'MSO_smiling ': [
         ['Smiling',['Mouth_Slightly_Open']],
         ['Mouth_Slightly_Open',[]]
-       ]
-Male_Young_Eyeglasses = [
+       ],
+'Male_Young_Eyeglasses ': [
         ['Male',[]],
         ['Young',[]],
         ['Eyeglasses',['Male','Young']]
-        ]
-Male_Young_Eyeglasses_complete = [
+        ],
+'Male_Young_Eyeglasses_complete ': [
         ['Male',[]],
         ['Young',['Male']],
         ['Eyeglasses',['Male','Young']]
-        ]
-male_mustache_lipstick=[
+        ],
+'male_mustache_lipstick':[
        ['Male'   , []],
        ['Mustache', ['Male']],
        ['Wearing_Lipstick'  , ['Male','Mustache']]
        ]
+}
 
 def get_causal_graph(causal_model=None,*args,**kwargs):
 
-
-    if causal_model == 'male.young.smiling':
-        graph=standard_graph
-    elif causal_model == 'subset1':
-        graph=subset1_nodes
-    elif causal_model == 'male_causes_beard':
-        graph = male_causes_beard
-    elif causal_model == 'male_causes_mustache':
-        graph = male_causes_mustache
-    elif causal_model == 'mustache_causes_male':
-        graph = mustache_causes_male
-    elif causal_model == 'old_big_causal_graph':
-        graph = old_big_causal_graph
-    elif causal_model == 'big_causal_graph':
-        graph = big_causal_graph
-    elif causal_model == 'complete_big_causal_graph':
-        graph = complete_big_causal_graph
-    elif causal_model == 'male_ind_mustache':
-        graph = male_ind_mustache
-    elif causal_model == 'male_smiling_lipstick':
-        graph = male_smiling_lipstick
-    elif causal_model == 'male_smiling_lipstick_complete':
-        graph = male_smiling_lipstick_complete
-    elif causal_model == 'Smiling_MSO':
-        graph = Smiling_MSO
-    elif causal_model == 'MSO_smiling':
-        graph = MSO_smiling
-    elif causal_model == 'young_causes_gray':
-        graph = young_causes_gray
-    elif causal_model == 'male_mustache_lipstick':
-        graph = male_mustache_lipstick
-    elif causal_model == 'gray_causes_young':
-        graph = gray_causes_young
-    elif causal_model == 'young_ind_gray':
-        graph = young_ind_gray
-    elif causal_model == 'MYESO':
-        graph = MYESO
-    elif causal_model == 'Male_Young_Eyeglasses':
-        graph = Male_Young_Eyeglasses
-    elif causal_model == 'Male_Young_Eyeglasses_complete':
-        graph = Male_Young_Eyeglasses_complete
-    elif causal_model is 'empty':
-        graph=[[],[]]
-
-    #no more #UnboundLocalError: local variable 'graph' referenced before assignment
-    else:
+    if not causal_model in causal_graphs.keys():
         raise ValueError('the specified graph:',causal_model,' was not one of\
                          those listed in ',__file__)
 
+    else:
+        return causal_graphs[causal_model]
 
-
-
-    return graph
