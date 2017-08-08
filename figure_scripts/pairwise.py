@@ -71,7 +71,9 @@ def crosstab(model,result_dir=None,report_tvd=True):
     #N=1000*n_labels
     #N=500*n_labels**2#open to ideas that avoid a while loop
     #N=12000
-    N=50000
+
+    #tvd will not be reported as low unless N is large
+    N=500000
 
     print('Calculating joint distribution with',)
     print('N=',N,' samples')

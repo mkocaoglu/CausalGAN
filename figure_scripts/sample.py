@@ -452,7 +452,7 @@ def sample(model, cond_dict=None, do_dict=None, fetch_dict=None,N=None,
             print('sampling model N=',N,' times')
 
         ##Should be variable batch_size allowed
-        outputs=model.sess.run(fetch_dict)
+        outputs=model.sess.run(fetch_dict,{model.batch_size:N})
 
         ##fds=chunks({'idx':range(npad+N)},model.batch_size)
         #fds=chunks({'idx':range(npad+N)},model.default_batch_size)

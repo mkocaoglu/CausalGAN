@@ -43,7 +43,8 @@ def prepare_dirs_and_logger(config):
     #logger.addHandler(handler)
 
     if config.load_path:
-        if config.load_path.startswith(config.log_dir):
+        strip_lp=config.load_path.strip('./')
+        if strip_lp.startswith(config.log_dir):
             config.model_dir = config.load_path
         else:
             if config.load_path.startswith(config.dataset):

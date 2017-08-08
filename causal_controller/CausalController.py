@@ -302,12 +302,12 @@ class CausalNode(object):
         tf_parents=[self.z]+[node.label for node in self.parents]
 
 
-        #print("Warning, using lrelu instead of tanh!")
+        print("Warning, using lrelu instead of tanh!")
         with tf.variable_scope(self.name) as vs:
             h=tf.concat(tf_parents,-1)#vector of parent tensors
             for l in range(self.n_layers-1):
-                #h=slim.fully_connected(h,self.n_hidden,activation_fn=lrelu,scope='layer'+str(l))
-                h=slim.fully_connected(h,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer'+str(l))
+                h=slim.fully_connected(h,self.n_hidden,activation_fn=lrelu,scope='layer'+str(l))
+                #h=slim.fully_connected(h,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer'+str(l))
 
             self._label_logit = slim.fully_connected(h,1,activation_fn=None,scope='proj')
             self._label=tf.nn.sigmoid( self._label_logit )

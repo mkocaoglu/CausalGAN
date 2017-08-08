@@ -23,7 +23,10 @@ data_arg.add_argument('--batch_size', type=int, default=64,
 data_arg.add_argument('--label_specific_noise',type=str2bool,default=False,
                       help='whether to add noise dependent on the data mean')
 
+#This flag doesn't function. Model is designed to take in CC.labels
 data_arg.add_argument('--fakeLabels_distribution',type=str,choices=['real_joint','iid_uniform'],default='real_joint')
+
+
 data_arg.add_argument('--label_type',type=str,choices=['discrete','continuous'],default='continuous')
 data_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
                     help='''whether to round the outputs of causal controller
@@ -31,20 +34,27 @@ data_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
                       input to the image generator. I highly recommend as a
                       small improvement.''')
 
+data_arg.add_argument('--type_input_to_generator',type=str,choices=['labels','logits'],
+                      default='logits',help='''Whether to send labels or logits to the generator
+                      to form images. Chris recommends labels''')
 
 #Network
 net_arg = add_argument_group('Network')
 
 #TODO need help strings
-net_arg.add_argument('--df_dim',type=int,    )
-net_arg.add_argument('--gf_dim',type=int,    )
+net_arg.add_argument('--df_dim',type=int, default=64 )
+net_arg.add_argument('--gf_dim',type=int, default=64,
+                    help='''output dimensions [gf_dim,gf_dim] for generator''')
+net_arg.add_argument('--c_dim',type=int, default=3,
+                     help='''number of color channels. I wouldn't really change
+                     this from 3''')
 
 net_arg.add_argument('--z_dim',type=int,default=100,
                      help='''the number of dimensions for the noise input that
                      will be concatenated with labels and fed to the image
                      generator''')
 
-net_arg.add_argument('--loss_function',type=int,default=100,
+net_arg.add_argument('--loss_function',type=int,default=1,
                      help='''which loss function to choose. See CausalGAN.py''')
 
 net_arg.add_argument('--critic_hidden_size',type=int,default=10,
@@ -62,19 +72,27 @@ train_arg.add_argument('--beta1',type=float,default=0.5,
 
 
 #TODO unclear on default for these two arguments
+#Not yet setup. Use False
 train_arg.add_argument('--pretrain_labelerR',type=str2bool,default=False)
 train_arg.add_argument('--pretrain_LabelerR_no_of_epochs',type=int,default=5)
 
 
 #TODO: add help strings describing params
-train_arg.add_argument('--lambda_m',type=float,default=0.05,)
-train_arg.add_argument('--lambda_k',type=float,default=0.05,)
-train_arg.add_argument('--lambda_l',type=float,default=0.005,)
-train_arg.add_argument('--gamma_m',type=float,default=4.0,)
-train_arg.add_argument('--gamma_k',type=float,default=0.8,
+train_arg.add_argument('--lambda_m',type=float,default=0.05,)#0.05
+train_arg.add_argument('--lambda_k',type=float,default=0.05,)#0.05
+train_arg.add_argument('--lambda_l',type=float,default=0.001,)#0.005
+train_arg.add_argument('--gamma_m',type=float,default=-1.0,)# NOT USED!
+train_arg.add_argument('--gamma_k',type=float,default=-1.0,#0.8#FLAGS.gamma_k not used
                        help='''default initial value''')
-train_arg.add_argument('--gamma_l',type=float,default=0.5,
+train_arg.add_argument('--gamma_l',type=float,default=-1.0,
                       )
+#old config file differed from implementation:
+#    FLAGS.gamma_k = -1.0
+#    FLAGS.gamma_m = -1.0 # set to 1/gamma_k in the code
+#    FLAGS.gamma_l = -1.0 # made more extreme
+#    FLAGS.lambda_k = 0.05
+#    FLAGS.lambda_m = 0.05
+#    FLAGS.lambda_l = 0.001
 
 
 # Misc
