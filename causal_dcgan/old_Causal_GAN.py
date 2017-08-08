@@ -1,6 +1,6 @@
-from __future__ import division
-from figure_scripts.pairwise import crosstab
-from figure_scripts.sample import intervention2d
+#from __future__ import division,print_function
+#from figure_scripts.pairwise import crosstab
+#from figure_scripts.sample import intervention2d
 import os
 import time
 import math
@@ -17,7 +17,7 @@ from utils import *
 from tensorflow.core.framework import summary_pb2
 from tensorflow.contrib import slim
 
-from Causal_controller import CausalController
+#from Causal_controller import CausalController
 from figure_scripts import pairwise
 def conv_out_size_same(size, stride):
   return int(math.ceil(float(size) / float(stride)))
@@ -28,6 +28,8 @@ def conv_out_size_same(size, stride):
 
 from causal_graph import get_causal_graph
 
+class CausalGAN(object):
+    pass
 class DCGAN(object):
   model_type='dcgan'
 

@@ -6,6 +6,7 @@ from model import DCGAN
 from Causal_model import DCGAN as CausalGAN
 
 from utils import pp, visualize, to_json#, show_all_variables
+
 import tensorflow as tf
 
 flags = tf.app.flags

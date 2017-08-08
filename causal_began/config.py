@@ -22,13 +22,11 @@ net_arg.add_argument('--input_scale_size', type=int, default=64,
 net_arg.add_argument('--conv_hidden_num', type=int, default=128,
                      choices=[64, 128],help='n in the paper')
 net_arg.add_argument('--separate_labeler', type=str2bool, default=True)
-net_arg.add_argument('--z_num', type=int, default=64, choices=[64, 128])
+net_arg.add_argument('--z_dim', type=int, default=64, choices=[64, 128])
 
 
 # Data
 data_arg = add_argument_group('Data')
-#data_arg.add_argument('--causal_model', type=str, default='male.young.smiling')
-data_arg.add_argument('--causal_model', type=str)
 data_arg.add_argument('--dataset', type=str, default='celebA')
 data_arg.add_argument('--split', type=str, default='train')
 data_arg.add_argument('--batch_size', type=int, default=16)
@@ -39,35 +37,38 @@ data_arg.add_argument('--num_worker', type=int, default=24,
 
 # Training / test parameters
 train_arg = add_argument_group('Training')
-train_arg.add_argument('--is_train', type=str2bool, default=True)
-train_arg.add_argument('--optimizer', type=str, default='adam')
-train_arg.add_argument('--max_step', type=int, default=500000)
-train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
-train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
-train_arg.add_argument('--d_lr', type=float, default=0.00008)
-train_arg.add_argument('--g_lr', type=float, default=0.00008)
 train_arg.add_argument('--beta1', type=float, default=0.5)
 train_arg.add_argument('--beta2', type=float, default=0.999)
-train_arg.add_argument('--gamma', type=float, default=0.5)
-#train_arg.add_argument('--gamma_label', type=float, default=1.0)
-train_arg.add_argument('--gamma_label', type=float, default=0.5)
-train_arg.add_argument('--zeta', type=float, default=0.5)
-train_arg.add_argument('--lambda_k', type=float, default=0.001)
-train_arg.add_argument('--lambda_l', type=float, default=0.00008)
-train_arg.add_argument('--lambda_z', type=float, default=0.01)
-train_arg.add_argument('--no_third_margin', type=str2bool, default=False)
+train_arg.add_argument('--d_lr', type=float, default=0.00008)
+train_arg.add_argument('--g_lr', type=float, default=0.00008)
 train_arg.add_argument('--indep_causal', type=str2bool, default=False)
+#train_arg.add_argument('--is_train', type=str2bool, default=True)
+train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
+train_arg.add_argument('--max_step', type=int, default=50000)
+train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
+train_arg.add_argument('--num_iter',type=int,default=100000,
+                       help='the number of training iterations to run the model for')
+train_arg.add_argument('--optimizer', type=str, default='adam')
+train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
+                       help='''Whether the label outputs of the causal
+                       controller should be rounded first before calculating
+                       the loss of generator or d-labeler''')
 train_arg.add_argument('--use_gpu', type=str2bool, default=True)
 train_arg.add_argument('--num_gpu', type=int, default=1,
                       help='specify 0 for cpu. If k specified, will default to\
                       first k of n detected. If use_gpu=True but num_gpu not\
                       specified will default to 1')
 
-train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
-train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
-                       help='''Whether the label outputs of the causal
-                       controller should be rounded first before calculating
-                       the loss of generator or d-labeler''')
+
+margin_arg = add_argument_group('Margin')
+margin_arg.add_argument('--gamma', type=float, default=0.5)
+margin_arg.add_argument('--gamma_label', type=float, default=0.5)
+margin_arg.add_argument('--lambda_k', type=float, default=0.001)
+margin_arg.add_argument('--lambda_l', type=float, default=0.00008)
+margin_arg.add_argument('--lambda_z', type=float, default=0.01)
+margin_arg.add_argument('--no_third_margin', type=str2bool, default=False)
+margin_arg.add_argument('--zeta', type=float, default=0.5)
 
 # Misc
 misc_arg = add_argument_group('Misc')
@@ -85,7 +86,7 @@ misc_arg.add_argument('--is_crop', type=str2bool, default='True')
 misc_arg.add_argument('--resize_method',type=str,default='AREA',choices=['AREA','BILINEAR','BICUBIC','NEAREST_NEIGHBOR'],
                      help='''methods to resize image to 64x64. AREA seems to work
                      best, possibly some scipy methods could work better''')
-misc_arg.add_argument('--load_path', type=str, default='')
+misc_arg.add_argument('--cc_load_path', type=str, default='')
 misc_arg.add_argument('--log_step', type=int, default=100)
 misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--num_log_samples', type=int, default=3)
@@ -125,10 +126,8 @@ def get_config():
         data_format = 'NHWC'
     setattr(config, 'data_format', data_format)
 
-    if config.only_pretrain and config.is_train:
-        print('Warning.. is_train=True conflicts with only_pretrain'),
-        print('..setting is_train=False')
-        setattr(config,'is_train',False)
+
+    print('Loaded ./causal_began/config.py')
 
     return config, unparsed
 

@@ -1,11 +1,11 @@
 from __future__ import print_function
 import numpy as np
-import os
 import tensorflow as tf
 
 from trainer import Trainer
 from causal_graph import get_causal_graph
-from utils import prepare_dirs_and_logger, save_configs
+from data_loader import get_loader
+from utils import prepare_dirs_and_logger, save_config
 
 #Generic configuration arguments
 from config import get_config
@@ -34,8 +34,6 @@ TODO:
     Try leaky relu activation inside causal_controller instead of tanh
     save .py files in subfolders as well
     Each config file should be saved to its own json, not just the main one!
-
-    switch CC model to lrelu from tanh. seems much faster
 
 
     OLD:
@@ -73,37 +71,31 @@ Try not doing that but with passing label instead of label_logit
 def main():
     print('tf: resetting default graph!')
     tf.reset_default_graph()#for repeated calls in ipython
+    prepare_dirs_and_logger(config)
 
-    config,_=get_config()
+    config=get_config()
     cc_config,_=get_cc_config()
     dcgan_config,_=get_dcgan_config()
     began_config,_=get_began_config()
 
-
-    prepare_dirs_and_logger(config)
+    attr_file= glob("{}/*.{}".format(config.data_path, 'txt'))[0]
+    setattr(cc_config,'attr_file',attr_file)
 
 
     #Resolve model differences and batch_size
     if config.model_type:
         if config.model_type=='dcgan':
-            config.batch_size=dcgan_config.batch_size
+            self.config.batch_size=dcgan_config.batch_size
             config.Model=CausalGAN.CausalGAN
             model_config=dcgan_config
         if config.model_type=='began':
-            config.batch_size=began_config.batch_size
+            self.config.batch_size=began_config.batch_size
             config.Model=CausalBEGAN.CausalBEGAN
             model_config=began_config
     else:#no image model
         model_config=None
-        config.batch_size=cc_config.batch_size
+        self.config.batch_size=cc_config.batch_size
 
-    #Interpret causal_model keyword
-    cc_config.graph=get_causal_graph(config.causal_model)
-
-
-    if not config.load_path:
-        print('saving config because load path not given')
-        save_configs(config,cc_config,dcgan_config,began_config)
 
     #Builds and loads specified models:
     trainer=Trainer(config,cc_config,model_config)
@@ -112,12 +104,6 @@ def main():
     if config.dry_run:
         #debug()
         return trainer
-
-
-    #Do pretraining
-    if cc_config.is_pretrain:
-        trainer.pretrain_loop()
-
 
     #save combined model
     #Run pretrain and stuff

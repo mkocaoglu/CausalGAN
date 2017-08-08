@@ -1,12 +1,11 @@
 from __future__ import print_function
 import tensorflow as tf
-from functools import partial
 import os
 from os import listdir
 from os.path import isfile, join
 import shutil
 import sys
-from glob import glob
+import glob
 import math
 import json
 import logging
@@ -31,16 +30,16 @@ def summary_stats(name,tensor,collections=None,hist=False):
 
 
 def prepare_dirs_and_logger(config):
-    #formatter = logging.Formatter("%(asctime)s:%(levelname)s::%(message)s")
-    #logger = logging.getLogger()
+    formatter = logging.Formatter("%(asctime)s:%(levelname)s::%(message)s")
+    logger = logging.getLogger()
 
-    #for hdlr in logger.handlers:
-    #    logger.removeHandler(hdlr)
+    for hdlr in logger.handlers:
+        logger.removeHandler(hdlr)
 
-    #handler = logging.StreamHandler()
-    #handler.setFormatter(formatter)
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
 
-    #logger.addHandler(handler)
+    logger.addHandler(handler)
 
     if config.load_path:
         if config.load_path.startswith(config.log_dir):
@@ -57,56 +56,59 @@ def prepare_dirs_and_logger(config):
         config.model_dir = os.path.join(config.log_dir, config.model_name)
     config.data_path = os.path.join(config.data_dir, config.dataset)
 
+    attr_file= glob("{}/*.{}".format(config.data_path, 'txt'))[0]
+    setattr(config,'attr_file',attr_file)
 
     if not config.load_path:
         config.log_code_dir=os.path.join(config.model_dir,'code')
         for path in [config.log_dir, config.data_dir,
-                     config.model_dir]:
+                     config.model_dir, config.log_code_dir]:
             if not os.path.exists(path):
                 os.makedirs(path)
 
         #Copy python code in directory into model_dir/code for future reference:
-        #All python files in this directory are copied.
         code_dir=os.path.dirname(os.path.realpath(sys.argv[0]))
+        model_files = [f for f in listdir(code_dir) if isfile(join(code_dir, f))]
+        for f in model_files:
+            if f.endswith('.py'):
+                shutil.copy2(f,config.log_code_dir)
 
-        ##additionally, all python files in these directories are also copied. Also symlinks are copied. The idea is to allow easier model loading in the future
-        allowed_dirs=['causal_controller','causal_began','causal_dcgan','figure_scripts']
+        #Get model subfolders:
+        began_dir=os.path.join(code_dir,'causal_began')
+        if not os.path.exists(began_dir):
+            print 'Warning!: causal_began dir not found'
+        began_files = [f for f in listdir(began_dir) if isfile(join(began_dir, f))]
+        dst_began=os.path.join(log_code_dir,'causal_began')
+        for f in model_files:
+            if f.endswith('.py'):
+                shutil.copy2(f,dst_began)
 
-        #ignore copy of all non-*.py except for these directories
-        #If you make another folder you want copied, you have to add it here
-        ignore_these=partial(ignore_except,allowed_dirs=allowed_dirs)
-        shutil.copytree(code_dir,config.log_code_dir,symlinks=True,ignore=ignore_these)
+        dcgan_dir=os.path.join(code_dir,'causal_dcgan')
+        if not os.path.exists(dcgan_dir):
+            print 'Warning!: causal_dcgan dir not found'
+        dcgan_files = [f for f in listdir(dcgan_dir) if isfile(join(dcgan_dir, f))]
+        dst_dcgan=os.path.join(log_code_dir,'causal_dcgan')
+        for f in model_files:
+            if f.endswith('.py'):
+                shutil.copy2(f,dst_dcgan)
 
+        controller_dir=os.path.join(code_dir,'causal_controller')
+        if not os.path.exists(controller_dir):
+            print 'Warning!: causal_controller dir not found'
+        controller_files = [f for f in listdir(controller_dir) if isfile(join(controller_dir, f))]
+        dst_controller=os.path.join(log_code_dir,'causal_controller')
+        for f in model_files:
+            if f.endswith('.py'):
+                shutil.copy2(f,dst_controller)
 
-#        model_files = [f for f in listdir(code_dir) if isfile(join(code_dir, f))]
-#        for f in model_files:
-#            if f.endswith('.py'):
-#                shutil.copy2(f,config.log_code_dir)
-
-
-def ignore_except(src,contents,allowed_dirs):
-    files=filter(os.path.isfile,contents)
-    dirs=filter(os.path.isdir,contents)
-    ignored_files=[f for f in files if not f.endswith('.py')]
-    ignored_dirs=[d for d in dirs if not d in allowed_dirs]
-    return ignored_files+ignored_dirs
 
 def get_time():
     return datetime.now().strftime("%m%d_%H%M%S")
 
-def save_configs(config,cc_config,dcgan_config,began_config):
-    model_dir=config.model_dir
-    print("[*] MODEL dir: %s" % model_dir)
-    save_config(config)
-    save_config(cc_config,'cc_params.json',model_dir)
-    save_config(dcgan_config,'dcgan_params.json',model_dir)
-    save_config(began_config,'began_params.json',model_dir)
+def save_config(config):
+    param_path = os.path.join(config.model_dir, "params.json")
 
-
-def save_config(config,name="params.json",where=None):
-    where=where or config.model_dir
-    param_path = os.path.join(where, name)
-
+    print("[*] MODEL dir: %s" % config.model_dir)
     print("[*] PARAM path: %s" % param_path)
 
     with open(param_path, 'w') as fp:

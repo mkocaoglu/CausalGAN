@@ -1,0 +1,12 @@
+
+
+
+model: celebA_0627_200239
+    graph:MLS
+
+    [img,cc,d_fake_labels,true]
+
+    P(M=1|S=1) = [0.28, 
+
+    
+     

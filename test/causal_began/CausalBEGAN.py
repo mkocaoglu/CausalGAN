@@ -16,6 +16,41 @@ from utils import summary_stats
 from models import *
 
 
+def next(loader):
+    return loader.next()[0].data.numpy()
+
+def to_nhwc(image, data_format):
+    if data_format == 'NCHW':
+        new_image = nchw_to_nhwc(image)
+    else:
+        new_image = image
+    return new_image
+
+def to_nchw_numpy(image):
+    if image.shape[3] in [1, 3]:
+        new_image = image.transpose([0, 3, 1, 2])
+    else:
+        new_image = image
+    return new_image
+
+def norm_img(image, data_format=None):
+    image = image/127.5 - 1.
+    if data_format:
+        image = to_nhwc(image, data_format)
+    return image
+
+def denorm_img(norm, data_format):
+    return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
+
+def slerp(val, low, high):
+    """Code from https://github.com/soumith/dcgan.torch/issues/14"""
+    omega = np.arccos(np.clip(np.dot(low/np.linalg.norm(low), high/np.linalg.norm(high)), -1, 1))
+    so = np.sin(omega)
+    if so == 0:
+        return (1.0-val) * low + val * high # L'Hopital's rule/LERP
+    return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
+
+
 class CausalBEGAN(object):
     '''
     A quick quirk about this class.
@@ -25,27 +60,16 @@ class CausalBEGAN(object):
     '''
 
     def __init__(self,batch_size,config):
-        '''
-        batch_size: again a tensorflow placeholder
-        config: see causal_began/config.py
-
-
-        '''
         self.batch_size=batch_size #a tensor
         self.config=config
-        self.data_format=self.config.data_format#NHWC or NCHW
 
         self.step = tf.Variable(0, name='step', trainable=False)
 
-        #optimizers
         self.g_lr = tf.Variable(config.g_lr, name='g_lr')
         self.d_lr = tf.Variable(config.d_lr, name='d_lr')
 
         self.g_lr_update = tf.assign(self.g_lr, self.g_lr * 0.5, name='g_lr_update')
         self.d_lr_update = tf.assign(self.d_lr, self.d_lr * 0.5, name='d_lr_update')
-
-        optimizer = tf.train.AdamOptimizer
-        self.g_optimizer, self.d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
 
         self.lambda_k = config.lambda_k
@@ -59,6 +83,7 @@ class CausalBEGAN(object):
         self.input_scale_size = config.input_scale_size
 
         self.model_dir = config.model_dir
+        self.load_path = config.load_path
 
 
         self.use_gpu = config.use_gpu
@@ -74,9 +99,23 @@ class CausalBEGAN(object):
         self.lr_update_step = config.lr_update_step
         self.is_train = config.is_train#used?
 
+        #self.build_model()####multigpu stuff here
 
 
-        #Keeps track of params from different devices
+        #Should be like this
+        self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=4)
+        self.summary_writer = tf.summary.FileWriter(self.model_dir)
+
+        print('self.model_dir:',self.model_dir)
+        gpu_options = tf.GPUOptions(allow_growth=True,
+                                  #per_process_gpu_memory_fraction=0.333)
+                                  per_process_gpu_memory_fraction=0.95)
+        sess_config = tf.ConfigProto(allow_soft_placement=True,
+                                    gpu_options=gpu_options)
+
+
+
+        #Keeps track of params from different gpus
         self.tower_dict=dict(
                     c_tower_grads=[],
                     dcc_tower_grads=[],
@@ -93,16 +132,18 @@ class CausalBEGAN(object):
         self.l_t = tf.get_variable(name='l_t',initializer=0.,trainable=False)
         self.z_t = tf.get_variable(name='z_t',initializer=0.,trainable=False)
 
+        if self.optimizer == 'adam':
+            optimizer = tf.train.AdamOptimizer
+        else:
+            raise Exception("[!] Caution! Optimizer untested {}. Only tested Adam".format(config.optimizer))
+
+        self.g_optimizer, self.d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
 
 
 
     def __call__(self, real_inputs, fake_inputs):
         '''
-        self.__call__ is done once for every device with variables shared so
-        that a copy of the tensorflow graph created in self.__call__ resides on
-        each device
-
         fake inputs is a dictionary of labels from cc
         real_inputs is also a dictionary of labels
             with an additional key 'x' for the real image
@@ -110,19 +151,8 @@ class CausalBEGAN(object):
         #The keys of data_loader are all the labels union 'x'
         self.real_inputs=real_inputs
         self.fake_inputs=fake_inputs
-        n_labels=len(fake_inputs)
 
         self.x = self.real_inputs.pop('x')
-
-        #used to change dataformat in data queue
-        if self.data_format == 'NCHW':
-            #self.x = tf.transpose(self.x, [2, 0, 1])#3D
-            self.x = tf.transpose(self.x, [0, 3, 1, 2])#4D
-        elif self.data_format == 'NHWC':
-            pass
-        else:
-            raise Exception("[!] Unkown data_format: {}".format(self.data_format))
-
         x = norm_img(self.x)
 
 
@@ -131,9 +161,16 @@ class CausalBEGAN(object):
         self.fake_labels=tf.concat(self.fake_inputs.values(),-1)
 
         self.z_gen = tf.random_uniform(
-            (self.batch_size, self.z_dim), minval=-1.0, maxval=1.0)
+            (self.batch_size, self.z_num), minval=-1.0, maxval=1.0)
 
+        #This guy is a dictionary of all possible z tensors
+        #he has 1 for every causal label plus one called 'z_gen'
+        #Use him to sample z and to feed z in
 
+        #self.z_fd=self.cc.sample_z.copy()
+        #self.z_fd.update({'z_gen':self.z_gen})
+
+        #self.z= tf.concat( [self.fake_labels_logits, self.z_gen],axis=-1,name='z')
         if self.config.round_fake_labels:
             self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
         else:
@@ -149,8 +186,9 @@ class CausalBEGAN(object):
         z_num is only 64,I am using 3 for labels
         so if we use like 20 causal labels, make it larger
 
-        It would have been interesting to try to pass labels through
-        encoder and decoder. basically began but with (x,y) in place of x.
+        TODO:actually I think it would have been more normal to pass labels through
+        encoder and decoder. basically began but with (x,y) in place of x
+        we can try this later (especially if there is label collapse)
         '''
         d_out, self.D_z, self.D_var = DiscriminatorCNN(
                 tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
@@ -171,6 +209,11 @@ class CausalBEGAN(object):
             self.D_real_labels_logits,  _        =Discriminator_labeler(
                 x, len(self.cc), self.repeat_num,
                 self.conv_hidden_num, self.data_format, reuse=True)
+
+            #label_logits,self.DL_var=Discriminator_labeler(
+            #        tf.concat([G, x], 0), len(self.cc.nodes), self.repeat_num,
+            #        self.conv_hidden_num, self.data_format)
+            #self.D_fake_labels_logits,self.D_real_labels_logits=tf.split(label_logits,2)
 
             self.D_var += self.DL_var
 
@@ -349,7 +392,6 @@ class CausalBEGAN(object):
         #train_op = tf.group(apply_gradient_op, variables_averages_op)
 
 
-    def build_summary_op(self):
         #Move some of these summaries to CC
         #Label summaries
         names,real_labels_list=zip(*self.real_inputs.items())

@@ -16,8 +16,7 @@ def add_argument_group(name):
 # Data
 data_arg = add_argument_group('Data')
 #data_arg.add_argument('--batch_size', type=int, default=16)#default set elsewhere
-data_arg.add_argument('--causal_model', type=str,
-                     help='''Matches the argument with a key in ./causal_graph.py and sets the graph attribute of cc_config to be a list of lists defining the causal graph''')
+#data_arg.add_argument('--causal_model', type=str)#CC section
 data_arg.add_argument('--data_dir', type=str, default='data')
 data_arg.add_argument('--dataset', type=str, default='celebA')
 data_arg.add_argument('--do_shuffle', type=str2bool, default=True)#never used
@@ -104,16 +103,18 @@ def get_config():
     config.num_devices=max(1,config.num_gpu)#that are used in backprop
 
 
-    #Just for BEGAN:
-    ##this has to respect gpu/cpu
-    ##data_format = 'NCHW'
-    #if config.use_gpu:
-    #    data_format = 'NCHW'
-    #else:
-    #    data_format = 'NHWC'
-    #setattr(config, 'data_format', data_format)
+    #this has to respect gpu/cpu
+    #data_format = 'NCHW'
+    if config.use_gpu:
+        data_format = 'NCHW'
+    else:
+        data_format = 'NHWC'
+    setattr(config, 'data_format', data_format)
 
-    print('Loaded ./config.py')
+    if config.only_pretrain and config.is_train:
+        print('Warning.. is_train=True conflicts with only_pretrain'),
+        print('..setting is_train=False')
+        setattr(config,'is_train',False)
 
     return config, unparsed
 

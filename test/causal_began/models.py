@@ -209,39 +209,6 @@ def Discriminator_labeler(image, output_size, repeat_num,hidden_num,data_format,
         variables = tf.contrib.framework.get_variables(scope)
         return label_logit,variables
 
-def next(loader):
-    return loader.next()[0].data.numpy()
-
-def to_nhwc(image, data_format):
-    if data_format == 'NCHW':
-        new_image = nchw_to_nhwc(image)
-    else:
-        new_image = image
-    return new_image
-
-def to_nchw_numpy(image):
-    if image.shape[3] in [1, 3]:
-        new_image = image.transpose([0, 3, 1, 2])
-    else:
-        new_image = image
-    return new_image
-
-def norm_img(image, data_format=None):
-    image = image/127.5 - 1.
-    if data_format:
-        image = to_nhwc(image, data_format)
-    return image
-
-def denorm_img(norm, data_format):
-    return tf.clip_by_value(to_nhwc((norm + 1)*127.5, data_format), 0, 255)
-
-def slerp(val, low, high):
-    """Code from https://github.com/soumith/dcgan.torch/issues/14"""
-    omega = np.arccos(np.clip(np.dot(low/np.linalg.norm(low), high/np.linalg.norm(high)), -1, 1))
-    so = np.sin(omega)
-    if so == 0:
-        return (1.0-val) * low + val * high # L'Hopital's rule/LERP
-    return np.sin((1.0-val)*omega) / so * low + np.sin(val*omega) / so * high
 
 def int_shape(tensor):
     shape = tensor.get_shape().as_list()

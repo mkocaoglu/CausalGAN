@@ -173,7 +173,7 @@ for n,rx,fx in zip(node_names,real_inputs,fake_inputs):
 
 ----------------
 Turns out yes!
-Im testing to see if the third margin is necessary at all:
+I'm testing to see if the third margin is necessary at all:
         if not self.config.no_third_margin:
             #normal mode
             #Careful on z_t sign!

@@ -1,3 +1,5 @@
+from __future__ import print_function
+import time
 import tensorflow as tf
 import os
 import scipy.misc
@@ -7,27 +9,29 @@ from tqdm import trange
 import pandas as pd
 from itertools import combinations
 import sys
+from sample import sample
 
 
 
 
-def calc_tvd(data,attr):
+def calc_tvd(label_dict,attr):
     '''
     attr should be a 0,1 pandas dataframe with
-    columns restricted to the graph names
+    columns corresponding to label names
 
     for example:
     names=zip(*self.graph)[0]
-    calc_tvd(data,attr[names])
+    calc_tvd(label_dict,attr[names])
 
-    data should be a numpy array with columns corresponding
-    to the names from the attr dataframe. Rows are samples
-    from the distribution
+    label_dict should be a dictionary key:1d-array of samples
     '''
     ####Calculate Total Variation####
     if np.min(attr.values)<0:
         raise ValueError('calc_tvd received \
                  attr that may not have been in {0,1}')
+
+    label_names=label_dict.keys()
+    attr=attr[label_names]
 
     df2=attr.drop_duplicates()
     df2 = df2.reset_index(drop = True).reset_index()
@@ -36,9 +40,8 @@ def calc_tvd(data,attr):
     real_counts = pd.value_counts(real_data_id['ID'])
     real_pdf=real_counts/len(attr)
 
-    label_names=list(attr.columns)
-    data=np.round(data)
-    df_dat=pd.DataFrame(columns=label_names,data=data)
+    label_list_dict={k:np.round(v.ravel()) for k,v in label_dict.items()}
+    df_dat=pd.DataFrame.from_dict(label_list_dict)
     dat_id=pd.merge(df_dat,df2,on=label_names,how='left')
     dat_counts=pd.value_counts(dat_id['ID'])
     dat_pdf = dat_counts / dat_counts.sum()
@@ -47,128 +50,78 @@ def calc_tvd(data,attr):
     return tvd
 
 
-def crosstab(model,step=None,result_dir=None,report_tvd=True):
+def crosstab(model,result_dir=None,report_tvd=True):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs
     including the marginals and the pairwise comparisons
 
+    report_tvd is given as optional because it is somewhat time consuming
+
+    result_dir is where to save the distribution text files. defaults to
+    model.cc.model_dir
+
     '''
 
-    #only glabel at the moment
-    #dlabel may not be batch_size independent
-    only_glabel=True
-
-
+    result_dir=result_dir or model.cc.model_dir
     result={}
-    if step is None:
-        str_step=''
-    else:
-        str_step=str(step)+'_'
 
     n_labels=len(model.cc.nodes)
 
-    N=50*n_labels*64 #N may need to scale higher than this
-    #N=100#to go quicker
+    #Not really sure how this should scale
+    #N=1000*n_labels
+    #N=500*n_labels**2#open to ideas that avoid a while loop
+    #N=12000
+    N=50000
 
-    print 'Calculating joint distribution with',
-    print 'N=',N,' samples'
+    print('Calculating joint distribution with',)
+    print('N=',N,' samples')
 
-    batch_size=64*20 #batch_size=model.batch_size
+    t0=time.time()
+    label_dict=sample(model,fetch_dict=model.cc.label_dict,N=N)
+    print('sampling model N=',N,' times took ',time.time()-t0,'sec')
 
-    n_batches=N/batch_size
 
+    #fake_labels=model.cc.fake_labels
 
-    labels, d_fake_labels= [],[]
-    fake_labels=model.cc.fake_labels
-    result_dir=result_dir or model.cc.model_dir
-    if str_step=='':
-        str_step=str( model.sess.run(model.cc.step) )+'_'
+    str_step=str( model.sess.run(model.cc.step) )+'_'
 
-    #Terminology
-    if model.model_type=='began':
-        D_fake_labels=model.D_fake_labels
-        attr=model.attr
-    elif model.model_type=='dcgan':
-        D_fake_labels=model.D_labels_for_fake
-        attr=0.5*(model.attributes+1)
-
+    attr=model.data.attr
     attr=attr[model.cc.node_names]
 
-    if not os.path.exists(result_dir):
-        raise ValueError('result_dir:',result_dir,' does not exist')
-
     lab_xtab_fn = os.path.join(result_dir,str_step+'glabel_crosstab.txt')
-    dfl_xtab_fn = os.path.join(result_dir,str_step+'d_fake_label_crosstab.txt')
-    gvsd_xtab_fn = os.path.join(result_dir,str_step+'glabel_vs_dfake_crosstab.txt')
-
-    #for n in range(n_batches):
-    for step in trange(n_batches):
-        lab,dfl=model.sess.run([fake_labels,D_fake_labels],{model.batch_size:batch_size})
-        d_fake_labels.append(dfl)
-        labels.append(lab)
-
+    print('Writing to files:',lab_xtab_fn)
 
     if report_tvd:
-        tvd=calc_tvd(np.vstack(labels),attr)
+        tvd=calc_tvd(label_dict,attr)
         result['tvd']=tvd
-
-    list_labels=np.split( np.vstack(labels),n_labels, axis=1)
-    list_d_fake_labels=np.split( np.vstack(d_fake_labels),n_labels, axis=1)
-
 
     joint={}
     label_joint={}
-    dfl_joint={}#d_fake_label
-    for name, lab, dfl in zip(model.cc.node_names,list_labels,list_d_fake_labels):
-        #Create dictionary:
-            #node_name -> 
-                        #'g_fake_label'
-                        #'d_fake_label'
-        joint[name]={
-                'g_fake_label':lab,
-                'd_fake_label':dfl
-                }
+    #for name, lab in zip(model.cc.node_names,list_labels):
+    for name, lab in label_dict.items():
+        joint[name]={ 'g_fake_label':lab }
 
-    print 'Writing to files:',
-    print dfl_xtab_fn,
-    print lab_xtab_fn,
-    print gvsd_xtab_fn
 
-    #Make a cross table for every pair of labels and save that to csv
-    with open(dfl_xtab_fn,'w') as dlf_f, open(lab_xtab_fn,'w') as lab_f, open(gvsd_xtab_fn,'w') as gldf_f:
+    #with open(dfl_xtab_fn,'w') as dlf_f, open(lab_xtab_fn,'w') as lab_f, open(gvsd_xtab_fn,'w') as gldf_f:
+    with open(lab_xtab_fn,'w') as lab_f:
         if report_tvd:
             lab_f.write('TVD:'+str(tvd)+'\n\n')
-        dlf_f.write('Marginals:\n')
         lab_f.write('Marginals:\n')
-        gldf_f.write('Pairwise g_label vs d_fake\n')
 
-        #Marginals and Pairwise-1-node
+        #Marginals
         for name in joint.keys():
-            dlf_f.write('Node: '+name+'\n')
             lab_f.write('Node: '+name+'\n')
-            gldf_f.write('Node: '+name+'\n')
 
             true_marg=np.mean((attr[name]>0.5).values)
             lab_marg=(joint[name]['g_fake_label'] > 0.5).astype('int')
-            dlf_marg=(joint[name]['d_fake_label'] > 0.5).astype('int')
 
             lab_f.write('  mean='+str(np.mean(lab_marg))+'\t'+\
                         'true mean='+str(true_marg)+'\n')
-            dlf_f.write('  mean='+str(np.mean(dlf_marg))+'\n')
 
-
-            gldf_df=pd.DataFrame(data=np.hstack([lab_marg,dlf_marg]),columns=['glabel','dfake'])
-            gldf_ct=pd.crosstab(index=gldf_df['glabel'],columns=gldf_df['dfake'],margins=True)
-            gldf_ct/=N
-
-            gldf_f.write( gldf_ct.__repr__() )
-
-            dlf_f.write('\n')
             lab_f.write('\n')
-            gldf_f.write('\n\n')
 
 
-        dlf_f.write('\nPairwise:\n')
+        #Pairs of labels
         lab_f.write('\nPairwise:\n')
 
         for node1,node2 in combinations(joint.keys(),r=2):
@@ -176,28 +129,27 @@ def crosstab(model,step=None,result_dir=None,report_tvd=True):
             lab_node1=(joint[node1]['g_fake_label']>0.5).astype('int')
             lab_node2=(joint[node2]['g_fake_label']>0.5).astype('int')
             lab_df=pd.DataFrame(data=np.hstack([lab_node1,lab_node2]),columns=[node1,node2])
-            lab_ct=pd.crosstab(index=lab_df[node1],columns=lab_df[node2],margins=True)
-            lab_ct/=N
+            lab_ct=pd.crosstab(index=lab_df[node1],columns=lab_df[node2],margins=True,normalize=True)
 
+            true_ct=pd.crosstab(index=attr[node1],columns=attr[node2],margins=True,normalize=True)
+
+
+            lab_f.write('\n\tFake:\n')
             lab_ct.to_csv(lab_xtab_fn,mode='a')
             lab_f.write( lab_ct.__repr__() )
+            lab_f.write('\n\tReal:\n')
+            lab_f.write( true_ct.__repr__() )
+
             lab_f.write('\n\n')
-
-
-            dlf_node1=(joint[node1]['d_fake_label']>0.5).astype('int')
-            dlf_node2=(joint[node2]['d_fake_label']>0.5).astype('int')
-            dlf_df=pd.DataFrame(data=np.hstack([dlf_node1,dlf_node2]),columns=[node1,node2])
-            dlf_ct=pd.crosstab(index=dlf_df[node1],columns=dlf_df[node2],margins=True)
-            dlf_ct/=N
-
-            #dlf_ct.to_csv(dlf_xtab_fn,mode='a')#not aligned
-            dlf_f.write( dlf_ct.__repr__() )
-            dlf_f.write('\n\n')
 
     return result
 
 
-###Code to generate tab####
+
+
+
+
+
 
 
 

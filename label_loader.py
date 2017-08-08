@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import numpy as np
 import pandas as pd
@@ -101,13 +102,12 @@ def get_label_loader(config, root, batch_size,do_shuffle=True,num_worker=16):
         'I don\'t know how long this will take' % min_queue_examples)
     #I think there are 3 other threads used elsewhere
     num_preprocess_threads = max(num_worker-3,1)
-    num_devices=max(1,config.num_gpu)#that are used in backprop
 
     data_batch = tf.train.shuffle_batch(
             dict_data,
             batch_size=batch_size*num_devices,
             num_threads=num_preprocess_threads,
-            capacity=min_queue_examples + 3 * batch_size*num_devices,
+            capacity=min_queue_examples + 3 * batch_size,
             min_after_dequeue=min_queue_examples,
             #allow_smaller_final_batch=True)
             )

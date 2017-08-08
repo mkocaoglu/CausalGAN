@@ -1,4 +1,3 @@
-from __future__ import print_function
 import tensorflow as tf
 import numpy as np
 import os
@@ -127,10 +126,10 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
             fetch_dict.update({'d_real_labels':D_real_labels})
 
 
-    print('Calculating joint distribution')
+    print 'Calculating joint distribution'
     result,_=sample(model, cond_dict=cond_dict, do_dict=do_dict,N=N,
                     fetch=fetch_dict,return_failures=False)
-    print('fetd keys:',fetch_dict.keys())
+    print 'fetd keys:',fetch_dict.keys()
     result={k:result[k] for k in fetch_dict.keys()}
 
     n_labels=len(model.cc.node_names)
@@ -139,8 +138,8 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     #list_d_real_labels=np.split(result['drl'],n_labels, axis=1)
 
     for k in result.keys():
-        print('valshape',result[k].shape)
-        print('result',result[k])
+        print 'valshape',result[k].shape
+        print 'result',result[k]
     list_result={k:np.split(val,n_labels, axis=1) for k,val in result.items()}
 
     pd_joint={}
@@ -166,7 +165,7 @@ def get_joint(model, int_do_dict=None,int_cond_dict=None, N=6400,return_discrete
     cfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
     dfl=pd.DataFrame.from_dict( {k:val.ravel() for k,val in joint['cfl'].items()} )
 
-    print('get_joint successful')
+    print 'get_joint successful'
     return cfl,dfl
 
 
@@ -247,7 +246,7 @@ def do2feed( do_dict, model, on_logits=True):
         try:
             feed_dict[tensor]=np.reshape(value,shape)
         except Exception,e:
-            print('Unexpected difficulty reshaping inputs:',tensor.name, tf_shape, len(value), np.size(value))
+            print 'Unexpected difficulty reshaping inputs:',tensor.name, tf_shape, len(value), np.size(value)
             raise e
     return feed_dict
 
@@ -310,8 +309,8 @@ def interpret_dict( a_dict, model,n_times=1, on_logits=True):
         L=len(p_a_dict.values()[0])
     else:
         L=0
-    print("L is " + str(L))
-    print(p_a_dict)
+    print "L is " + str(L)
+    print p_a_dict
 
     ##Check compatability batch_size and L
     if L>=model.batch_size:
@@ -367,55 +366,54 @@ def did_succeed( output_dict, cond_dict ):
     return all_victories_bool.flatten()
 
 
-def sample(model, cond_dict=None, do_dict=None, fetch_dict=None,N=None,
+def sample(model, cond_dict=None, do_dict=None, fetch=None,N=None,
            on_logits=True,return_failures=True):
     '''
-    fetch_dict should be a dict of tensors to do sess.run on
+    fetch should be a list of tensors to do sess.run on
     do_dict is a list of strings or tensors of the form:
     {'Male':1, model.z_gen:[0,1], model.cc.Smiling:[0.1,0.9]}
 
     N is used only if cond_dict and do_dict are None
     '''
 
+    #do_dict= do_dict or {}
+    #cond_dict= cond_dict or {}
+
+    #Handle the case where len querry doesn't divide batch_size
+    a_dict=cond_dict or do_dict
+    if a_dict:
+        nsamples=len(a_dict.values()[0])
+    elif N:
+        nsamples=N
+    else:
+        raise ValueError('either pass a dictionary or N')
+
+
+    #Pad to be batch_size divisible
+    npad=(64-nsamples)%64
+    if npad>0:
+        print("Warn. nsamples doesnt divide batch_size, pad=",npad)
+    #N+=npad
+
+    if npad>0:
+        if do_dict:
+            for k in do_dict.keys():
+                keypad=np.tile(do_dict[k][0],[npad])
+                do_dict[k]=np.concatenate([do_dict[k],keypad])
+
+        if cond_dict:
+            for k in cond_dict.keys():
+                keypad=np.tile(cond_dict[k][0],[npad])
+                cond_dict[k]=np.concatenate([cond_dict[k],keypad])
+
+    verbose=False
+
+
     do_dict= do_dict or {}
-    cond_dict= cond_dict or {}
-    fetch_dict=fetch_dict or {'G':model.G}
-
-    ##Handle the case where len querry doesn't divide batch_size
-    #a_dict=cond_dict or do_dict
-    #if a_dict:
-    #    nsamples=len(a_dict.values()[0])
-    #elif N:
-    #    nsamples=N
-    #else:
-    #    raise ValueError('either pass a dictionary or N')
-
-
-    ##Pad to be batch_size divisible
-    #npad=(64-nsamples)%64
-    #if npad>0:
-    #    print("Warn. nsamples doesnt divide batch_size, pad=",npad)
-    ##N+=npad
-
-    #if npad>0:
-    #    if do_dict:
-    #        for k in do_dict.keys():
-    #            keypad=np.tile(do_dict[k][0],[npad])
-    #            do_dict[k]=np.concatenate([do_dict[k],keypad])
-
-    #    if cond_dict:
-    #        for k in cond_dict.keys():
-    #            keypad=np.tile(cond_dict[k][0],[npad])
-    #            cond_dict[k]=np.concatenate([cond_dict[k],keypad])
-
-    #verbose=False
-    verbose=True
-
-
 
     feed_dict = do2feed(do_dict, model, on_logits=on_logits)#{tensor:array}
-    cond_fetch_dict= cond2fetch(cond_dict,model,on_logits=on_logits) #{string:tensor}
-    fetch_dict.update(cond_fetch_dict)
+    fetch_dict= cond2fetch(cond_dict,model,on_logits=on_logits) #{string:tensor}
+    fetch_dict.update(fetch or {'G':model.G})
 
 
     #print('actual cond_dict', cond_dict )#{}
@@ -449,24 +447,18 @@ def sample(model, cond_dict=None, do_dict=None, fetch_dict=None,N=None,
         #neither passed, but get N samples
         assert(N>0)
         if verbose:
-            print('sampling model N=',N,' times')
+            print 'sampling model N=',N,' times'
+        #fds=chunks({'idx':range(npad+N)},model.batch_size)
+        fds=chunks({'idx':range(npad+N)},model.default_batch_size)
 
-        ##Should be variable batch_size allowed
-        outputs=model.sess.run(fetch_dict)
-
-        ##fds=chunks({'idx':range(npad+N)},model.batch_size)
-        #fds=chunks({'idx':range(npad+N)},model.default_batch_size)
-
-        #outputs={k:[] for k in fetch_dict.keys()}
-        #for fd in fds:
-        #    out=model.sess.run(fetch_dict)
-        #    for k,val in out.items():
-        #        outputs[k].append(val)
-        #for k in outputs.keys():
-        #    outputs[k]=np.vstack(outputs[k])[:nsamples]
-        #return outputs, feed_dict
-
-        return outputs
+        outputs={k:[] for k in fetch_dict.keys()}
+        for fd in fds:
+            out=model.sess.run(fetch_dict)
+            for k,val in out.items():
+                outputs[k].append(val)
+        for k in outputs.keys():
+            outputs[k]=np.vstack(outputs[k])[:nsamples]
+        return outputs, feed_dict
 
 
     #elif cond_dict and not do_dict:
@@ -570,34 +562,34 @@ def sample(model, cond_dict=None, do_dict=None, fetch_dict=None,N=None,
             print('means:')
             for k in outputs.keys():
                 for v in outputs[k]:
-                    print(np.mean(v))
+                    print np.mean(v)
 
 
         if not return_failures:
             #useful for pdf calculations.
             #not useful for image grids
             if verbose:
-                print('Not returning failures!..',)
+                print 'Not returning failures!..',
             for k in outputs.keys():
                 outputs[k]=[outputs[k][i] for i in completed_rows]
                 if verbose:
-                    print('..Returning', len(completed_rows),'/',len(cond_dict.values()[0]))
+                    print '..Returning', len(completed_rows),'/',len(cond_dict.values()[0])
         else:
             for k in outputs.keys():
                 outputs[k]=outputs[k][:nsamples]
 
         for k in outputs.keys():
             if verbose:
-                print('tobestacked:',len(outputs[k]))
-                print('tobestacked:',isinstance(outputs[k][0],np.ndarray))
+                print 'tobestacked:',len(outputs[k])
+                print 'tobestacked:',isinstance(outputs[k][0],np.ndarray)
 
             values=outputs[k][:nsamples]
             if verbose:
                 for v in values:
                     try:
-                        print(v.shape)
+                        print v.shape
                     except:
-                        print(type(v))
+                        print type(v)
 
             if len(fetch_dict[k].get_shape().as_list())>1:
                 outputs[k]=np.stack(outputs[k])
@@ -632,7 +624,7 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     n_defaults=len( filter(lambda l: isinstance(l,str), cond_dict.values() ))
 
     if n_defaults>0:
-        print(n_defaults,' default values given..using 8 for each of them')
+        print n_defaults,' default values given..using 8 for each of them'
 
     try:
         for key,value in cond_dict.items():
@@ -693,7 +685,7 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
 
     lengths = [ len(v) for v in cond_dict.values() if hasattr(v,'__len__') ]
     #print('lengths',lengths)
-    print('lengths',lengths)
+    print 'lengths',lengths
 
     gt_one = filter(lambda l:l>1,lengths)
 
@@ -730,7 +722,7 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
     elif model.model_type=='dcgan':
-        print('DCGAN')
+        print 'DCGAN'
         result_dir=model.checkpoint_dir
 
     sample_dir=os.path.join(result_dir,'sample_figures')
@@ -740,7 +732,7 @@ def condition2d( model, cond_dict,cond_dict_name,step='', on_logits=True):
     out, _= sample(model, cond_dict=cond_dict,on_logits=on_logits)
     images=out['G']
 
-    #print('Images shape:',images.shape)
+    #print 'Images shape:',images.shape
 
 
     #cond_file=os.path.join(sample_dir, str_step+str(cond_dict_name)+'_cond'+'.png')
@@ -769,7 +761,7 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
     n_defaults=len( filter(lambda l: isinstance(l,str), do_dict.values() ))
 
     if n_defaults>0:
-        print(n_defaults,' default values given..using 8 for each of them')
+        print n_defaults,' default values given..using 8 for each of them'
 
     try:
         for key,value in do_dict.items():
@@ -813,7 +805,7 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
 
     lengths = [ len(v) for v in do_dict.values() if hasattr(v,'__len__') ]
     #print('lengths',lengths)
-    print('lengths',lengths)
+    print 'lengths',lengths
 
     gt_one = filter(lambda l:l>1,lengths)
 
@@ -847,14 +839,14 @@ def intervention2d(model, fetch=None, do_dict=None, do_dict_name=None, on_logits
         if str_step=='':
             str_step=str( model.sess.run(model.step) )+'_'
     elif model.model_type=='dcgan':
-        print('DCGAN')
+        print 'DCGAN'
         result_dir=model.checkpoint_dir
 
     sample_dir=os.path.join(result_dir,'sample_figures')
     if not os.path.exists(sample_dir):
         os.mkdir(sample_dir)
 
-    #print('do_dict DEBUG:',do_dict)
+    #print 'do_dict DEBUG:',do_dict
     out, feed_dict= sample(model, do_dict=do_dict,on_logits=on_logits)
     images=out['G']
 
