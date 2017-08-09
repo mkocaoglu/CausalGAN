@@ -137,6 +137,8 @@ class CausalController(object):
         self.saver=tf.train.Saver(var_list=self.var)
         self.model_dir=os.path.join(self.config.model_dir,self.model_type)
         self.save_model_dir=os.path.join(self.model_dir,'checkpoints')
+        self.save_model_name=os.path.join(self.save_model_dir,'CC-Model')
+
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
         if not os.path.exists(self.save_model_dir):

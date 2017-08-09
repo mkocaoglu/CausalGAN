@@ -73,8 +73,11 @@ train_arg.add_argument('--beta1',type=float,default=0.5,
 
 #TODO unclear on default for these two arguments
 #Not yet setup. Use False
-train_arg.add_argument('--pretrain_labelerR',type=str2bool,default=False)
-train_arg.add_argument('--pretrain_LabelerR_no_of_epochs',type=int,default=5)
+train_arg.add_argument('--pretrain_LabelerR',type=str2bool,default=False)
+
+#counters over epochs preferred
+#train_arg.add_argument('--pretrain_LabelerR_no_of_epochs',type=int,default=5)
+train_arg.add_argument('--pretrain_LabelerR_no_of_iters',type=int,default=15000)
 
 
 #TODO: add help strings describing params
@@ -97,8 +100,30 @@ train_arg.add_argument('--gamma_l',type=float,default=-1.0,
 
 # Misc
 misc_arg = add_argument_group('Misc')
+misc_arg.add_argument('--is_train',type=str2bool,default=False,
+                      help='''whether to enter the image training loop''')
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs')
+
+
+##REFERENCE
+#  elif model_ID == 44:
+#    FLAGS.is_train = True
+#    #FLAGS.graph = "big_causal_graph"
+#    FLAGS.graph = "complete_big_causal_graph"
+#    FLAGS.loss_function = 1
+#    FLAGS.pretrain_LabelerR = False
+#    FLAGS.pretrain_LabelerR_no_of_epochs = 3
+#    FLAGS.fakeLabels_distribution = "real_joint"
+#    FLAGS.gamma_k = -1.0
+#    FLAGS.gamma_m = -1.0 # set to 1/gamma_k in the code
+#    FLAGS.gamma_l = -1.0 # made more extreme
+#    FLAGS.lambda_k = 0.05
+#    FLAGS.lambda_m = 0.05
+#    FLAGS.lambda_l = 0.001
+#    FLAGS.label_type = 'continuous'
+#    return FLAGS
+
 
 
 def get_config():

@@ -5,7 +5,7 @@ from tqdm import trange
 import os
 import pandas as pd
 
-from utils import make_summary
+from utils import make_summary,distribute_input_data,get_available_gpus
 from data_loader import DataLoader
 from figure_scripts.pairwise import crosstab
 
@@ -71,11 +71,10 @@ class Trainer(object):
 
             with tf.variable_scope('tower'):
                 for gpu in get_available_gpus():
-                    gpu_idx+=1
                     print('using device:',gpu)
 
-                    real_data=real_data_by_gpu[gpu]
-                    fake_data=fake_data_by_gpu[gpu]
+                    real_data=self.real_data_by_gpu[gpu]
+                    fake_data=self.fake_data_by_gpu[gpu]
                     tower=gpu.replace('/','').replace(':','_')
 
                     with tf.device(gpu),tf.name_scope(tower):
@@ -210,15 +209,37 @@ class Trainer(object):
                       format(counter, cc_step+ num_iter, c_loss, dcc_loss))
 
             if counter %(10*self.cc.config.log_step)==0:
-                self.cc.saver.save(self.sess,self.cc.save_model_dir,result['cc_step'])
+                self.cc.saver.save(self.sess,self.cc.save_model_name,result['cc_step'])
 
         else:
             label_stats=crosstab(self,report_tvd=True)
-            self.cc.saver.save(self.sess,self.cc.save_model_dir,self.cc.step)
+            self.cc.saver.save(self.sess,self.cc.save_model_name,self.cc.step)
             print('Completed Pretrain by Exhausting all Pretrain Steps!')
 
         print('step:',result['cc_step'],'  TVD:',label_stats['tvd'])
 
+
+    def train_loop(self,num_iter=None):
+        '''
+        This is a function for handling the training of either CausalBEGAN or
+        CausalGAN models. The python function Model.train_step() is called
+        num_iter times and some general image save features: intervening,
+        conditioning, etc are done here too.
+        '''
+
+        for counter in trange(num_iter):
+            self.model.train_step(self.sess,counter)
+
+            ##some general statement about losses
+            #print("Epoch: [%2d] [%4d/%4d] time: %4.4f, d_loss: %.8f, g_loss: %.8f, graph:%s, loss: %d, model_ID: %d" \
+            #  % (epoch, idx, batch_idxs,, errD_fake+errD_real, errG,self.loss_function))
+
+
+            ##from dcgan
+            #if np.mod(counter, 300) == 0:
+            #  for name in name_list:
+            #    images = sess.run(self.G, feed_dict={self.z_gen:z_gen_fixed[name], self.fake_labels:fixed_noises[name]})
+            #    save_images(images, [8, 8], self.checkpoint_dir +'/train_images'+'/test_arange_%s%s.png' % (name,counter))
 
 
 

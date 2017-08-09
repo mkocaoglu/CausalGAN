@@ -81,7 +81,7 @@ class DataLoader(object):
 
         return data_batch
 
-    def get_data_queue(self):
+    def get_data_queue(self,batch_size):
         image_files = tf.convert_to_tensor(self.filenames, dtype=tf.string)
         tf_labels = tf.convert_to_tensor(self.attr.values, dtype=tf.uint8)
 
@@ -95,7 +95,7 @@ class DataLoader(object):
 
 
         image=tf.cast(image,dtype=tf.float32)
-        if is_crop:#use dcgan cropping
+        if self.config.is_crop:#use dcgan cropping
             #dcgan center-crops input to 108x108, outputs 64x64 #centrally crops it
             #We emulate that here
             image=tf.image.resize_image_with_crop_or_pad(image,108,108)
@@ -121,23 +121,23 @@ class DataLoader(object):
         #Creates a dictionary  {'Male',male_tensor, 'Young',young_tensor} etc..
         #dict_data={sl:tf.reshape(tl,[1,1]) for sl,tl in
         dict_data={sl:tl for sl,tl in
-                   zip(label_names,tf.split(label,len(label_names)))}
-        assert not 'x' in dict_data.keys()
+                   zip(self.label_names,tf.split(label,len(self.label_names)))}
+        assert not 'x' in dict_data.keys()#don't have a label named "x"
         dict_data['x']=image
 
         #label=tf.to_int32(str_label)#keep as float?
 
         print ('Filling queue with %d Celeb images before starting to train. '
-            'I don\'t know how long this will take' % min_queue_examples)
+            'I don\'t know how long this will take' % self.min_queue_examples)
         #I think there are 3 other threads used elsewhere
-        num_preprocess_threads = max(num_worker-3,1)
+        num_preprocess_threads = max(self.num_worker-3,1)
         #image_batch, real_label_batch = tf.train.shuffle_batch(
         data_batch = tf.train.shuffle_batch(
                 dict_data,
-                batch_size=batch_size*num_devices,
+                batch_size=batch_size,
                 num_threads=num_preprocess_threads,
-                capacity=min_queue_examples + 3 * batch_size*num_devices,
-                min_after_dequeue=min_queue_examples,
+                capacity=self.min_queue_examples + 3 * batch_size,
+                min_after_dequeue=self.min_queue_examples,
                 #allow_smaller_final_batch=True)
                 )
         # Display the training images in the visualizer.

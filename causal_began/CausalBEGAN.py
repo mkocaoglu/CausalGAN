@@ -263,12 +263,6 @@ class CausalBEGAN(object):
         g_grad=self.g_optimizer.compute_gradients(self.g_loss,var_list=self.G_var)
         d_grad=self.d_optimizer.compute_gradients(self.d_loss,var_list=self.D_var)
 
-        #g_optim=self.g_optimizer.minimize(self.g_loss,var_list=self.G_var)
-        #d_optim=self.d_optimizer.minimize(self.d_loss,var_list=self.D_var)
-
-
-        #self.tower_dict['c_tower_grads'].append(c_grad)
-        #self.tower_dict['dcc_tower_grads'].append(dcc_grad)
         self.tower_dict['g_tower_grads'].append(g_grad)
         self.tower_dict['d_tower_grads'].append(d_grad)
         self.tower_dict['tower_g_loss_image'].append(self.g_loss_image)
@@ -279,16 +273,8 @@ class CausalBEGAN(object):
 
         self.var=self.G_var+self.D_var+[self.step]
 
-        #return
-
-
-##MODEL##
-
 
     def build_train_op(self):
-
-        #iterate in rev order, makes self.data_loader corresp to gpu0 
-
 
         #with tf.variable_scope('tower'):
         #    for gpu,data_loader in self.data_by_gpu.items()[::-1]:
@@ -347,6 +333,13 @@ class CausalBEGAN(object):
         ## Group all updates to into a single
         ## train op.
         #train_op = tf.group(apply_gradient_op, variables_averages_op)
+
+    def train_step(sess,counter):
+        sess.run(self.train_op)
+
+        if counter % self.config.lr_update_step == self.lr_update_step - 1:
+            sess.run([self.g_lr_update, self.d_lr_update])
+
 
 
     def build_summary_op(self):

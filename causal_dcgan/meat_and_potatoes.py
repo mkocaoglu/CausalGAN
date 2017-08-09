@@ -191,7 +191,7 @@ class DCGAN(object):
 
     self.D_, self.D_logits_, self.features_to_estimate_z_on_generated = self.discriminator(self.G, self.fake_labels, reuse=True)
     self.D_labels_for_fake, self.D_labels_for_fake_logits = self.discriminator_labeler(self.G, reuse = True)
-    
+
     self.D_gen_labels_for_fake, self.D_gen_labels_for_fake_logits = self.discriminator_gen_labeler(self.G)
 
     #self.D_on_z = self.discriminator_on_z(self.G)

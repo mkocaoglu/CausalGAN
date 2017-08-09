@@ -42,8 +42,9 @@ train_arg.add_argument('--beta2', type=float, default=0.999)
 train_arg.add_argument('--d_lr', type=float, default=0.00008)
 train_arg.add_argument('--g_lr', type=float, default=0.00008)
 train_arg.add_argument('--indep_causal', type=str2bool, default=False)
-#train_arg.add_argument('--is_train', type=str2bool, default=True)
-train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
+train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'],
+                      help='''what comparison should be made between the
+                       labeler output and the actual labels''')
 train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
 train_arg.add_argument('--max_step', type=int, default=50000)
 train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
@@ -72,6 +73,8 @@ margin_arg.add_argument('--zeta', type=float, default=0.5)
 
 # Misc
 misc_arg = add_argument_group('Misc')
+misc_arg.add_argument('--is_train',type=str2bool,default=False,
+                      help='''whether to enter the image training loop''')
 misc_arg.add_argument('--build_all', type=str2bool, default=False,
                      help='''normally specifying is_pretrain=False will cause
                      the pretraining components not to be built and likewise
@@ -82,11 +85,6 @@ misc_arg.add_argument('--build_all', type=str2bool, default=False,
 misc_arg.add_argument('--data_dir', type=str, default='data')
 misc_arg.add_argument('--dry_run', action='store_true')
 #misc_arg.add_argument('--dry_run', type=str2bool, default='False')
-misc_arg.add_argument('--is_crop', type=str2bool, default='True')
-misc_arg.add_argument('--resize_method',type=str,default='AREA',choices=['AREA','BILINEAR','BICUBIC','NEAREST_NEIGHBOR'],
-                     help='''methods to resize image to 64x64. AREA seems to work
-                     best, possibly some scipy methods could work better''')
-misc_arg.add_argument('--cc_load_path', type=str, default='')
 misc_arg.add_argument('--log_step', type=int, default=100)
 misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--num_log_samples', type=int, default=3)

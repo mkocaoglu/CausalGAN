@@ -30,12 +30,10 @@ debug = debugger.Pdb().set_trace
 
 '''
 TODO:
-
-    Try leaky relu activation inside causal_controller instead of tanh
-    save .py files in subfolders as well
-    Each config file should be saved to its own json, not just the main one!
-
-    switch CC model to lrelu from tanh. seems much faster
+    decide lrelu vs tanh for CC
+    load config from json when load model
+    pt_factorized=True doesn't work
+        decide if pt_factorized is worse than without
 
 
     OLD:
@@ -74,6 +72,10 @@ def main():
     print('tf: resetting default graph!')
     tf.reset_default_graph()#for repeated calls in ipython
 
+    #TODO:
+    ##if load_path:
+        #load config files from dir
+    ##else:
     config,_=get_config()
     cc_config,_=get_cc_config()
     dcgan_config,_=get_dcgan_config()
@@ -81,6 +83,9 @@ def main():
 
 
     prepare_dirs_and_logger(config)
+    if not config.load_path:
+        print('saving config because load path not given')
+        save_configs(config,cc_config,dcgan_config,began_config)
 
 
     #Resolve model differences and batch_size
@@ -101,9 +106,6 @@ def main():
     cc_config.graph=get_causal_graph(config.causal_model)
 
 
-    if not config.load_path:
-        print('saving config because load path not given')
-        save_configs(config,cc_config,dcgan_config,began_config)
 
     #Builds and loads specified models:
     trainer=Trainer(config,cc_config,model_config)
@@ -118,25 +120,8 @@ def main():
     if cc_config.is_pretrain:
         trainer.pretrain_loop()
 
-
-    #save combined model
-    #Run pretrain and stuff
-    #Run train
-
-#    #if config.is_pretrain or config.is_train:
-#    if not config.load_path:
-#        print('saving config because load path not given')
-#        save_config(config)
-#
-#    if config.is_pretrain:
-#        trainer.pretrain()
-#    if config.is_train:
-#        trainer.train()
-#    else:
-#        if not config.load_path:
-#            raise Exception("[!] You should specify `load_path` to load a pretrained model")
-#
-#        trainer.intervention()
+    if model_config.is_train:
+        trainer.train_loop()
 
     return trainer
 
