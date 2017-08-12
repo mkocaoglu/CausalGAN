@@ -58,11 +58,11 @@ def center_crop(x, crop_h, crop_w,
   return scipy.misc.imresize(
       x[j:j+crop_h, i:i+crop_w], [resize_h, resize_w])
 
-def transform(image, input_height, input_width, 
+def transform(image, input_height, input_width,
               resize_height=64, resize_width=64, is_crop=True):
   if is_crop:
     cropped_image = center_crop(
-      image, input_height, input_width, 
+      image, input_height, input_width,
       resize_height, resize_width)
   else:
     cropped_image = scipy.misc.imresize(image, [resize_height, resize_width])
@@ -104,8 +104,8 @@ def to_json(output_path, *layers):
 
         lines += """
           var layer_%s = {
-            "layer_type": "fc", 
-            "sy": 1, "sx": 1, 
+            "layer_type": "fc",
+            "sy": 1, "sx": 1,
             "out_sx": 1, "out_sy": 1,
             "stride": 1, "pad": 0,
             "out_depth": %s, "in_depth": %s,
@@ -121,7 +121,7 @@ def to_json(output_path, *layers):
 
         lines += """
           var layer_%s = {
-            "layer_type": "deconv", 
+            "layer_type": "deconv",
             "sy": 5, "sx": 5,
             "out_sx": %s, "out_sy": %s,
             "stride": 2, "pad": 1,
@@ -135,21 +135,21 @@ def to_json(output_path, *layers):
     layer_f.write(" ".join(lines.replace("'","").split()))
 
 def make_gif(images, fname, duration=2, true_image=False):
-  import moviepy.editor as mpy
+    import moviepy.editor as mpy
 
-  def make_frame(t):
-    try:
-      x = images[int(len(images)/duration*t)]
-    except:
-      x = images[-1]
+    def make_frame(t):
+        try:
+            x = images[int(len(images)/duration*t)]
+        except:
+            x = images[-1]
 
     if true_image:
-      return x.astype(np.uint8)
+        return x.astype(np.uint8)
     else:
-      return ((x+1)/2*255).astype(np.uint8)
+        return ((x+1)/2*255).astype(np.uint8)
 
-  clip = mpy.VideoClip(make_frame, duration=duration)
-  clip.write_gif(fname, fps = len(images) / duration)
+    clip = mpy.VideoClip(make_frame, duration=duration)
+    clip.write_gif(fname, fps = len(images) / duration)
 
 def visualize(sess, dcgan, config, option):
   image_frame_dim = int(math.ceil(config.batch_size**.5))

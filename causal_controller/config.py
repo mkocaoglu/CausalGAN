@@ -100,30 +100,10 @@ data_arg.add_argument('--num_worker', type=int, default=24,
 train_arg = add_argument_group('Training')
 
 
-train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe','absdiff','squarediff'])
 
-#train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
-#                       help='''Whether the label outputs of the causal
-#                       controller should be rounded first before calculating
-#                       the loss of generator or d-labeler''')
 
 # Misc
 misc_arg = add_argument_group('Misc')
-misc_arg.add_argument('--build_all', type=str2bool, default=False, #Unsure if functonal
-                     help='''normally specifying is_pretrain=False will cause
-                     the pretraining components not to be built and likewise
-                      with is_train=False only the pretrain compoenent will
-                      (possibly) be built. This is here as a debug helper to
-                      enable building out the whole model without doing any
-                      training''')
-
-
-
-misc_arg.add_argument('--data_dir', type=str, default='data')
-misc_arg.add_argument('--dry_run', action='store_true')
-#misc_arg.add_argument('--dry_run', type=str2bool, default='False')
-
-
 misc_arg.add_argument('--load_path', type=str, default='')
 misc_arg.add_argument('--log_step', type=int, default=100)
 misc_arg.add_argument('--save_step', type=int, default=5000)
@@ -133,9 +113,6 @@ misc_arg.add_argument('--log_dir', type=str, default='logs')
 #misc_arg.add_argument('--test_data_path', type=str, default=None,
 #                      help='directory with images which will be used in test sample generation')
 
-#Doesn't do anything atm
-#misc_arg.add_argument('--random_seed', type=int, default=123)
-#misc_arg.add_argument('--visualize', action='store_true')
 
 
 

@@ -6,8 +6,9 @@ import pandas as pd
 import os
 slim = tf.contrib.slim
 from models import lrelu,DiscriminatorW,Grad_Penalty
-from label_loader import get_label_loader
-from utils import summary_stats
+from utils import summary_stats,did_succeed
+
+from ArrayDict import ArrayDict#Collector of outputs
 
 debug=False
 
@@ -15,11 +16,9 @@ class CausalController(object):
     model_type='controller'
     summs=['cc_summaries']
     def summary_scalar(self,name,ten):
-        if self.build_summaries:
-            tf.summary.scalar(name,ten,collections=self.summs)
+        tf.summary.scalar(name,ten,collections=self.summs)
     def summary_stats(self,name,ten,hist=False):
-        if self.build_summaries:
-            summary_stats(name,ten,collections=self.summs,hist=hist)
+        summary_stats(name,ten,collections=self.summs,hist=hist)
 
     def load(self,sess,path):
         '''
@@ -34,7 +33,6 @@ class CausalController(object):
         print('Attempting to load model:',path)
         self.saver.restore(sess,path)
 
-    #def __init__(self,graph,config,batch_size=1,input_dict=None,reuse=None):
     def __init__(self,batch_size,config):
         '''
         Args:
@@ -79,17 +77,12 @@ class CausalController(object):
 
         '''
 
-        if len(tf.get_collection(self.summs[0]))==0:
-            self.build_summaries=True
-        else:
-            self.build_summaries=False
-
-
         self.config=config
         self.batch_size=batch_size #tf.placeholder_with_default
         self.graph=config.graph
         self.node_names, self.parent_names=zip(*self.graph)
         self.node_names=list(self.node_names)
+        self.label_names=self.node_names
 
 
         #set nodeclass attributes
@@ -122,6 +115,7 @@ class CausalController(object):
 
         self.label_dict={n.name:n.label for n in self.nodes}
         self.node_dict={n.name:n for n in self.nodes}
+        self.z_dict={n.name:n.z for n in self.nodes}
         #enable access directly. Little dangerous
             #Please don't have any nodes named "batch_size" for example
         self.__dict__.update(self.node_dict)
@@ -151,7 +145,6 @@ class CausalController(object):
         label_loader is a queue of only labels that moves quickly because no
         images
         '''
-        #Use Native queue
         config=self.config
 
         #Pretraining setup
@@ -163,6 +156,7 @@ class CausalController(object):
 
         #reasonable alternative with equal performance
         if self.config.pt_factorized:#Each node owns a dcc
+            print('CC is factorized!')
             for node in self.nodes:
                 node.setup_pretrain(config,label_loader,self.DCC)
 
@@ -238,12 +232,6 @@ class CausalController(object):
     def __len__(self):
         return len(self.node_dict)
 
-    @property
-    def feed_z(self):#might have to makethese phw/default
-        return {key:val.z for key,val in self.node_dict.iteritems()}
-    @property
-    def sample_z(self):
-        return {key:val.z for key,val in self.node_dict.iteritems()}
 
     def list_placeholders(self):
         return [n.z for n in self.nodes]
@@ -251,6 +239,97 @@ class CausalController(object):
         return [n.label for n in self.nodes]
     def list_label_logits(self):
         return [n.label_logit for n in self.nodes]
+
+    def do2feed(self,do_dict):
+        '''
+        used internally to convert a dictionary to a feed_dict
+        '''
+        feed_dict={}
+        for key,value in do_dict.items():
+            feed_dict[self.label_dict[key]]=value
+        return feed_dict
+
+    def sample_label(self, sess, cond_dict=None,do_dict=None,N=None,verbose=False):
+        '''
+        This is a method to sample conditional and internventional
+        distributions over labels. This is disconnected from
+        interventions/conditioning that include the image because it is
+        potentially faster. (images are not generated for rejected samples).
+        The intent is to pass these labels to the image generator.
+
+        This is low level. One experiment type(N times) per function call.
+        values of dictionaries should be scalars
+
+        Assumed that label_dict is always the fetch
+
+        may combine conditioning and intervening
+        '''
+
+        do_dict= do_dict or {}
+        cond_dict= cond_dict or {}
+        fetch_dict=self.label_dict
+
+        #boolean scalars are all that is allowed
+        for v in cond_dict.values():
+            assert(v==0 or v==1)
+        for v in do_dict.values():
+            assert(v==0 or v==1)
+
+        #How many at a time
+        #batch_size=N
+
+        arr_do_dict={k:v*np.ones([N,1]) for k,v in do_dict.items()}
+
+        feed_dict = self.do2feed(arr_do_dict)#{tensor:array}
+        feed_dict.update({self.batch_size:N})
+
+        if verbose:
+            print('feed_dict',feed_dict)
+            print('fetch_dict',fetch_dict)
+
+        #No conditioning loop needed
+        if not cond_dict:
+            return sess.run(fetch_dict, feed_dict)
+
+        else:#cond_dict not trivial
+
+            rows=np.arange(N)#what idx do we need
+            #init
+            max_fail=4000
+            n_fails=0
+            outputs=ArrayDict()
+            iter_rows=np.arange(N)
+            n_remaining=N
+
+            ii=0
+            while( n_remaining > 0 ):
+                #debug()
+                ii+=1
+
+                #Run N samples
+                out=sess.run(fetch_dict, feed_dict)
+
+                bool_pass = did_succeed(out,cond_dict)
+                #print('did_succeed',bool_pass)
+                pass_idx=iter_rows[bool_pass]
+                pass_idx=pass_idx[:n_remaining]
+                pass_dict={k:v[pass_idx] for k,v in out.items()}
+
+                outputs.concat(pass_dict)
+                n_remaining=N-len(outputs)
+
+                if ii>max_fail:
+                    print('WARNING: for cond_dict:',cond_dict,)
+                    print('could not condition in ',max_fail*N, 'samples')
+                    break
+
+            else:
+                if verbose:
+                    print('for cond_dict:',cond_dict,)
+                    print('conditioning finished normally with ',ii,'tries')
+
+            return outputs.dict
+
 
 
 
@@ -276,8 +355,10 @@ class CausalNode(object):
     n_layers=3
     n_hidden=10
     batch_size=-1#Must be set by cc
-
     summs=['cc_summaries']
+
+    def summary_scalar(self,name,ten):
+        tf.summary.scalar(name,ten,collections=self.summs)
     def summary_stats(self,name,ten,hist=False):
         summary_stats(name,ten,collections=self.summs,hist=hist)
 
@@ -304,11 +385,12 @@ class CausalNode(object):
         tf_parents=[self.z]+[node.label for node in self.parents]
 
 
-        print("Warning, using lrelu instead of tanh!")
+        #print("Warning, using lrelu instead of tanh!")
         with tf.variable_scope(self.name) as vs:
             h=tf.concat(tf_parents,-1)#vector of parent tensors
             for l in range(self.n_layers-1):
                 h=slim.fully_connected(h,self.n_hidden,activation_fn=lrelu,scope='layer'+str(l))
+                #tanh is also an option
                 #h=slim.fully_connected(h,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer'+str(l))
 
             self._label_logit = slim.fully_connected(h,1,activation_fn=None,scope='proj')

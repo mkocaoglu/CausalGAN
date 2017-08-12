@@ -37,6 +37,17 @@ data_arg.add_argument('--resize_method',type=str,default='AREA',choices=['AREA',
 # Training / test parameters
 train_arg = add_argument_group('Training')
 
+
+train_arg.add_argument('--build_train', type=str2bool, default=False,
+                      help='''You may want to build all the components for
+                       training, without doing any training right away. This is
+                      for that. This arg is effectively True when is_train=True''')
+train_arg.add_argument('--build_pretrain', type=str2bool, default=False,
+                      help='''You may want to build all the components for
+                       training, without doing any training right away. This is
+                      for that. This arg is effectively True when is_pretrain=True''')
+
+
 train_arg.add_argument('--model_type',type=str,default='',choices=['dcgan','began'],
                       help='''Which model to use. If the argument is not
                        passed, only causal_controller is built. This overrides
@@ -72,7 +83,10 @@ misc_arg.add_argument('--load_path', type=str, default='',
                       of a previous model, use pt_load_path from the
                       causal_controller.config section''')
 
-#misc_arg.add_argument('--log_step', type=int, default=100)
+misc_arg.add_argument('--log_step', type=int, default=100,
+                     help='''this is used for generic summaries that are common
+                     to both models. Use model specific config files for
+                     logging done within train_step''')
 #misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs', help='''where to store model and model results. Do not put a leading "./" out front''')

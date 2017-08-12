@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 slim = tf.contrib.slim
 import math
 
@@ -61,23 +62,19 @@ def GeneratorCNN( z, config, reuse=None):
     variables = tf.contrib.framework.get_variables(vs)
     return out, variables
 
-def DiscriminatorCNN(X, config, reuse=None):
+def DiscriminatorCNN(image, config, reuse=None):
     '''
     Discriminator for GAN model.
 
-    X      : batch_size x 64x64x3 image
-    config : see causal_dcgan/config.py
-    reuse  : pass True if not calling for first time
+    image      : batch_size x 64x64x3 image
+    config     : see causal_dcgan/config.py
+    reuse      : pass True if not calling for first time
 
     returns: probabilities(real)
            : logits(real)
            : first layer activation used to estimate z from
            : variables list
     '''
-
-    batch_size=X.shape[0]
-
-
     with tf.variable_scope("discriminator",reuse=reuse) as vs:
         d_bn1 = batch_norm(name='d_bn1')
         d_bn2 = batch_norm(name='d_bn2')
@@ -85,11 +82,19 @@ def DiscriminatorCNN(X, config, reuse=None):
 
         h0 = lrelu(conv2d(image, config.df_dim, name='d_h0_conv'))#16,32,32,64
         h1_ = lrelu(d_bn1(conv2d(h0, config.df_dim*2, name='d_h1_conv')))#16,16,16,128
-        h1 = add_minibatch_features(h1_, config.df_dim, batch_size)
-        h2 = lrelu(d_bn2(conv2d(h1, config.df_dim*4, name='d_h2_conv')))#16,16,16,248
-        h3 = lrelu(d_bn3(conv2d(h2, config.df_dim*8, name='d_h3_conv')))
-        h3_flat=tf.reshape(h3, [batch_size, -1])
-        h4 = linear(h3_flat, 1, 'd_h3_lin')
+
+        #DEBUG:
+        h4=h1_
+
+        #h1 = add_minibatch_features(h1_, config.df_dim)
+        #h2 = lrelu(d_bn2(conv2d(h1, config.df_dim*4, name='d_h2_conv')))#16,16,16,248
+        #h3 = lrelu(d_bn3(conv2d(h2, config.df_dim*8, name='d_h3_conv')))
+        ##print('h3shape: ',h3.get_shape().as_list())
+        ##print('8df_dim:',config.df_dim*8)
+        ##dim3=tf.reduce_prod(tf.shape(h3)[1:])
+        #dim3=np.prod(h3.get_shape().as_list()[1:])
+        #h3_flat=tf.reshape(h3, [-1,dim3])
+        #h4 = linear(h3_flat, 1, 'd_h3_lin')
 
         prob=tf.nn.sigmoid(h4)
         variables = tf.contrib.framework.get_variables(vs)
@@ -98,7 +103,7 @@ def DiscriminatorCNN(X, config, reuse=None):
 
 
 def discriminator_labeler(image, output_dim, config, reuse=None):
-    batch_size=image.shape[0]
+    batch_size=tf.shape(image)[0]
     with tf.variable_scope("disc_labeler",reuse=reuse) as vs:
         dl_bn1 = batch_norm(name='dl_bn1')
         dl_bn2 = batch_norm(name='dl_bn2')
@@ -108,14 +113,15 @@ def discriminator_labeler(image, output_dim, config, reuse=None):
         h1 = lrelu(dl_bn1(conv2d(h0, config.df_dim*2, name='dl_h1_conv')))#16,16,16,128
         h2 = lrelu(dl_bn2(conv2d(h1, config.df_dim*4, name='dl_h2_conv')))#16,16,16,248
         h3 = lrelu(dl_bn3(conv2d(h2, config.df_dim*8, name='dl_h3_conv')))
-        h3_flat=tf.reshape(h3, [batch_size, -1])
+        dim3=np.prod(h3.get_shape().as_list()[1:])
+        h3_flat=tf.reshape(h3, [-1,dim3])
         D_labels_logits = linear(h3_flat, output_dim, 'dl_h3_Label')
         D_labels = tf.nn.sigmoid(D_labels_logits)
         variables = tf.contrib.framework.get_variables(vs)
     return D_labels, D_labels_logits, variables
 
 def discriminator_gen_labeler(image, output_dim, config, reuse=None):
-    batch_size=image.shape[0]
+    batch_size=tf.shape(image)[0]
     with tf.variable_scope("disc_gen_labeler",reuse=reuse) as vs:
         dl_bn1 = batch_norm(name='dl_bn1')
         dl_bn2 = batch_norm(name='dl_bn2')
@@ -125,15 +131,16 @@ def discriminator_gen_labeler(image, output_dim, config, reuse=None):
         h1 = lrelu(dl_bn1(conv2d(h0, config.df_dim*2, name='dgl_h1_conv')))#16,16,16,128
         h2 = lrelu(dl_bn2(conv2d(h1, config.df_dim*4, name='dgl_h2_conv')))#16,16,16,248
         h3 = lrelu(dl_bn3(conv2d(h2, config.df_dim*8, name='dgl_h3_conv')))
-        h3_flat=tf.reshape(h3, [batch_size, -1])
+        dim3=np.prod(h3.get_shape().as_list()[1:])
+        h3_flat=tf.reshape(h3, [-1,dim3])
         D_labels_logits = linear(h3_flat, output_dim, 'dgl_h3_Label')
         D_labels = tf.nn.sigmoid(D_labels_logits)
         variables = tf.contrib.framework.get_variables(vs)
     return D_labels, D_labels_logits,variables
 
 def discriminator_on_z(image, config, reuse=None):
-    batch_size=image.shape[0]
-    with tf.variable_scope("disc_z_labeler") as vs:
+    batch_size=tf.shape(image)[0]
+    with tf.variable_scope("disc_z_labeler",reuse=reuse) as vs:
         dl_bn1 = batch_norm(name='dl_bn1')
         dl_bn2 = batch_norm(name='dl_bn2')
         dl_bn3 = batch_norm(name='dl_bn3')
@@ -142,7 +149,8 @@ def discriminator_on_z(image, config, reuse=None):
         h1 = lrelu(dl_bn1(conv2d(h0, config.df_dim*2, name='dzl_h1_conv')))#16,16,16,128
         h2 = lrelu(dl_bn2(conv2d(h1, config.df_dim*4, name='dzl_h2_conv')))#16,16,16,248
         h3 = lrelu(dl_bn3(conv2d(h2, config.df_dim*8, name='dzl_h3_conv')))
-        h3_flat=tf.reshape(h3, [batch_size, -1])
+        dim3=np.prod(h3.get_shape().as_list()[1:])
+        h3_flat=tf.reshape(h3, [-1,dim3])
         D_labels_logits = linear(h3_flat, config.z_dim, 'dzl_h3_Label')
         D_labels = tf.nn.tanh(D_labels_logits)
         variables = tf.contrib.framework.get_variables(vs)

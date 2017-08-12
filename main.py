@@ -35,52 +35,61 @@ TODO:
     pt_factorized=True doesn't work
         decide if pt_factorized is worse than without
 
+    intervention and conditioning code
+    writing conditioning right into causal controller
+        #That'll be faster because don't need to generate image for rejected samples
 
-    OLD:
-        Get rid of Supervisor. It's creating backwards compatability issues
-        Allow config to default to json during loading
-        Allow causal controller to train on its own without began (lower gpu mem)
+    it seems like to make multi gpu functional again, causal_controller has to be created twice
 
-        Allow batch_size PlaceHolder for causal controller
-            faster tvd calculation
-            larger batch might help pretraining(limited at 16 right now)
+CausalGAN: to test out:
 
-        speedup crosstab
-        allow only creation of causal controller graph (should also come with pt speedup)
+    config.label_type='discrete'
+    type_input_to_generator='labels'
+'''
 
-        #This should be switched for node.label
-            tf_parents=[self.z]+[node.label_logit for node in self.parents]
+'''
+
+Possible Sources of error:
+    had to rewrite minibatch_features(CausalGAN)
+    began data_format muckery
+
 
 
 
 '''
 
 '''
-Actually feeding labels works well: doens't need to be rounded and factorized.
 
-Feeding round(labels) instead of label_logits within cc made a huge difference
+>fixed by adding noise to real_labels
+Nan culprit:
+    self.d_on_z_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+              .minimize(self.g_loss_on_z, var_list=self.dz_vars)
+              #.minimize(self.g_loss_on_z + self.rec_loss_coeff*self.real_reconstruction_loss, var_list=self.dz_vars)
+even though self.rec_loss_coeff=0.0, droping this term got rid of nan loss
 
-Feeding real parents was a bit of a disaster. Not sure why.
-Try not doing that but with passing label instead of label_logit
-        print 'WARNING: cc passes labels and rounds them before use'
-        tf_parents=[self.z]+[tf.round(node.label) for node in self.parents]
+
+Running pretraining on 13 label graph
 
 '''
 
 
-def main():
+def get_trainer():
     print('tf: resetting default graph!')
     tf.reset_default_graph()#for repeated calls in ipython
+
 
     #TODO:
     ##if load_path:
         #load config files from dir
+    #except if pt_load_path, get cc_config from before
+
     ##else:
     config,_=get_config()
     cc_config,_=get_cc_config()
     dcgan_config,_=get_dcgan_config()
     began_config,_=get_began_config()
 
+    print('factorized:',cc_config.pt_factorized)
 
     prepare_dirs_and_logger(config)
     if not config.load_path:
@@ -109,22 +118,34 @@ def main():
 
     #Builds and loads specified models:
     trainer=Trainer(config,cc_config,model_config)
-
-
-    if config.dry_run:
-        #debug()
-        return trainer
-
-
-    #Do pretraining
-    if cc_config.is_pretrain:
-        trainer.pretrain_loop()
-
-    if model_config.is_train:
-        trainer.train_loop()
-
     return trainer
 
 
+def main(trainer):
+    #Do pretraining
+    if trainer.cc_config.is_pretrain:
+        trainer.pretrain_loop()
+
+    if trainer.model_config:
+        if trainer.model_config.is_train:
+            trainer.train_loop()
+
+
+
 if __name__ == "__main__":
-    trainer=main()
+    trainer=get_trainer()
+
+    #make ipython easier
+    sess=trainer.sess
+    cc=trainer.cc
+    if hasattr(trainer,'model'):
+        model=trainer.model
+
+
+    main(trainer)
+
+
+
+    #I wish there were a way to tell supervisor to allow further graph
+    #modifications so that if running this in ipython, more tensors could be created after
+

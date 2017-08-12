@@ -284,8 +284,6 @@ def cond2fetch( cond_dict=None, model=None, on_logits=True):
     return fetch_dict
 
 
-def once_sample(model, fetch, do_dict=None, step=None):
-    pass
 
 
 def interpret_dict( a_dict, model,n_times=1, on_logits=True):

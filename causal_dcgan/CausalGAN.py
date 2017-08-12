@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division,print_function
 from figure_scripts.pairwise import crosstab
 from figure_scripts.sample import intervention2d
 import os
@@ -12,8 +12,9 @@ import pandas as pd
 import sys
 import scipy.stats as stats
 
-from models import GeneratorCNN,DiscriminatorCNN
-from utils import *
+from models import GeneratorCNN,DiscriminatorCNN,discriminator_labeler
+from models import discriminator_gen_labeler,discriminator_on_z
+
 from tensorflow.core.framework import summary_pb2
 from tensorflow.contrib import slim
 
@@ -47,6 +48,44 @@ def tf_truncexpon(batch_size,rate,right):
 
     return tExp
 
+def add_texp_noise(batch_size,labels01):
+    labels=0.3+labels01*0.4#{0.3,0.7}
+    #labels=0.5+labels*0.2#{0.3,0.7}#wrong
+    lower, upper, scale = 0, 0.2, 1/25.0
+    lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
+    #before #t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
+    #b*scale was the right-boundary
+    b=(upper-lower)/scale
+    b_tail=(upper_tail-lower_tail)/scale_tail
+
+    s=tf_truncexpon(batch_size,rate=b,right=upper)
+    s_tail=tf_truncexpon(batch_size,rate=b_tail,right=upper_tail)
+    labels = labels + ((0.5-labels)/0.2)*s + ((-0.5+labels)/0.2)*s_tail
+    return labels
+
+    #  COPY of OLD NOISE MODEL so murat can verify is equivalent
+    #    note that for this old code, incoming u was {-1,1}: now is {0,1}
+    #          u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
+    #          lower, upper, scale = 0, 0.2, 1/25.0
+    #          t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
+    #          s = t.rvs(1)#[0,0.2]
+    #          lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
+    #          t_tail = stats.truncexpon(b=(upper_tail-lower_tail)/scale_tail, loc=lower, scale=scale_tail)
+    #          s_tail = t_tail.rvs(1)#[0,0.3]
+    #          u = u + ((0.5-u)/0.2)*s + ((-0.5+u)/0.2)*s_tail
+
+#REFERENCE: Uniform noise model
+#OLD noise model that would need to be replicated here
+#          p = self.means[name]
+#          u = 0.5*(np.array(u)+1)
+#          if u == 1:
+#            u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
+#          elif u == 0:
+#            u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
+#          return u
+#        def p_independent_noise(u):
+#          return u
+
 
 class CausalGAN(object):
     model_type='dcgan'
@@ -56,7 +95,8 @@ class CausalGAN(object):
         self.batch_size = batch_size #a tensor
         self.config=config
         self.model_dir=config.model_dir
-        self.TINY = 10**-8
+        self.TINY = 10**-6#a change
+        #self.TINY = 10**-8
 
         self.step = tf.Variable(0, name='step', trainable=False)
         self.inc_step=tf.assign(self.step,self.step+1)
@@ -78,7 +118,8 @@ class CausalGAN(object):
         self.k_t = tf.get_variable(name='k_t',initializer=1.,trainable=False) # kt is the closed loop feedback coefficient to balance the loss between LR and LG
         #gamma_k#1.0#tolerates up to labelerR = 2 labelerG
 
-        #self.rec_loss_coeff = 0.0 #This wasn't doing anything.. discarding
+        self.rec_loss_coeff = 0.0
+        print('WARNING:CausalGAN.rec_loss_coff=',self.rec_loss_coeff)
 
         self.hidden_size=config.critic_hidden_size
 
@@ -101,8 +142,10 @@ class CausalGAN(object):
         '''
         config=self.config#used many times
 
+        #dictionaries
         self.real_inputs=real_inputs
         self.fake_inputs=fake_inputs
+
         n_labels=len(fake_inputs)
         self.x = self.real_inputs.pop('x')#[0,255]
         x = norm_img(self.x)#put in [-1,1]
@@ -118,62 +161,37 @@ class CausalGAN(object):
         #Fake labels will already be nearly discrete
         if config.round_fake_labels: #default
             fake_labels=tf.round(self.fake_labels)#{0,1}
+            real_labels=tf.round(self.real_labels)#should already be rounded
         else:
             fake_labels=self.fake_labels#{0,1}
-
+            real_labels=self.real_labels
 
 
         if config.label_type=='discrete':
-            fake_labels=0.5+fake_labels*0.2#{0.3,0.7}
+            fake_labels=0.3+fake_labels*0.4#{0.3,0.7}
+            real_labels=0.3+real_labels*0.4#{0.3,0.7}
 
         elif config.label_type=='continuous':
-
             if config.label_specific_noise:
                 #TODO#uniform
                 raise Exception('label_specific_noise=True not yet implemented')
-                #OLD noise model that would need to be replicated here
-                #          p = self.means[name]
-                #          u = 0.5*(np.array(u)+1)
-                #          if u == 1:
-                #            u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
-                #          elif u == 0:
-                #            u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-                #          return u
-                #        def p_independent_noise(u):
-                #          return u
             else:#default
-                fake_labels=0.5+fake_labels*0.2#{0.3,0.7}
-                lower, upper, scale = 0, 0.2, 1/25.0
-                lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
-                #before #t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-                #b*scale was the right-boundary
-                b=(upper-lower)/scale
-                b_tail=(upper_tail-lower_tail)/scale_tail
-
-                s=tf_truncexpon(self.batch_size,rate=b,right=upper)
-                s_tail=tf_truncexpon(self.batch_size,rate=b_tail,right=upper_tail)
-                fake_labels = fake_labels + ((0.5-fake_labels)/0.2)*s + ((-0.5+fake_labels)/0.2)*s_tail
-                #  COPY of OLD NOISE MODEL so murat can verify is equivalent
-                #          u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
-                #          lower, upper, scale = 0, 0.2, 1/25.0
-                #          t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-                #          s = t.rvs(1)#[0,0.2]
-                #          lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
-                #          t_tail = stats.truncexpon(b=(upper_tail-lower_tail)/scale_tail, loc=lower, scale=scale_tail)
-                #          s_tail = t_tail.rvs(1)#[0,0.3]
-                #          u = u + ((0.5-u)/0.2)*s + ((-0.5+u)/0.2)*s_tail
+                fake_labels=add_texp_noise(self.batch_size,fake_labels)
+                real_labels=add_texp_noise(self.batch_size,real_labels)
 
             tf.summary.histogram('noisy_fake_labels',fake_labels)
+            tf.summary.histogram('noisy_real_labels',real_labels)
 
+        self.fake_labels_logits= -tf.log(1/(fake_labels+self.TINY)-1)
+        self.real_labels_logits = -tf.log(1/(real_labels+self.TINY)-1)
 
-
-        self.fake_labels_logits= -tf.log(1/(self.fake_labels+self.TINY)-1)
-        self.real_labels_logits = -tf.log(1/(self.real_labels+self.TINY)-1)
+        self.noisy_fake_labels=fake_labels
+        self.noisy_real_labels=real_labels
 
         if config.type_input_to_generator=='labels':
             self.fake_labels_inputs=fake_labels
-            self.real_labels_inputs=self.real_labels#for reconstruction
-        elif config.type_input_to_generator=='logits':
+            self.real_labels_inputs=real_labels#for reconstruction
+        elif config.type_input_to_generator=='logits': #default
             self.fake_labels_inputs=self.fake_labels_logits
             self.real_labels_inputs=self.real_labels_logits
 
@@ -186,37 +204,44 @@ class CausalGAN(object):
 
 
         G,self.g_vars = GeneratorCNN(self.z,config)#[-1,1]float
-        self.G=denorm_img(self.G)#[0,255]
+        self.G=denorm_img(G)#[0,255]
 
         #Discriminator
         D_on_real=DiscriminatorCNN(x,config)
-        D_on_fake=DiscriminatorCNN(G,config)
+        D_on_fake=DiscriminatorCNN(G,config,reuse=True)
+        #features nan
         self.D, self.D_logits ,self.features_to_estimate_z_on_input ,self.d_vars=D_on_real
         self.D_,self.D_logits_,self.features_to_estimate_z_on_generated,_ =D_on_fake
 
         #Discriminator Labeler
-        self.D_labels_for_real, self.D_labels_for_real_logits, dl_vars =\
+        #okay
+        self.D_labels_for_real, self.D_labels_for_real_logits, self.dl_vars =\
                 discriminator_labeler(x,n_labels,config)
+        #nan
         self.D_labels_for_fake, self.D_labels_for_fake_logits, _ =\
                 discriminator_labeler(G,n_labels,config,reuse=True)
 
 
         #Other discriminators
+        #okay
         self.D_gen_labels_for_fake,self.D_gen_labels_for_fake_logits,self.dl_gen_vars=\
-            self.discriminator_gen_labeler(self.G,n_labels,config)
+            discriminator_gen_labeler(G,n_labels,config)
+            #discriminator_gen_labeler(self.G,n_labels,config)
 
-        self.D_on_z,self.dz_vars=discriminator_on_z(self.features_to_estimate_z_on_generated,config)
-        self.D_on_z_real,_ =discriminator_on_z(self.features_to_estimate_z_on_input,config,reuse = True)
+        #nan
+        self.D_on_z_real,_ =discriminator_on_z(self.features_to_estimate_z_on_input,config)
+        self.D_on_z,self.dz_vars=discriminator_on_z(self.features_to_estimate_z_on_generated,config,reuse=True)
 
 
         #order of concat matters
+        #nan,{-18,inf}
         self.z_for_real = tf.concat([self.D_on_z_real,self.real_labels_inputs], axis=1 , name ='z_real')
+        #nan this line
         self.inputs_reconstructed,_ = GeneratorCNN(self.z_for_real,self.config, reuse = True)
 
         tf.summary.histogram('d',self.D)
         tf.summary.histogram('d_',self.D_)
         tf.summary.image('G',self.G,max_outputs=10)
-
 
 
         def sigmoid_cross_entropy_with_logits(x, y):
@@ -227,7 +252,7 @@ class CausalGAN(object):
             self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
             self.g_lossGAN = tf.reduce_mean(
               -sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_))+sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
-        elif self.loss_function == 1:
+        elif self.loss_function == 1:#default
             self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
             self.g_lossGAN = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_logits_, tf.ones_like(self.D_)))
         elif self.loss_function == 2:
@@ -252,10 +277,11 @@ class CausalGAN(object):
         tf.summary.scalar("g_loss_labelerG",self.g_lossLabels_GLabeler)
 
         self.g_loss_on_z = tf.reduce_mean(tf.abs(self.z_gen - self.D_on_z)**2)
-        self.real_reconstruction_loss = tf.reduce_mean(tf.abs(self.inputs-self.inputs_reconstructed)**2)
+        #x is the real input image
+        self.real_reconstruction_loss = tf.reduce_mean(tf.abs(x-self.inputs_reconstructed)**2)
+        #okay
 
         tf.summary.scalar('real_reconstruction_loss', self.real_reconstruction_loss)
-        tf.summary.scalar('rec_loss_coeff',self.rec_loss_coeff)
 
         self.d_loss_real = tf.reduce_mean(
           sigmoid_cross_entropy_with_logits(self.D_logits, tf.ones_like(self.D)))
@@ -267,8 +293,8 @@ class CausalGAN(object):
 
         tf.summary.scalar('g_loss_labelerR', self.g_lossLabels)
         tf.summary.scalar('g_lossGAN', self.g_lossGAN)
-        tf.summary.scalar(' g_loss_on_z', self.g_loss_on_z)
-        tf.summary.scalar('coeff_of_-LabelerG_loss, k_t', self.k_t)
+        tf.summary.scalar('g_loss_on_z', self.g_loss_on_z)
+        tf.summary.scalar('coeff_of_negLabelerG_loss_k_t', self.k_t)
         tf.summary.scalar('gamma_k_summary', self.gamma_k)
 
         self.d_labelLossReal = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_real_logits,self.real_labels))
@@ -288,30 +314,38 @@ class CausalGAN(object):
 
     def build_train_op(self):
         config=self.config
+        #okay
         self.d_gen_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_lossLabels_GLabeler, var_list=self.dl_gen_vars)
+
+        #okay
         self.d_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.d_labelLossReal, var_list=self.dl_vars)
+        #okay
         self.d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.d_loss, var_list=self.d_vars)
+        #okay
         self.g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_loss, var_list=self.g_vars)
+
+        #nan1 alone#real labels were not normalized
         self.d_on_z_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_loss_on_z + self.rec_loss_coeff*self.real_reconstruction_loss, var_list=self.dz_vars)
+                  #.minimize(self.g_loss_on_z, var_list=self.dz_vars)
         self.k_t_update = tf.assign(self.k_t, self.k_t*tf.exp(-1.0/3000.0) )
 
 
         #Expectation is that self.train_op will be run exactly once per iteration.
         #Other ops may also be run individually
             #do these control deps everytime you run once
-        with tf.control_dependencies([self.k_t_update,self.inc_step]):
+        #with tf.control_dependencies([self.k_t_update,self.inc_step]):
             #Run everything once
-            self.train_op=tf.group(self.d_gen_label_optim,self.d_label_optim,self.d_optim,self.g_optim,self.d_on_z_optim)
+        self.train_op=tf.group(self.d_gen_label_optim,self.d_label_optim,self.d_optim,self.g_optim,self.d_on_z_optim)
 
     def build_summary_op(self):
         self.summary_op=tf.summary.merge_all()
 
-    def train_step(sess,counter):
+    def train_step(self,sess,counter):
         '''
         This is a generic function that will be called by the Trainer class
         once per iteration. The simplest body for this part would be simply
@@ -332,7 +366,7 @@ class CausalGAN(object):
             if np.mod(counter, 3) == 0:
 
                 sess.run(self.g_optim)
-                sess.run(self.train_op)#all ops
+                sess.run([self.train_op,self.k_t_update,self.inc_step])#all ops
 
                 #(equivalent)OLD:
                 #_ = self.sess.run([g_optim], feed_dict=fd)
@@ -340,8 +374,8 @@ class CausalGAN(object):
                 #_, _ = self.sess.run([k_t_update,g_optim], feed_dict=fd)
 
             else:
-                sess.run([k_t_update, g_optim])
-                sess.run(g_optim)
+                sess.run([self.g_optim, self.k_t_update ,self.inc_step])
+                sess.run(self.g_optim)
 
                 #(equivalent)OLD:
                 #_, _ = self.sess.run([k_t_update, g_optim], feed_dict=fd)

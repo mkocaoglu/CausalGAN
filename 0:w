@@ -58,7 +58,7 @@ class Trainer(object):
         print('setting up data')
         self.data=DataLoader(self.cc.label_names,config)
 
-        if self.cc_config.is_pretrain or self.config.build_pretrain:
+        if self.cc_config.is_pretrain or self.cc_config.build_all:
             print('setup pretrain')
             #queue system to feed labels quickly. Does not queue images
             label_queue= self.data.get_label_queue(loader_batch_size)
@@ -97,7 +97,7 @@ class Trainer(object):
                     #allow future gpu to use same variables
                     tf.get_variable_scope().reuse_variables()
 
-            if self.model_config.is_train or self.config.build_train:
+            if self.model_config.is_train:
                 self.model.build_train_op()
                 self.model.build_summary_op()
 
@@ -269,18 +269,17 @@ class Trainer(object):
         #Train loop
         print('Entering train loop..')
         for counter in trange(num_iter):
-            #print('counter',counter)
-            #maybe a statement warning when losses are Nan?
+            print('counter',counter)
 
             self.model.train_step(self.sess,counter)
 
-            #scalar and histogram summaries
+            #scalar summaries
             if counter % self.config.log_step == 0:
                 step,summ=self.sess.run([self.model.step,self.model.summary_op])
                 self.summary_writer.add_summary(summ,step)
                 self.summary_writer.flush()
 
-            #expensive summaries
+            #image saves
             if counter % (self.config.log_step * 50) == 0:
                 self.causal_sampling([8,16])
                 self.label_interpolation()

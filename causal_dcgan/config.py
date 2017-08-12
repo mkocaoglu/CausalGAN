@@ -104,6 +104,9 @@ misc_arg.add_argument('--is_train',type=str2bool,default=False,
                       help='''whether to enter the image training loop''')
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs')
+misc_arg.add_argument('--log_step', type=int, default=100,
+                     help='''how often to log stuff. Sample images are created
+                     every 10*log_step''')
 
 
 ##REFERENCE

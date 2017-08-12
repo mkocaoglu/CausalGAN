@@ -329,7 +329,7 @@ class DCGAN(object):
         u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
       elif u == 0:
         u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-      return u 
+      return u
     def p_independent_noise(u):
       u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
       lower, upper, scale = 0, 0.2, 1/25.0
@@ -344,13 +344,13 @@ class DCGAN(object):
     def label_mapper(u,name, label_type):
       if label_type == 'discrete':
         return 0.5+np.array(u)*0.2
-      elif label_type == 'continuous':    
+      elif label_type == 'continuous':
         if self.label_specific_noise:
           return p_dependent_noise(u,name)
         else:
           return p_independent_noise(u)
       else:
-        raise Exception("label type is misspecified!")  
+        raise Exception("label type is misspecified!")
 
 
     def make_summary(name, val):

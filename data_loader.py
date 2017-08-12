@@ -21,7 +21,8 @@ class DataLoader(object):
     For multiple gpu, the strategy here is to have 1 queue with 2xbatch_size
     then use tf.split within trainer.train()
     '''
-    def __init__(self,config):
+    def __init__(self,label_names,config):
+        self.label_names=label_names
         self.config=config
         self.scale_size=config.input_scale_size
         #self.data_format=config.data_format
@@ -36,15 +37,17 @@ class DataLoader(object):
         setattr(config,'attr_file',attr_file)
 
         attributes = pd.read_csv(config.attr_file,delim_whitespace=True) #+-1
-        self.attr= 0.5*(attributes+1)
+        #Store all labels for reference
+        self.all_attr= 0.5*(attributes+1)# attributes is 0,1)
+        self.all_label_means=self.all_attr.mean()
 
-        label_means=attributes.mean()# attributes is 0,1
-        p=label_means.values
+        #but only return desired labels in queues
+        self.attr=self.all_attr[label_names]
+        self.label_means=self.attr.mean()# attributes is 0,1
 
         self.image_dir=os.path.join(config.data_path,'images')
         self.filenames=[os.path.join(self.image_dir,j) for j in self.attr.index]
 
-        self.label_names=self.attr.columns
         self.num_examples_per_epoch=len(self.filenames)
         self.min_fraction_of_examples_in_queue=0.001#go faster during debug
         #self.min_fraction_of_examples_in_queue=0.01#have enough to do shuffling

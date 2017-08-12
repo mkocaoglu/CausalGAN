@@ -16,13 +16,17 @@ def add_argument_group(name):
 
 #Network
 net_arg = add_argument_group('Network')
-net_arg.add_argument('--input_scale_size', type=int, default=64,
-                     help='input image will be resized with the given value as width and height')
-#net_arg.add_argument('--graph',type=str,default='big_causal_graph')
+net_arg.add_argument('--c_dim',type=int, default=3,
+                     help='''number of color channels. I wouldn't really change
+                     this from 3''')
 net_arg.add_argument('--conv_hidden_num', type=int, default=128,
                      choices=[64, 128],help='n in the paper')
 net_arg.add_argument('--separate_labeler', type=str2bool, default=True)
-net_arg.add_argument('--z_dim', type=int, default=64, choices=[64, 128])
+net_arg.add_argument('--z_dim', type=int, default=64, choices=[64, 128],
+                    help='''dimension of the noise input to the generator along
+                    with the labels''')
+net_arg.add_argument('--z_num', type=int, default=64,
+                    help='''dimension of the hidden space of the autoencoder''')
 
 
 # Data
@@ -30,10 +34,6 @@ data_arg = add_argument_group('Data')
 data_arg.add_argument('--dataset', type=str, default='celebA')
 data_arg.add_argument('--split', type=str, default='train')
 data_arg.add_argument('--batch_size', type=int, default=16)
-data_arg.add_argument('--grayscale', type=str2bool, default=False)
-#data_arg.add_argument('--num_worker', type=int, default=4)
-data_arg.add_argument('--num_worker', type=int, default=24,
-                     help='number of threads to use for loading and preprocessing data')
 
 # Training / test parameters
 train_arg = add_argument_group('Training')
@@ -48,7 +48,7 @@ train_arg.add_argument('--label_loss',type=str,default='squarediff',choices=['xe
 train_arg.add_argument('--lr_update_step', type=int, default=100000, choices=[100000, 75000])
 train_arg.add_argument('--max_step', type=int, default=50000)
 train_arg.add_argument('--noisy_labels', type=str2bool, default=False)
-train_arg.add_argument('--num_iter',type=int,default=100000,
+train_arg.add_argument('--num_iter',type=int,default=250000,
                        help='the number of training iterations to run the model for')
 train_arg.add_argument('--optimizer', type=str, default='adam')
 train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
@@ -58,7 +58,7 @@ train_arg.add_argument('--round_fake_labels',type=str2bool,default=True,
 train_arg.add_argument('--use_gpu', type=str2bool, default=True)
 train_arg.add_argument('--num_gpu', type=int, default=1,
                       help='specify 0 for cpu. If k specified, will default to\
-                      first k of n detected. If use_gpu=True but num_gpu not\
+                      first k of n gpus detected. If use_gpu=True but num_gpu not\
                       specified will default to 1')
 
 
@@ -85,16 +85,13 @@ misc_arg.add_argument('--build_all', type=str2bool, default=False,
 misc_arg.add_argument('--data_dir', type=str, default='data')
 misc_arg.add_argument('--dry_run', action='store_true')
 #misc_arg.add_argument('--dry_run', type=str2bool, default='False')
-misc_arg.add_argument('--log_step', type=int, default=100)
-misc_arg.add_argument('--save_step', type=int, default=5000)
+misc_arg.add_argument('--log_step', type=int, default=100,
+                     help='''how often to log stuff. Sample images are created
+                     every 10*log_step''')
+#misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--num_log_samples', type=int, default=3)
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs')
-misc_arg.add_argument('--test_data_path', type=str, default=None,
-                      help='directory with images which will be used in test sample generation')
-#misc_arg.add_argument('--sample_per_image', type=int, default=64,
-#                      help='# of sample per image during test sample generation')
-misc_arg.add_argument('--random_seed', type=int, default=123)
 
 #Doesn't do anything atm
 #misc_arg.add_argument('--visualize', action='store_true')
