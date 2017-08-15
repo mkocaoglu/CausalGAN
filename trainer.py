@@ -383,7 +383,6 @@ class Trainer(object):
         save_name_intvcond=os.path.join(intv_v_conditioning_dir,'{}_intvcond_{}={}'+shape_str+ext)
 
 
-
         half_shape=[img_shape[0]//2, img_shape[1]]
         N=np.prod(half_shape)
 

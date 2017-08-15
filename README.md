@@ -1,19 +1,22 @@
-# Causal(BE)GAN in tensorflow
+# Causal(BE)GAN in Tensorflow
 
-<>Tensorflow implementation of [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717).
+# (test comment)
+
+<> (Tensorflow implementation of [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717).)
+
 Authors' Tensorflow implementation of [CausalGAN: Learning Implicit Causal Models with Adversarial Training]
 
-<> ![alt tag](./assets/model.png)
-
+![alt tag](./assets/314393_began_Bald_topdo1_botcond1.pdf)
+### top: samples from do(Bald=1); bottom: samples from cond(Bald=1)
+![alt tag](./assets/314393_began_Mustache_topdo1_botcond1.pdf)
+### top: samples from do(Mustache=1); bottom: samples from cond(Mustache=1)
 
 ## Requirements
-
 - Python 2.7
 - [Pillow](https://pillow.readthedocs.io/en/4.0.x/)
 - [tqdm](https://github.com/tqdm/tqdm)
 - [requests](https://github.com/kennethreitz/requests) (Only used for downloading CelebA dataset)
 - [TensorFlow 1.1.0](https://github.com/tensorflow/tensorflow)
-
 
 ## Usage
 
@@ -48,15 +51,27 @@ Tensorboard visualization of the most recently created model is simply (as long 
     $ python tboard.py
 
 
+To interact with an already trained model I recommend the following procedure:
 
-    $ python main.py --dataset=YOUR_DATASET_NAME --use_gpu=True
+    ipython
+    In [1]: %run main --causal_model 'my_model_key' --load_path './logs/celebA_0815_170635 --model_type 'began'
 
-To test a model (use your `load_path`):
+For example to sample N=22 interventional images from do(Smiling=1) (as long as your causal graph includes a "Smiling" node:
 
-    $ python main.py --dataset=CelebA --load_path=CelebA_0405_124806 --use_gpu=True --is_train=False --split valid
+    In [2]: sess.run(model.G,{cc.Smiling.label:np.ones((22,1), trainer.batch_size:22})
+
+Conditional sampling is most efficiently done through 2 session calls: the first to cc.sample_label to get, and the second feeds that sampled label to get an image. See trainer.causal_sampling for a more extensive example. Note that is also possible combine conditioning and intervention during sampling.
+
+    In [3]: lab_samples=cc.sample_label(sess,do_dict={'Bald':1}, cond_dict={'Mustache':1},N=22)
+
+will sample all labels from the joint distribution conditioned on Mustache=1 and do(Bald=1). These label samples can be turned into image samples as follows:
+
+    In [4]: feed_dict={cc.label_dict[k]:v for k,v in lab_samples.iteritems()}
+    In [5]: feed_dict[trainer.batch_size]=22
+    In [6]: images=sess.run(trainer.G,feed_dict)
 
 
-## Configuration
+### Configuration
 Since this really controls training of 3 different models (causal_controller, CausalGAN, and CausalBEGAN), many configuration options are available. To make things managable, there are 4 files corresponding to configurations specific to different parts of the model. Not all configuration combinations are tested. Default parameters are gauranteed to work.
 
 configurations:
@@ -107,9 +122,8 @@ For convenience, the configurations used saved in 4 .json files in the model dir
 
 ## Related works
 <---
+- [BEGAN-tensorflow](https://github.com/carpedm20/BEGAN-tensorflow)initial fork
 - [DCGAN-tensorflow](https://github.com/carpedm20/DCGAN-tensorflow)
-- [DiscoGAN-pytorch](https://github.com/carpedm20/DiscoGAN-pytorch)
-- [simulated-unsupervised-tensorflow](https://github.com/carpedm20/simulated-unsupervised-tensorflow)
 -->
 
 ## Authors
