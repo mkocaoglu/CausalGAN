@@ -10,36 +10,38 @@ import subprocess
 from tqdm import tqdm
 from collections import OrderedDict
 
-def download(url, path):
-    '''
-    wanted to download attributes file
-    mod from https://github.com/SKTBrain/DiscoGAN/blob/master/datasets/download.py
-    '''
-    filename = url.split('/')[-1]
-    filepath = os.path.join(path, filename)
-    u = urllib.request.urlopen(url)
-    f = open(filepath, 'wb')
-    filesize = int(u.headers["Content-Length"])
-    print("Downloading: %s Bytes: %s" % (filename, filesize))
-
-    downloaded = 0
-    block_sz = 8192
-    status_width = 70
-    while True:
-        buf = u.read(block_sz)
-        if not buf:
-            print('')
-            break
-        else:
-            print('', end='\r')
-        downloaded += len(buf)
-        f.write(buf)
-        status = (("[%-" + str(status_width + 1) + "s] %3.2f%%") %
-                  ('=' * int(float(downloaded) / filesize * status_width) + '>', downloaded * 100. / filesize))
-        print(status, end='')
-        sys.stdout.flush()
-    f.close()
-    return filepath
+#import sys
+#from six.moves import urllib
+#def download(url, path):
+#    '''
+#    wanted to download attributes file
+#    mod from https://github.com/SKTBrain/DiscoGAN/blob/master/datasets/download.py
+#    '''
+#    filename = url.split('/')[-1]
+#    filepath = os.path.join(path, filename)
+#    u = urllib.request.urlopen(url)
+#    f = open(filepath, 'wb')
+#    #filesize = int(u.headers["Content-Length"])
+#    #print("Downloading: %s Bytes: %s" % (filename, filesize))
+#
+#    downloaded = 0
+#    block_sz = 8192
+#    status_width = 70
+#    while True:
+#        buf = u.read(block_sz)
+#        if not buf:
+#            print('')
+#            break
+#        else:
+#            print('', end='\r')
+#        downloaded += len(buf)
+#        f.write(buf)
+#        #status = (("[%-" + str(status_width + 1) + "s] %3.2f%%") %
+#        #          ('=' * int(float(downloaded) / filesize * status_width) + '>', downloaded * 100. / filesize))
+#        #print(status, end='')
+#        sys.stdout.flush()
+#    f.close()
+#    return filepath
 
 
 def download_file_from_google_drive(id, destination):
@@ -99,6 +101,10 @@ def download_celeb_a(base_path):
         os.mkdir(data_path)
     os.rename(os.path.join(base_path, "img_align_celeba"), images_path)
     os.remove(save_path)
+
+    attribute_url = 'https://www.dropbox.com/sh/8oqt9vytwxb3s4r/AAB06FXaQRUNtjW9ntaoPGvCa?dl=0'
+    filepath = download(attribute_url, dirpath)
+
 
 def prepare_data_dir(path = './data'):
     if not os.path.exists(path):
