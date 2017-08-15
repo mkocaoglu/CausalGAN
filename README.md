@@ -18,7 +18,7 @@ Authors' Tensorflow implementation of [CausalGAN: Learning Implicit Causal Model
 - [requests](https://github.com/kennethreitz/requests) (Only used for downloading CelebA dataset)
 - [TensorFlow 1.1.0](https://github.com/tensorflow/tensorflow)
 
-## Usage
+## Getting Started
 
 First download [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) datasets with:
 
@@ -26,6 +26,7 @@ First download [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) datase
     $ brew install p7zip # Mac
     $ python download.py
 
+## Usage
 
 The Causal(BE)GAN code factorizes into two components, which can be trained or loaded independently: the causal_controller module specifies the model which learns a causal generative model over labels, and the causal_dcgan or causal_began modules learn a GAN over images given those labels. We denote training the causal controller over labels as "pretraining" (--is_pretrain=True), and training a GAN over images given labels as "training" (--is_train=True)
 
