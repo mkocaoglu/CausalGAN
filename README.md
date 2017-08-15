@@ -54,7 +54,7 @@ Tensorboard visualization of the most recently created model is simply (as long 
 To interact with an already trained model I recommend the following procedure:
 
     ipython
-    In [1]: %run main --causal_model 'my_model_key' --load_path './logs/celebA_0815_170635 --model_type 'began'
+    In [1]: %run main --causal_model 'my_model_key' --load_path './logs/celebA_0815_170635' --model_type 'began'
 
 For example to sample N=22 interventional images from do(Smiling=1) (as long as your causal graph includes a "Smiling" node:
 
