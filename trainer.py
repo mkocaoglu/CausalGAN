@@ -14,8 +14,6 @@ from figure_scripts.pairwise import crosstab
 
 
 
-
-
 class Trainer(object):
 
     def __init__(self,config,cc_config,model_config=None):
