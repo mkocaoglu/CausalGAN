@@ -10,40 +10,6 @@ import subprocess
 from tqdm import tqdm
 from collections import OrderedDict
 
-#import sys
-#from six.moves import urllib
-#def download(url, path):
-#    '''
-#    wanted to download attributes file
-#    mod from https://github.com/SKTBrain/DiscoGAN/blob/master/datasets/download.py
-#    '''
-#    filename = url.split('/')[-1]
-#    filepath = os.path.join(path, filename)
-#    u = urllib.request.urlopen(url)
-#    f = open(filepath, 'wb')
-#    #filesize = int(u.headers["Content-Length"])
-#    #print("Downloading: %s Bytes: %s" % (filename, filesize))
-#
-#    downloaded = 0
-#    block_sz = 8192
-#    status_width = 70
-#    while True:
-#        buf = u.read(block_sz)
-#        if not buf:
-#            print('')
-#            break
-#        else:
-#            print('', end='\r')
-#        downloaded += len(buf)
-#        f.write(buf)
-#        #status = (("[%-" + str(status_width + 1) + "s] %3.2f%%") %
-#        #          ('=' * int(float(downloaded) / filesize * status_width) + '>', downloaded * 100. / filesize))
-#        #print(status, end='')
-#        sys.stdout.flush()
-#    f.close()
-#    return filepath
-
-
 def download_file_from_google_drive(id, destination):
     URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
@@ -105,6 +71,14 @@ def download_celeb_a(base_path):
     attribute_url = 'https://www.dropbox.com/sh/8oqt9vytwxb3s4r/AAB06FXaQRUNtjW9ntaoPGvCa?dl=0'
     filepath = download(attribute_url, dirpath)
 
+    download_attr_file(data_path)
+
+
+def download_attr_file(data_path):
+    attr_gdID='0B7EVK8r0v71pblRyaVFSWGxPY0U'
+    attr_fname=os.path.join(data_path,'list_attr_celeba.txt')
+    download_file_from_google_drive(attr_gdID, attr_fname)
+    delete_top_line(attr_fname)#make pandas readable
 
 def prepare_data_dir(path = './data'):
     if not os.path.exists(path):
@@ -145,6 +119,10 @@ def add_splits(base_path):
     for i in range(VALID_STOP, NUM_EXAMPLES):
         basename = "{:06d}.jpg".format(i+1)
         check_link(images_path, basename, test_dir)
+
+def delete_top_line(txt_fname):
+    lines=open(txt_fname,'r').readlines()
+    open(txt_fname,'w').writelines(lines[1:])
 
 if __name__ == '__main__':
     base_path = './data'
