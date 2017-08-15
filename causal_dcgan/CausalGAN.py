@@ -61,7 +61,7 @@ def add_texp_noise(batch_size,labels01):
     s=tf_truncexpon(batch_size,rate=b,right=upper)
     s_tail=tf_truncexpon(batch_size,rate=b_tail,right=upper_tail)
     labels = labels + ((0.5-labels)/0.2)*s + ((-0.5+labels)/0.2)*s_tail
-    return labels
+    return labels, [s,s_tail]
 
     #  COPY of OLD NOISE MODEL so murat can verify is equivalent
     #    note that for this old code, incoming u was {-1,1}: now is {0,1}
@@ -154,9 +154,7 @@ class CausalGAN(object):
         self.real_labels=tf.concat(self.real_inputs.values(),-1)
         self.fake_labels=tf.concat(self.fake_inputs.values(),-1)
 
-
         ##BEGIN manipulating labels##
-
 
         #Fake labels will already be nearly discrete
         if config.round_fake_labels: #default
@@ -172,12 +170,18 @@ class CausalGAN(object):
             real_labels=0.3+real_labels*0.4#{0.3,0.7}
 
         elif config.label_type=='continuous':
+
+            #this is so that they can be set to 0 in label_interpolation
+            self.noise_variables=[]
+
             if config.label_specific_noise:
-                #TODO#uniform
+                #TODO#uniform see above #REFERENCE
                 raise Exception('label_specific_noise=True not yet implemented')
             else:#default
-                fake_labels=add_texp_noise(self.batch_size,fake_labels)
-                real_labels=add_texp_noise(self.batch_size,real_labels)
+                fake_labels,nvfake=add_texp_noise(self.batch_size,fake_labels)
+                real_labels,nvreal=add_texp_noise(self.batch_size,real_labels)
+                self.noise_variables.extend(nvfake)
+                self.noise_variables.extend(nvreal)
 
             tf.summary.histogram('noisy_fake_labels',fake_labels)
             tf.summary.histogram('noisy_real_labels',real_labels)
@@ -247,7 +251,7 @@ class CausalGAN(object):
         def sigmoid_cross_entropy_with_logits(x, y):
             return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
 
-        #Add some comments please
+        #TODO: Add some comments please
         if self.loss_function == 0:
             self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
             self.g_lossGAN = tf.reduce_mean(
@@ -279,7 +283,6 @@ class CausalGAN(object):
         self.g_loss_on_z = tf.reduce_mean(tf.abs(self.z_gen - self.D_on_z)**2)
         #x is the real input image
         self.real_reconstruction_loss = tf.reduce_mean(tf.abs(x-self.inputs_reconstructed)**2)
-        #okay
 
         tf.summary.scalar('real_reconstruction_loss', self.real_reconstruction_loss)
 
@@ -289,7 +292,9 @@ class CausalGAN(object):
           sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
 
         self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
-        self.g_loss_without_labels = self.g_lossGAN
+
+        #not used in meat_and_potatoes.py ... omitting...
+        #self.g_loss_without_labels = self.g_lossGAN
 
         tf.summary.scalar('g_loss_labelerR', self.g_lossLabels)
         tf.summary.scalar('g_lossGAN', self.g_lossGAN)
@@ -314,24 +319,22 @@ class CausalGAN(object):
 
     def build_train_op(self):
         config=self.config
-        #okay
-        self.d_gen_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                  .minimize(self.g_lossLabels_GLabeler, var_list=self.dl_gen_vars)
 
-        #okay
-        self.d_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                  .minimize(self.d_labelLossReal, var_list=self.dl_vars)
-        #okay
-        self.d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-                  .minimize(self.d_loss, var_list=self.d_vars)
-        #okay
         self.g_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_loss, var_list=self.g_vars)
 
-        #nan1 alone#real labels were not normalized
+        self.d_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                  .minimize(self.d_loss, var_list=self.d_vars)
+
+        self.d_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                  .minimize(self.d_labelLossReal, var_list=self.dl_vars)
+
+        self.d_gen_label_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
+                  .minimize(self.g_lossLabels_GLabeler, var_list=self.dl_gen_vars)
+
         self.d_on_z_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_loss_on_z + self.rec_loss_coeff*self.real_reconstruction_loss, var_list=self.dz_vars)
-                  #.minimize(self.g_loss_on_z, var_list=self.dz_vars)
+
         self.k_t_update = tf.assign(self.k_t, self.k_t*tf.exp(-1.0/3000.0) )
 
 

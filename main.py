@@ -48,6 +48,20 @@ CausalGAN: to test out:
 '''
 
 '''
+Try now without labels
+    #self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
+    #self.g_loss = self.g_lossGAN + self.g_lossLabels
+    self.g_loss = self.g_lossGAN
+
+
+
+>Still didn't work
+Trying out dcgan just with vanilla generator loss terms. See what happens
+        print("WARNING: DEBUG: vanilla gan no whistles")
+        #self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
+        self.g_loss = self.g_lossGAN + self.g_lossLabels
+
+
 
 Possible Sources of error:
     had to rewrite minibatch_features(CausalGAN)

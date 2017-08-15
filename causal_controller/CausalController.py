@@ -80,6 +80,7 @@ class CausalController(object):
         self.config=config
         self.batch_size=batch_size #tf.placeholder_with_default
         self.graph=config.graph
+        print('causal graph size:',len(self.graph))
         self.node_names, self.parent_names=zip(*self.graph)
         self.node_names=list(self.node_names)
         self.label_names=self.node_names
@@ -106,6 +107,8 @@ class CausalController(object):
 
             ##construct graph##
             #Lazy construction avoids the pain of traversing the causal graph explicitly
+                #Realized late: this only works for me for graphs up to size 13
+                #python has some recursion issues that need to be handled carefully
             for node in self.nodes:
                 node.setup_tensor()
 

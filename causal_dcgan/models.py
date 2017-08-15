@@ -83,18 +83,15 @@ def DiscriminatorCNN(image, config, reuse=None):
         h0 = lrelu(conv2d(image, config.df_dim, name='d_h0_conv'))#16,32,32,64
         h1_ = lrelu(d_bn1(conv2d(h0, config.df_dim*2, name='d_h1_conv')))#16,16,16,128
 
-        #DEBUG:
-        h4=h1_
-
-        #h1 = add_minibatch_features(h1_, config.df_dim)
-        #h2 = lrelu(d_bn2(conv2d(h1, config.df_dim*4, name='d_h2_conv')))#16,16,16,248
-        #h3 = lrelu(d_bn3(conv2d(h2, config.df_dim*8, name='d_h3_conv')))
-        ##print('h3shape: ',h3.get_shape().as_list())
-        ##print('8df_dim:',config.df_dim*8)
-        ##dim3=tf.reduce_prod(tf.shape(h3)[1:])
-        #dim3=np.prod(h3.get_shape().as_list()[1:])
-        #h3_flat=tf.reshape(h3, [-1,dim3])
-        #h4 = linear(h3_flat, 1, 'd_h3_lin')
+        h1 = add_minibatch_features(h1_, config.df_dim)
+        h2 = lrelu(d_bn2(conv2d(h1, config.df_dim*4, name='d_h2_conv')))#16,16,16,248
+        h3 = lrelu(d_bn3(conv2d(h2, config.df_dim*8, name='d_h3_conv')))
+        #print('h3shape: ',h3.get_shape().as_list())
+        #print('8df_dim:',config.df_dim*8)
+        #dim3=tf.reduce_prod(tf.shape(h3)[1:])
+        dim3=np.prod(h3.get_shape().as_list()[1:])
+        h3_flat=tf.reshape(h3, [-1,dim3])
+        h4 = linear(h3_flat, 1, 'd_h3_lin')
 
         prob=tf.nn.sigmoid(h4)
         variables = tf.contrib.framework.get_variables(vs)
