@@ -96,6 +96,7 @@ def get_trainer():
     ##if load_path:
         #load config files from dir
     #except if pt_load_path, get cc_config from before
+    #overwrite is_train, is_pretrain with current args--sort of a mess
 
     ##else:
     config,_=get_config()
@@ -124,6 +125,9 @@ def get_trainer():
     else:#no image model
         model_config=None
         config.batch_size=cc_config.batch_size
+
+        if began_config.is_train or dcgan_config.is_train:
+            raise ValueError('need to specify model_type for is_train=True')
 
     #Interpret causal_model keyword
     cc_config.graph=get_causal_graph(config.causal_model)
