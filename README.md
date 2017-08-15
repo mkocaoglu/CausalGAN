@@ -6,9 +6,9 @@
 
 Authors' Tensorflow implementation of [CausalGAN: Learning Implicit Causal Models with Adversarial Training]
 
-![alt tag](./assets/314393_began_Bald_topdo1_botcond1.pdf)
+![alt text](./assets/314393_began_Bald_topdo1_botcond1.pdf)
 ### top: samples from do(Bald=1); bottom: samples from cond(Bald=1)
-![alt tag](./assets/314393_began_Mustache_topdo1_botcond1.pdf)
+![alt text](./assets/314393_began_Mustache_topdo1_botcond1.pdf)
 ### top: samples from do(Mustache=1); bottom: samples from cond(Mustache=1)
 
 ## Requirements
