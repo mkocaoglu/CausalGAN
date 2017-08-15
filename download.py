@@ -10,6 +10,9 @@ import subprocess
 from tqdm import tqdm
 from collections import OrderedDict
 
+
+
+
 def download_file_from_google_drive(id, destination):
     URL = "https://docs.google.com/uc?export=download"
     session = requests.Session()
@@ -21,7 +24,7 @@ def download_file_from_google_drive(id, destination):
         params = { 'id' : id, 'confirm' : token }
         response = session.get(URL, params=params, stream=True)
 
-    save_response_content(response, destination)    
+    save_response_content(response, destination)
 
 def get_confirm_token(response):
     for key, value in response.cookies.items():
@@ -32,7 +35,7 @@ def get_confirm_token(response):
 def save_response_content(response, destination, chunk_size=32*1024):
     total_size = int(response.headers.get('content-length', 0))
     with open(destination, "wb") as f:
-        for chunk in tqdm(response.iter_content(chunk_size), total=total_size, 
+        for chunk in tqdm(response.iter_content(chunk_size), total=total_size,
                           unit='B', unit_scale=True, desc=destination):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
