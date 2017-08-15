@@ -10,7 +10,36 @@ import subprocess
 from tqdm import tqdm
 from collections import OrderedDict
 
+def download(url, path):
+    '''
+    wanted to download attributes file
+    mod from https://github.com/SKTBrain/DiscoGAN/blob/master/datasets/download.py
+    '''
+    filename = url.split('/')[-1]
+    filepath = os.path.join(path, filename)
+    u = urllib.request.urlopen(url)
+    f = open(filepath, 'wb')
+    filesize = int(u.headers["Content-Length"])
+    print("Downloading: %s Bytes: %s" % (filename, filesize))
 
+    downloaded = 0
+    block_sz = 8192
+    status_width = 70
+    while True:
+        buf = u.read(block_sz)
+        if not buf:
+            print('')
+            break
+        else:
+            print('', end='\r')
+        downloaded += len(buf)
+        f.write(buf)
+        status = (("[%-" + str(status_width + 1) + "s] %3.2f%%") %
+                  ('=' * int(float(downloaded) / filesize * status_width) + '>', downloaded * 100. / filesize))
+        print(status, end='')
+        sys.stdout.flush()
+    f.close()
+    return filepath
 
 
 def download_file_from_google_drive(id, destination):
