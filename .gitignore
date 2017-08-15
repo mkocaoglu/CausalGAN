@@ -1,8 +1,10 @@
 data/
 data
 .*.swp
-logs/
+
 logs
+old
+
 final_checkpoints
 checkpoint/
 figures/
