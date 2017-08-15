@@ -75,7 +75,8 @@ causal_graphs={
         ['Arched_Eyebrows',['5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
         ['Attractive',['Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
         ['Bags_Under_Eyes',['Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
-        ['Bald',['Bags_Under_Eyes','Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
+        ##Maximum number of nodes before crash##
+        #['Bald',['Bags_Under_Eyes','Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
         #['Bangs',['Bald','Bags_Under_Eyes','Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
         #['Big_Lips',['Bangs','Bald','Bags_Under_Eyes','Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
         #['Big_Nose',['Big_Lips','Bangs','Bald','Bags_Under_Eyes','Attractive','Arched_Eyebrows','5_o_Clock_Shadow','Narrow_Eyes','Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
