@@ -68,9 +68,6 @@ def download_celeb_a(base_path):
     os.rename(os.path.join(base_path, "img_align_celeba"), images_path)
     os.remove(save_path)
 
-    attribute_url = 'https://www.dropbox.com/sh/8oqt9vytwxb3s4r/AAB06FXaQRUNtjW9ntaoPGvCa?dl=0'
-    filepath = download(attribute_url, dirpath)
-
     download_attr_file(data_path)
 
 
@@ -79,6 +76,7 @@ def download_attr_file(data_path):
     attr_fname=os.path.join(data_path,'list_attr_celeba.txt')
     download_file_from_google_drive(attr_gdID, attr_fname)
     delete_top_line(attr_fname)#make pandas readable
+    #Top line was just an integer saying how many samples there were
 
 def prepare_data_dir(path = './data'):
     if not os.path.exists(path):
