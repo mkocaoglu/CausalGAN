@@ -140,11 +140,9 @@ class Trainer(object):
             #print('tvd after load:',info['tvd'])
 
 
-
         #PREPARE training:
         #TODO save as Variables so they are restored to same values when load model
         fixed_batch_size=256#get this many fixed z values
-
 
         self.fetch_fixed_z={n.z:n.z for n in self.cc.nodes}
         if model_config:
