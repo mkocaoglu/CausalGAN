@@ -89,6 +89,12 @@ train_arg.add_argument('--gamma_k',type=float,default=-1.0,#0.8#FLAGS.gamma_k no
                        help='''default initial value''')
 train_arg.add_argument('--gamma_l',type=float,default=-1.0,
                       )
+
+train_arg.add_argument('--tau',type=float,default=3000,
+                       help='''time constant. Every tau calls of k_t_update will
+                       reduce k_t by a factor of 1/e.''') 
+
+
 #old config file differed from implementation:
 #    FLAGS.gamma_k = -1.0
 #    FLAGS.gamma_m = -1.0 # set to 1/gamma_k in the code

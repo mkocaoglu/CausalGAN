@@ -335,7 +335,7 @@ class CausalGAN(object):
         self.d_on_z_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
                   .minimize(self.g_loss_on_z + self.rec_loss_coeff*self.real_reconstruction_loss, var_list=self.dz_vars)
 
-        self.k_t_update = tf.assign(self.k_t, self.k_t*tf.exp(-1.0/3000.0) )
+        self.k_t_update = tf.assign(self.k_t, self.k_t*tf.exp(-1.0/config.tau) )
 
 
         #Expectation is that self.train_op will be run exactly once per iteration.
@@ -359,7 +359,6 @@ class CausalGAN(object):
 
         Only counters, not epochs are explicitly kept track of
         '''
-
 
         ###You can wait until counter>N to do stuff for example:
         if self.config.pretrain_LabelerR and counter < self.config.pretrain_LabelerR_no_of_iters:

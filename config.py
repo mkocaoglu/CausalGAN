@@ -68,6 +68,15 @@ misc_arg = add_argument_group('Misc')
 #                      enable building out the whole model without doing any
 #                      training''')
 
+misc_arg.add_argument('--descrip', type=str, default='',help='''
+                      Only use this when creating a new model. New model folder names
+                      are generated automatically by using the time-date. Then
+                      you cant rename them while the model is running. If
+                      provided, this is a short string that appends to the end
+                      of a model folder name to help keep track of what the
+                      contents of that folder were without getting into the
+                      content of that folder. No weird characters''')
+
 misc_arg.add_argument('--dry_run', action='store_true',help='''Build and load
                       the model and all the specified components, but don't actually do
                       any pretraining/training etc. This overrides

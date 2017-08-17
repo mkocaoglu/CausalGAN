@@ -135,9 +135,13 @@ class Trainer(object):
             print('Attempting to load pretrain model:',cc_config.pt_load_path)
             self.cc.load(self.sess,cc_config.pt_load_path)
 
-            #print('Check tvd after restore')
-            #info=crosstab(self,report_tvd=True)
-            #print('tvd after load:',info['tvd'])
+            print('Check tvd after restore')
+            info=crosstab(self,report_tvd=True)
+            print('tvd after load:',info['tvd'])
+
+            #save copy of cc model in new dir
+            cc_step=self.sess.run(self.cc.step)
+            self.cc.saver.save(self.sess,self.cc.save_model_name,cc_step)
 
 
         #PREPARE training:
