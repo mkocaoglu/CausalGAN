@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
@@ -15,7 +16,7 @@ debug = debugger.Pdb().set_trace
 
 
 def get_trainer(config):
-    print 'tf: resetting default graph!'
+    print('tf: resetting default graph!')
     tf.reset_default_graph()
 
     #tf.set_random_seed(config.random_seed)

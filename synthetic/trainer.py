@@ -1,3 +1,4 @@
+from __future__ import print_function
 import tensorflow as tf
 import logging
 import numpy as np
@@ -90,34 +91,38 @@ class GAN(object):
         self.summary_writer.add_summary(Pg_summ,step)
         self.summary_writer.flush()
 
-        if self.config.save_pdfs:
-            self.save_np_scatter(step,X1,X3)
+#        if self.config.save_pdfs:
+#            self.save_np_scatter(step,X1,X3)
 
-    def save_np_scatter(self,step,x,y,save_dir=None,ext='.pdf'):
-        '''
-        This is a convenience that just saves the image as a pdf in addition to putting it on
-        tensorboard. only does x1x3 because that's what I needed at the moment
+#Maybe it's the supervisor creating the segfault??
+#Try just one model at a time
 
-        sorry I wrote this really quickly
-        TODO: make less bad.
-        '''
-        plt.scatter(x,y)
-        plt.title('X1X3')
-        plt.xlabel('X1')
-        plt.ylabel('X3')
-        plt.xlim([0,1])
-        plt.ylim([0,1])
-
-        scatter_dir=os.path.join(self.model_dir,'scatter')
-
-        save_dir=save_dir or scatter_dir
-        if not os.path.exists(save_dir):
-            os.mkdir(save_dir)
-
-        save_name=os.path.join(save_dir,'{}_scatter_x1x3_{}_{}'+ext)
-        save_path=save_name.format(step,self.config.data_type,self.gan_type)
-
-        plt.savefig(save_path)
+#   #will cause segfault ;)
+#    def save_np_scatter(self,step,x,y,save_dir=None,ext='.pdf'):
+#        '''
+#        This is a convenience that just saves the image as a pdf in addition to putting it on
+#        tensorboard. only does x1x3 because that's what I needed at the moment
+#
+#        sorry I wrote this really quickly
+#        TODO: make less bad.
+#        '''
+#        plt.scatter(x,y)
+#        plt.title('X1X3')
+#        plt.xlabel('X1')
+#        plt.ylabel('X3')
+#        plt.xlim([0,1])
+#        plt.ylim([0,1])
+#
+#        scatter_dir=os.path.join(self.model_dir,'scatter')
+#
+#        save_dir=save_dir or scatter_dir
+#        if not os.path.exists(save_dir):
+#            os.mkdir(save_dir)
+#
+#        save_name=os.path.join(save_dir,'{}_scatter_x1x3_{}_{}'+ext)
+#        save_path=save_name.format(step,self.config.data_type,self.gan_type)
+#
+#        plt.savefig(save_path)
 
 
 
@@ -125,7 +130,7 @@ class GAN(object):
         self.model_dir=os.path.join(self.parent_dir,self.gan_type)
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
-        print 'GAN Model directory is ',self.model_dir
+        print('GAN Model directory is ',self.model_dir)
     def prepare_logger(self):
         self.logger=logging.getLogger(self.gan_type)
         pth=os.path.join(self.model_dir,'tvd.csv')
@@ -155,22 +160,41 @@ class Trainer(object):
 
         self.saver=tf.train.Saver()
 
-        sv = tf.train.Supervisor(
-                                logdir=self.save_model_dir,
-                                is_chief=True,
-                                saver=self.saver,
-                                summary_op=None,
-                                summary_writer=self.summary_writer,
-                                save_model_secs=300,
-                                global_step=self.step,
-                                ready_for_local_init_op=None
-                                )
+        #sv = tf.train.Supervisor(
+        #                        logdir=self.save_model_dir,
+        #                        is_chief=True,
+        #                        saver=self.saver,
+        #                        summary_op=None,
+        #                        summary_writer=self.summary_writer,
+        #                        save_model_secs=300,
+        #                        global_step=self.step,
+        #                        ready_for_local_init_op=None
+        #                        )
 
         gpu_options = tf.GPUOptions(allow_growth=True,
                                   per_process_gpu_memory_fraction=0.333)
         sess_config = tf.ConfigProto(allow_soft_placement=True,
                                     gpu_options=gpu_options)
-        self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+        #self.sess = sv.prepare_or_wait_for_session(config=sess_config)
+        self.sess = tf.Session(config=sess_config)
+
+
+        init=tf.global_variables_initializer()
+        self.sess.run(init)
+
+        #if load_path, replace initialized values
+        if self.config.load_path:
+            if os.path.isdir(self.config.load_path):#folder passed
+                ckpt = tf.train.get_checkpoint_state(self.model_dir)
+            else:#exact model file passed
+                raise ValueError('passing save file not implemented')
+
+            print(" [*] Attempting to restore {}".format(ckpt))
+            self.saver.restore(ckpt)
+            print(" [*] Success to read {}".format(ckpt))
+
+
+
 
 
 
@@ -224,17 +248,19 @@ class Trainer(object):
                     gan.record_scatter(self.sess)
                     self.scatter_timer.off()
 
+            if step % (5000) == 0:
+                self.saver.save(self.sess,self.save_model_name,step)
+
             self.train_timer.on()
             self.sess.run(self.train_op)
             self.train_timer.off()
 
 
-
-        print "Timers:"
-        print self.train_timer
-        print self.losses_timer
-        print self.tvd_timer
-        print self.scatter_timer
+        print("Timers:")
+        print(self.train_timer)
+        print(self.losses_timer)
+        print(self.tvd_timer)
+        print(self.scatter_timer)
 
 
     def prepare_model_dir(self):
@@ -247,11 +273,12 @@ class Trainer(object):
 
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
-        print 'Model directory is ',self.model_dir
+        print('Model directory is ',self.model_dir)
 
         self.save_model_dir=os.path.join(self.model_dir,'checkpoints')
         if not os.path.exists(self.save_model_dir):
             os.mkdir(self.save_model_dir)
+        self.save_model_name=os.path.join(self.save_model_dir,'Model')
 
 
         param_path = os.path.join(self.model_dir, "params.json")

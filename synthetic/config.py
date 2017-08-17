@@ -35,9 +35,10 @@ gan_arg.add_argument('--lr_gen',type=float,default=0.0005,#0.005
 gan_arg.add_argument('--lr_disc',type=float,default=0.0005,#0.0025
                      help='''discriminator learning rate''')
 
-misc_arg.add_argument('--save_pdfs',type=str2bool,default=False,
-                     help='''whether to save pdfs of scatterplots of x1x3 along
-                     with tensorboard summaries''')
+#broken
+#misc_arg.add_argument('--save_pdfs',type=str2bool,default=False,
+#                     help='''whether to save pdfs of scatterplots of x1x3 along
+#                     with tensorboard summaries''')
 
 misc_arg.add_argument('--model_dir',type=str,default='logs')
 #misc_arg.add_argument('--np_random_seed', type=int, default=123)
