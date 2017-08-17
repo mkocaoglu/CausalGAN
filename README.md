@@ -123,7 +123,8 @@ For convenience, the configurations used saved in 4 .json files in the model dir
 
 ## Related works
 <---
-- [BEGAN-tensorflow](https://github.com/carpedm20/BEGAN-tensorflow)initial fork
+  Repo originally forked from these two
+- [BEGAN-tensorflow](https://github.com/carpedm20/BEGAN-tensorflow)
 - [DCGAN-tensorflow](https://github.com/carpedm20/DCGAN-tensorflow)
 -->
 

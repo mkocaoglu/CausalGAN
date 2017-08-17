@@ -7,7 +7,6 @@ import os
 slim = tf.contrib.slim
 from models import lrelu,DiscriminatorW,Grad_Penalty
 from utils import summary_stats,did_succeed
-
 from ArrayDict import ArrayDict#Collector of outputs
 
 debug=False

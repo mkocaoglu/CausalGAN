@@ -50,7 +50,7 @@ def calc_tvd(label_dict,attr):
     return tvd
 
 
-def crosstab(model,result_dir=None,report_tvd=True):
+def crosstab(model,result_dir=None,report_tvd=True,no_save=False,N=500000):
     '''
     This is a script for outputing [0,1/2], [1/2,1] binned pdfs
     including the marginals and the pairwise comparisons
@@ -61,7 +61,6 @@ def crosstab(model,result_dir=None,report_tvd=True):
     model.cc.model_dir
 
     '''
-
     result_dir=result_dir or model.cc.model_dir
     result={}
 
@@ -73,10 +72,9 @@ def crosstab(model,result_dir=None,report_tvd=True):
     #N=12000
 
     #tvd will not be reported as low unless N is large
-    N=500000
+    #N=500000 #default
 
     print('Calculating joint distribution with',)
-    print('N=',N,' samples')
 
     t0=time.time()
     label_dict=sample(model,fetch_dict=model.cc.label_dict,N=N)
@@ -94,8 +92,15 @@ def crosstab(model,result_dir=None,report_tvd=True):
     print('Writing to files:',lab_xtab_fn)
 
     if report_tvd:
+        t0=time.time()
         tvd=calc_tvd(label_dict,attr)
         result['tvd']=tvd
+        print('calculating tvd from samples took ',time.time()-t0,'sec')
+
+        if no_save:
+            return result
+
+    t0=time.time()
 
     joint={}
     label_joint={}
@@ -144,6 +149,7 @@ def crosstab(model,result_dir=None,report_tvd=True):
 
             lab_f.write('\n\n')
 
+    print('calculating pairwise crosstabs and saving results took ',time.time()-t0,'sec')
     return result
 
 

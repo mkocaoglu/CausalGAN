@@ -162,8 +162,14 @@ if __name__ == "__main__":
 
     main(trainer)
 
+    #so ipython isn't interupted annoyingly
+    #I think each queue creates a step/sec INFO warning
+    tf.logging.set_verbosity(tf.logging.ERROR)
 
 
     #I wish there were a way to tell supervisor to allow further graph
     #modifications so that if running this in ipython, more tensors could be created after
+
+
+
 

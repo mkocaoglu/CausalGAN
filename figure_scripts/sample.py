@@ -406,8 +406,8 @@ def sample(model, cond_dict=None, do_dict=None, fetch_dict=None,N=None,
     #            keypad=np.tile(cond_dict[k][0],[npad])
     #            cond_dict[k]=np.concatenate([cond_dict[k],keypad])
 
-    #verbose=False
-    verbose=True
+    verbose=False
+    #verbose=True
 
 
 
