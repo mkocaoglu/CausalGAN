@@ -213,34 +213,27 @@ class CausalGAN(object):
         #Discriminator
         D_on_real=DiscriminatorCNN(x,config)
         D_on_fake=DiscriminatorCNN(G,config,reuse=True)
-        #features nan
         self.D, self.D_logits ,self.features_to_estimate_z_on_input ,self.d_vars=D_on_real
         self.D_,self.D_logits_,self.features_to_estimate_z_on_generated,_ =D_on_fake
 
         #Discriminator Labeler
-        #okay
         self.D_labels_for_real, self.D_labels_for_real_logits, self.dl_vars =\
                 discriminator_labeler(x,n_labels,config)
-        #nan
         self.D_labels_for_fake, self.D_labels_for_fake_logits, _ =\
                 discriminator_labeler(G,n_labels,config,reuse=True)
 
 
         #Other discriminators
-        #okay
         self.D_gen_labels_for_fake,self.D_gen_labels_for_fake_logits,self.dl_gen_vars=\
             discriminator_gen_labeler(G,n_labels,config)
             #discriminator_gen_labeler(self.G,n_labels,config)
 
-        #nan
         self.D_on_z_real,_ =discriminator_on_z(self.features_to_estimate_z_on_input,config)
         self.D_on_z,self.dz_vars=discriminator_on_z(self.features_to_estimate_z_on_generated,config,reuse=True)
 
 
         #order of concat matters
-        #nan,{-18,inf}
         self.z_for_real = tf.concat([self.D_on_z_real,self.real_labels_inputs], axis=1 , name ='z_real')
-        #nan this line
         self.inputs_reconstructed,_ = GeneratorCNN(self.z_for_real,self.config, reuse = True)
 
         tf.summary.histogram('d',self.D)

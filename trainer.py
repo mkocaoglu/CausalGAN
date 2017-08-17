@@ -440,7 +440,7 @@ class Trainer(object):
         save_dir=save_dir or diversity_dir
         if not os.path.exists(save_dir):
             os.mkdir(save_dir)
-        save_name=os.path.join(diversity_dir,'{}_G_diversity'+ext)
+        save_name=os.path.join(save_dir,'{}_G_diversity'+ext)
 
         feed_fixed={k:v[:256] for k,v in self.feed_fixed_z.items()}
         feed_fixed.update({self.batch_size:256})
