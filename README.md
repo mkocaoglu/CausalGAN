@@ -73,7 +73,7 @@ will sample all labels from the joint distribution conditioned on Mustache=1 and
 
 
 ### Configuration
-Since this really controls training of 3 different models (causal_controller, CausalGAN, and CausalBEGAN), many configuration options are available. To make things managable, there are 4 files corresponding to configurations specific to different parts of the model. Not all configuration combinations are tested. Default parameters are gauranteed to work.
+Since this really controls training of 3 different models (CausalController, CausalGAN, and CausalBEGAN), many configuration options are available. To make things managable, there are 4 files corresponding to configurations specific to different parts of the model. Not all configuration combinations are tested. Default parameters are gauranteed to work.
 
 configurations:
 ./config.py  :  generic data and scheduling
