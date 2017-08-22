@@ -184,21 +184,21 @@ class Trainer(object):
 
         #if load_path, replace initialized values
         if self.config.load_path:
-            if os.path.isdir(self.config.load_path):#folder passed
-                ckpt = tf.train.get_checkpoint_state(self.model_dir)
-            else:#exact model file passed
-                raise ValueError('passing save file not implemented')
+            print(" [*] Attempting to restore {}".format(self.config.load_path))
+            self.saver.restore(self.sess,self.config.load_path)
 
-            print(" [*] Attempting to restore {}".format(ckpt))
-            self.saver.restore(ckpt)
-            print(" [*] Success to read {}".format(ckpt))
+            #print(" [*] Attempting to restore {}".format(ckpt))
+            #self.saver.restore(self.sess,ckpt)
+            #print(" [*] Success to read {}".format(ckpt))
 
 
 
+        if not self.config.load_path:
+            #once data scatterplot (doesn't change during training)
+            self.data_scatterplot()
 
 
-
-        #once data scatterplot (doesn't change during training)
+    def data_scatterplot(self):
         Xd=self.sess.run(self.data.X,{self.data.N:5000})
         X1,X2,X3=np.split(Xd,3,axis=1)
         x1x2,x1x3,x2x3 = summary_scatterplots(X1,X2,X3)
@@ -246,6 +246,10 @@ class Trainer(object):
                 for gan in self.gans:
                     self.scatter_timer.on()
                     gan.record_scatter(self.sess)
+
+                    #DEBUG: reassure me nothing changes during optimization
+                    #self.data_scatterplot()
+
                     self.scatter_timer.off()
 
             if step % (5000) == 0:

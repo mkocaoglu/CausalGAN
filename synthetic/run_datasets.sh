@@ -11,13 +11,22 @@ echo "DEVICES=$cvd"
 
 #Sorry tqmd will produce some spastic output
 
+#for i in {1..5}
 for i in {1..30}
 do
     echo "GPU "$CUDA_VISIBLE_DEVICES" Iter $i"
 
     python main.py --data_type=linear &
+    sleep 2s
     python main.py --data_type=collider &
+    sleep 2s
     python main.py --data_type=complete 
+
+    #python main.py --data_type=linear &
+    #sleep 2s
+    #python main.py --data_type=linear &
+    #sleep 2s
+    #python main.py --data_type=linear 
 
     #python main.py --data_type=network &
     #python main.py --data_type=network &

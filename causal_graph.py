@@ -214,6 +214,22 @@ causal_graphs={
         ['Narrow_Eyes',['Male','Young','Eyeglasses','Bald','Mustache','Smiling','Wearing_Lipstick','Mouth_Slightly_Open']],
     ],
 
+'reverse_complete_big_causal_graph':[
+
+        ['Narrow_Eyes',        []],
+        ['Mouth_Slightly_Open',['Narrow_Eyes']],
+        ['Wearing_Lipstick',   ['Narrow_Eyes','Mouth_Slightly_Open']],
+        ['Smiling',            ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick']],
+        ['Mustache',           ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick','Smiling']],
+        ['Bald',               ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick','Smiling','Mustache']],
+        ['Eyeglasses',         ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick','Smiling','Mustache','Bald']],
+        ['Male',               ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick','Smiling','Mustache','Bald','Eyeglasses']],
+        ['Young',              ['Narrow_Eyes','Mouth_Slightly_Open','Wearing_Lipstick','Smiling','Mustache','Bald','Eyeglasses','Male']],
+
+    ],
+
+
+
 'complete_minimal_graph':[
         ['Young',[]],
         ['Male',['Young']],

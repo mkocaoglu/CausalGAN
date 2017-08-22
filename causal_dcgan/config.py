@@ -70,6 +70,7 @@ train_arg.add_argument('--learning_rate',type=float,default=0.0002,
 train_arg.add_argument('--beta1',type=float,default=0.5,
                        help='Momentum term of adam [0.5]')
 
+train_arg.add_argument('--off_label_losses',type=str2bool,default=False)
 
 #TODO unclear on default for these two arguments
 #Not yet setup. Use False

@@ -61,13 +61,23 @@ def summary_scatterplots(X1,X2,X3):
         plt.close()
     return img1,img2,img3
 
-        #sum1,img1=summary_scatter2d(X1,X2,'X1X2')
-        #sum2,img2=summary_scatter2d(X1,X3,'X1X3')
-        #sum3,img3=summary_scatter2d(X2,X3,'X2X3')
-        #return sum1
-        #return tf.summary.merge([sum1,sum2,sum3])
+
 
 def summary_scatter2d(x,y,title='2dscatterplot',xlabel=None,ylabel=None):
+    fig=scatter2d(x,y,title,xlabel=xlabel,ylabel=ylabel)
+
+    fig.canvas.draw()
+    rgb=fig.canvas.tostring_rgb()
+    buf=np.fromstring(rgb,dtype=np.uint8)
+
+    w,h = fig.canvas.get_width_height()
+    img=buf.reshape(1,h,w,3)
+    #summary=tf.summary.image(title,img)
+    plt.close(fig)
+    #fig.clf()
+    return img
+
+def scatter2d(x,y,title='2dscatterplot',xlabel=None,ylabel=None):
     fig=plt.figure()
     plt.scatter(x,y)
     plt.title(title)
@@ -85,16 +95,7 @@ def summary_scatter2d(x,y,title='2dscatterplot',xlabel=None,ylabel=None):
 
     plt.xlim([0,1])
     plt.ylim([0,1])
-    fig.canvas.draw()
-    rgb=fig.canvas.tostring_rgb()
-    buf=np.fromstring(rgb,dtype=np.uint8)
-
-    w,h = fig.canvas.get_width_height()
-    img=buf.reshape(1,h,w,3)
-    #summary=tf.summary.image(title,img)
-    plt.close(fig)
-    #fig.clf()
-    return img
+    return fig
 
 
 def prepare_dirs_and_logger(config):

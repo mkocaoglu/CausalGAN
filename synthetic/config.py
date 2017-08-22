@@ -47,8 +47,8 @@ misc_arg.add_argument('--model_dir',type=str,default='logs')
 
 model_arg.add_argument('--load_path',type=str,default='',
                        help='''Path to folder containing model to load. This
-                       should be the external most folder. Example:
-                       --load_path=./logs/0817_153755_collider''')
+                       should be actual checkpoint to load. Example:
+                       --load_path=./logs/0817_153755_collider/checkpoints/Model-50000''')
 model_arg.add_argument('--is_train',type=str2bool,default=True,
                        help='''whether the model should train''')
 model_arg.add_argument('--batch_size',type=int,default=64,

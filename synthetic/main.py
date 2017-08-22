@@ -22,9 +22,9 @@ def get_trainer(config):
     #tf.set_random_seed(config.random_seed)
     #np.random.seed(22)
 
-    print 'Using data_type ',config.data_type
+    print('Using data_type ',config.data_type)
     trainer=Trainer(config,config.data_type)
-    print 'built trainer successfully'
+    print('built trainer successfully')
 
     tf.logging.set_verbosity(tf.logging.ERROR)
 
