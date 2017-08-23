@@ -143,6 +143,16 @@ class Trainer(object):
             cc_step=self.sess.run(self.cc.step)
             self.cc.saver.save(self.sess,self.cc.save_model_name,cc_step)
 
+        if config.load_path:#Declare loading point
+            pnt_str='Loaded variables at ccStep:{}'
+            cc_step=self.sess.run(self.cc.step)
+            pnt_str.format(cc_step)
+            if self.model_config:
+                pnt_str+=' imagemodelStep:{}'
+                model_step=self.sess.run
+                pnt_str.format(model_step)
+            print(pnt_str)
+
 
         #PREPARE training:
         #TODO save as Variables so they are restored to same values when load model
