@@ -60,6 +60,12 @@ net_arg.add_argument('--loss_function',type=int,default=1,
 net_arg.add_argument('--critic_hidden_size',type=int,default=10,
                     help='''number of neurons per fc layer in discriminator''')
 
+net_arg.add_argument('--stab_proj',type=str2bool,default=False,
+                     help='''stabalizing projection method used for
+                     discriminator. Stabalizing GAN Training with Multiple
+                     Random Projections
+                     https://arxiv.org/abs/1705.07831''')
+
 
 # Training / test parameters
 train_arg = add_argument_group('Training')
