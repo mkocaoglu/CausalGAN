@@ -83,7 +83,9 @@ net_arg.add_argument('--cc_n_layers',type=int, default=6,
                      help='''this is the number of neural network fc layers
                      between the causes of a neuron and the neuron itsef.''')
 net_arg.add_argument('--cc_n_hidden',type=int, default=10,
-                     help='''number of neurons per layer in causal controller''')
+                     help='''number of neurons per layer in causal controller.
+                     Also doubles as the dimensionality of the uniform noise
+                     input to the controller''')
 
 # Data
 data_arg = add_argument_group('Data')

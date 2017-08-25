@@ -86,6 +86,7 @@ def DiscriminatorCNN(image, config, reuse=None):
         else:#method to restrict disc from winning
             #I think this is equivalent to just not letting disc optimize first layer
             #and also removing nonlinearity
+            print("WARNING:STAB_PROJ active")
 
             #k_h=5, k_w=5, d_h=2, d_w=2, stddev=0.02,
             #paper used 8x8 kernel, but I'm using 5x5 because it is more similar to my achitecture
@@ -96,7 +97,7 @@ def DiscriminatorCNN(image, config, reuse=None):
 
             b_proj = tf.get_variable('b_proj', [config.df_dim],
                  initializer=tf.constant_initializer(0.0),trainable=False)
-            h0=tf.nn.bias_add(conv,biases)
+            h0=tf.nn.bias_add(conv,b_proj)
 
 
         h1_ = lrelu(d_bn1(conv2d(h0, config.df_dim*2, name='d_h1_conv')))#16,16,16,128
