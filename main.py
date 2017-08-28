@@ -43,21 +43,7 @@ TODO:
 
 
 '''
-
-Working on stab_proj right now.
-
-
-
-
-orig:
-    n_projs=config.df_dim#64 instead of 32 in paper
-    w_proj = tf.get_variable('w_proj', [5, 5, image.get_shape()[-1],n_projs],
-        initializer=tf.truncated_normal_initializer(stddev=0.02),trainable=False)
-    conv = tf.nn.conv2d(image, w_proj, strides=[1, 2, 2, 1], padding='SAME')
-
-    b_proj = tf.get_variable('b_proj', [config.df_dim],
-         initializer=tf.constant_initializer(0.0),trainable=False)
-    h0=tf.nn.bias_add(conv,b_proj)
+stabproj seemed to work really well. I made changes default, and I merged into master.
 
 
 '''
@@ -68,6 +54,7 @@ def get_trainer():
     tf.reset_default_graph()#for repeated calls in ipython
 
 
+    ####GET CONFIGURATION####
     #TODO:
     ##if load_path:
         #load config files from dir
@@ -80,7 +67,10 @@ def get_trainer():
     dcgan_config,_=get_dcgan_config()
     began_config,_=get_began_config()
 
-    print('factorized:',cc_config.pt_factorized)
+    ###SEEDS###
+    np.random.seed(config.seed)
+    tf.set_random_seed(config.seed)
+
 
     prepare_dirs_and_logger(config)
     if not config.load_path:
