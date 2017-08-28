@@ -30,59 +30,35 @@ debug = debugger.Pdb().set_trace
 
 '''
 TODO:
-    decide lrelu vs tanh for CC
     load config from json when load model
-    pt_factorized=True doesn't work
-        decide if pt_factorized is worse than without
-
-    intervention and conditioning code
-    writing conditioning right into causal controller
-        #That'll be faster because don't need to generate image for rejected samples
-
     it seems like to make multi gpu functional again, causal_controller has to be created twice
 
-CausalGAN: to test out:
+    CausalGAN: to test out:
+        config.label_type='discrete'
+        type_input_to_generator='labels'
+        stab_proj variants
 
-    config.label_type='discrete'
-    type_input_to_generator='labels'
+    Setup image saving for label_mode collapse
 '''
-
-'''
-Try now without labels
-    #self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
-    #self.g_loss = self.g_lossGAN + self.g_lossLabels
-    self.g_loss = self.g_lossGAN
-
-
-
->Still didn't work
-Trying out dcgan just with vanilla generator loss terms. See what happens
-        print("WARNING: DEBUG: vanilla gan no whistles")
-        #self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
-        self.g_loss = self.g_lossGAN + self.g_lossLabels
-
-
-
-Possible Sources of error:
-    had to rewrite minibatch_features(CausalGAN)
-    began data_format muckery
-
-
 
 
 '''
 
-'''
-
->fixed by adding noise to real_labels
-Nan culprit:
-    self.d_on_z_optim = tf.train.AdamOptimizer(config.learning_rate, beta1=config.beta1) \
-              .minimize(self.g_loss_on_z, var_list=self.dz_vars)
-              #.minimize(self.g_loss_on_z + self.rec_loss_coeff*self.real_reconstruction_loss, var_list=self.dz_vars)
-even though self.rec_loss_coeff=0.0, droping this term got rid of nan loss
+Working on stab_proj right now.
 
 
-Running pretraining on 13 label graph
+
+
+orig:
+    n_projs=config.df_dim#64 instead of 32 in paper
+    w_proj = tf.get_variable('w_proj', [5, 5, image.get_shape()[-1],n_projs],
+        initializer=tf.truncated_normal_initializer(stddev=0.02),trainable=False)
+    conv = tf.nn.conv2d(image, w_proj, strides=[1, 2, 2, 1], padding='SAME')
+
+    b_proj = tf.get_variable('b_proj', [config.df_dim],
+         initializer=tf.constant_initializer(0.0),trainable=False)
+    h0=tf.nn.bias_add(conv,b_proj)
+
 
 '''
 

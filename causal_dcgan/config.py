@@ -66,6 +66,10 @@ net_arg.add_argument('--stab_proj',type=str2bool,default=False,
                      Random Projections
                      https://arxiv.org/abs/1705.07831''')
 
+net_arg.add_argument('--n_stab_proj',type=int,default=64,
+                     help='''number of stabalizing projections. Need
+                     stab_proj=True for this to have effect''')
+
 
 # Training / test parameters
 train_arg = add_argument_group('Training')
