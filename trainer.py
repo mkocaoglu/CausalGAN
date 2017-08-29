@@ -102,7 +102,7 @@ class Trainer(object):
         else:
             print('Image model not built')
 
-        self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=4)
+        self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=2)
         self.summary_writer = tf.summary.FileWriter(self.summary_dir)
 
         print('trainer.model_dir:',self.model_dir)

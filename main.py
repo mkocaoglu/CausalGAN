@@ -55,7 +55,7 @@ def get_trainer():
 
 
     ####GET CONFIGURATION####
-    #TODO:
+    #TODO:load configurations from previous model when loading previous model
     ##if load_path:
         #load config files from dir
     #except if pt_load_path, get cc_config from before

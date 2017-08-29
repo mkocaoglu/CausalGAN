@@ -284,11 +284,15 @@ class CausalGAN(object):
         self.d_loss_fake = tf.reduce_mean(
           sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
 
+        if config.reconstr_loss:
+            g_loss_on_z=self.g_loss_on_z
+        else:
+            g_loss_on_z=0.
 
         if config.off_label_losses:
             self.g_loss = self.g_lossGAN
         else:#default
-            self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + self.g_loss_on_z
+            self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + g_loss_on_z
 
 
         #not used in meat_and_potatoes.py ... omitting...
