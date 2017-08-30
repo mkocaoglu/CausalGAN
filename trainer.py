@@ -146,11 +146,12 @@ class Trainer(object):
         if config.load_path:#Declare loading point
             pnt_str='Loaded variables at ccStep:{}'
             cc_step=self.sess.run(self.cc.step)
-            pnt_str.format(cc_step)
+            pnt_str=pnt_str.format(cc_step)
+            print('pntstr',pnt_str)
             if self.model_config:
                 pnt_str+=' imagemodelStep:{}'
                 model_step=self.sess.run
-                pnt_str.format(model_step)
+                pnt_str=pnt_str.format(model_step)
             print(pnt_str)
 
 
