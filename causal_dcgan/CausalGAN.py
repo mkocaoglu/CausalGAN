@@ -28,7 +28,6 @@ def norm_img(image):
 def denorm_img(norm):
     return tf.clip_by_value((norm + 1)*127.5, 0, 255)
 
-
 def tf_truncexpon(batch_size,rate,right):
     '''
     a tensorflow node that returns a random variable
@@ -50,7 +49,6 @@ def tf_truncexpon(batch_size,rate,right):
 
 def add_texp_noise(batch_size,labels01):
     labels=0.3+labels01*0.4#{0.3,0.7}
-    #labels=0.5+labels*0.2#{0.3,0.7}#wrong
     lower, upper, scale = 0, 0.2, 1/25.0
     lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
     #before #t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
@@ -63,30 +61,6 @@ def add_texp_noise(batch_size,labels01):
     labels = labels + ((0.5-labels)/0.2)*s + ((-0.5+labels)/0.2)*s_tail
     return labels, [s,s_tail]
 
-    #  COPY of OLD NOISE MODEL so murat can verify is equivalent
-    #    note that for this old code, incoming u was {-1,1}: now is {0,1}
-    #          u = 0.5+np.array(u)*0.2#ranges from 0.3 to 0.7
-    #          lower, upper, scale = 0, 0.2, 1/25.0
-    #          t = stats.truncexpon(b=(upper-lower)/scale, loc=lower, scale=scale)
-    #          s = t.rvs(1)#[0,0.2]
-    #          lower_tail, upper_tail, scale_tail = 0, 0.3, 1/50.0
-    #          t_tail = stats.truncexpon(b=(upper_tail-lower_tail)/scale_tail, loc=lower, scale=scale_tail)
-    #          s_tail = t_tail.rvs(1)#[0,0.3]
-    #          u = u + ((0.5-u)/0.2)*s + ((-0.5+u)/0.2)*s_tail
-
-#REFERENCE: Uniform noise model
-#OLD noise model that would need to be replicated here
-#          p = self.means[name]
-#          u = 0.5*(np.array(u)+1)
-#          if u == 1:
-#            u = 0.5 + 0.5*0.5*p+np.random.uniform(-0.25*p, 0.25*p, 1).astype(np.float32)
-#          elif u == 0:
-#            u = 0.5 - 0.5*(0.5-0.5*p)+np.random.uniform(-0.5*(0.5-0.5*p), 0.5*(0.5-0.5*p), 1).astype(np.float32)
-#          return u
-#        def p_independent_noise(u):
-#          return u
-
-
 class CausalGAN(object):
     model_type='dcgan'
 
@@ -95,16 +69,14 @@ class CausalGAN(object):
         self.batch_size = batch_size #a tensor
         self.config=config
         self.model_dir=config.model_dir
-        self.TINY = 10**-6#a change
-        #self.TINY = 10**-8
+        self.TINY = 10**-6
 
         self.step = tf.Variable(0, name='step', trainable=False)
         self.inc_step=tf.assign(self.step,self.step+1)
 
-
-        #TODO:
-        #---------------EDIT----------------#
-        ##Are these actually used anywhere?????
+        #########################################
+        ##### Following is not used anymore #####
+        #########################################
         self.gamma_k = tf.get_variable(name='gamma_k',initializer=config.gamma_k,trainable=False)
         self.lambda_k = config.lambda_k#0.05
         self.gamma_l = config.gamma_l#self.label_loss_hyperparameter
@@ -112,11 +84,9 @@ class CausalGAN(object):
         self.gamma_m = 1./(self.gamma_k+self.TINY)#gamma_m#4.0 # allowing gan loss to be 8 times labelerR loss
         #self.gamma_m=config.gamma_m
         self.lambda_m =config.lambda_m#0.05
-        #---------------EDIT----------------#
-
+        #########################################
 
         self.k_t = tf.get_variable(name='k_t',initializer=1.,trainable=False) # kt is the closed loop feedback coefficient to balance the loss between LR and LG
-        #gamma_k#1.0#tolerates up to labelerR = 2 labelerG
 
         self.rec_loss_coeff = 0.0
         print('WARNING:CausalGAN.rec_loss_coff=',self.rec_loss_coeff)
@@ -164,7 +134,6 @@ class CausalGAN(object):
             fake_labels=self.fake_labels#{0,1}
             real_labels=self.real_labels
 
-
         if config.label_type=='discrete':
             fake_labels=0.3+fake_labels*0.4#{0.3,0.7}
             real_labels=0.3+real_labels*0.4#{0.3,0.7}
@@ -203,11 +172,9 @@ class CausalGAN(object):
 
         self.z_gen = tf.random_uniform( [self.batch_size, config.z_dim],minval=-1.0, maxval=1.0,name='z_gen')
 
-        #does this order matter?#yes
         self.z= tf.concat( [self.z_gen, self.fake_labels_inputs],axis=-1,name='z')
 
-
-        G,self.g_vars = GeneratorCNN(self.z,config)#[-1,1]float
+        G, self.g_vars = GeneratorCNN(self.z,config)#[-1,1]float
         self.G=denorm_img(G)#[0,255]
 
         #Discriminator
@@ -222,7 +189,6 @@ class CausalGAN(object):
         self.D_labels_for_fake, self.D_labels_for_fake_logits, _ =\
                 discriminator_labeler(G,n_labels,config,reuse=True)
 
-
         #Other discriminators
         self.D_gen_labels_for_fake,self.D_gen_labels_for_fake_logits,self.dl_gen_vars=\
             discriminator_gen_labeler(G,n_labels,config)
@@ -231,20 +197,21 @@ class CausalGAN(object):
         self.D_on_z_real,_ =discriminator_on_z(self.features_to_estimate_z_on_input,config)
         self.D_on_z,self.dz_vars=discriminator_on_z(self.features_to_estimate_z_on_generated,config,reuse=True)
 
-
         #order of concat matters
         self.z_for_real = tf.concat([self.D_on_z_real,self.real_labels_inputs], axis=1 , name ='z_real')
         self.inputs_reconstructed,_ = GeneratorCNN(self.z_for_real,self.config, reuse = True)
+        # Reconstructability is an idea that we tried. It does not provide big improvements, hence is not used ini the current version.
 
         tf.summary.histogram('d',self.D)
         tf.summary.histogram('d_',self.D_)
         tf.summary.image('G',self.G,max_outputs=10)
 
-
         def sigmoid_cross_entropy_with_logits(x, y):
             return tf.nn.sigmoid_cross_entropy_with_logits(logits=x, labels=y)
 
-        #TODO: Add some comments please
+        # We tried different loss functions: 0,1,2 all have the order of terms in the cross entropy loss flipped, whereas 3,4,5 are not (consistent with theory).
+        # Although all works to some extent, we have seen the sharpest images and best image quality with "loss function 1".
+        # Difference between 0, 1, 2: This is to see the effect of using different GAN losses, as mentioned in the paper.
         if self.loss_function == 0:
             self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_labels_for_fake))
             self.g_lossGAN = tf.reduce_mean(
@@ -266,11 +233,10 @@ class CausalGAN(object):
             self.g_lossLabels= tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.D_labels_for_fake_logits, self.fake_labels))
             self.g_lossGAN = tf.reduce_mean(-sigmoid_cross_entropy_with_logits(self.D_logits_, tf.zeros_like(self.D_)))
         else:
-            raise Exception('should not happen.\
+            raise Exception('Something is wrong with the loss function.\
                             self.loss_function=',self.loss_function)
 
         self.g_lossLabels_GLabeler = tf.reduce_mean(sigmoid_cross_entropy_with_logits(self.fake_labels_logits,self.D_gen_labels_for_fake))
-        #self.g_lossLabels_GLabeler_sum = scalar_summary("g_loss_labelerG",self.g_lossLabels_GLabeler)
         tf.summary.scalar("g_loss_labelerG",self.g_lossLabels_GLabeler)
 
         self.g_loss_on_z = tf.reduce_mean(tf.abs(self.z_gen - self.D_on_z)**2)
@@ -288,15 +254,12 @@ class CausalGAN(object):
             g_loss_on_z=self.g_loss_on_z
         else:
             g_loss_on_z=0.
+            # Default value for now, since reconstructability is not used in the current version.
 
         if config.off_label_losses:
             self.g_loss = self.g_lossGAN
         else:#default
             self.g_loss = self.g_lossGAN - 1.0*self.k_t*self.g_lossLabels_GLabeler + self.g_lossLabels + g_loss_on_z
-
-
-        #not used in meat_and_potatoes.py ... omitting...
-        #self.g_loss_without_labels = self.g_lossGAN
 
         tf.summary.scalar('g_loss_labelerR', self.g_lossLabels)
         tf.summary.scalar('g_lossGAN', self.g_lossGAN)
@@ -314,10 +277,6 @@ class CausalGAN(object):
 
         tf.summary.scalar("g_loss", self.g_loss)
         tf.summary.scalar("d_loss", self.d_loss)
-
-
-
-
 
     def build_train_op(self):
         config=self.config
@@ -339,12 +298,6 @@ class CausalGAN(object):
 
         self.k_t_update = tf.assign(self.k_t, self.k_t*tf.exp(-1.0/config.tau) )
 
-
-        #Expectation is that self.train_op will be run exactly once per iteration.
-        #Other ops may also be run individually
-            #do these control deps everytime you run once
-        #with tf.control_dependencies([self.k_t_update,self.inc_step]):
-            #Run everything once
         self.train_op=tf.group(self.d_gen_label_optim,self.d_label_optim,self.d_optim,self.g_optim,self.d_on_z_optim)
 
     def build_summary_op(self):
@@ -372,17 +325,6 @@ class CausalGAN(object):
                 sess.run(self.g_optim)
                 sess.run([self.train_op,self.k_t_update,self.inc_step])#all ops
 
-                #(equivalent)OLD:
-                #_ = self.sess.run([g_optim], feed_dict=fd)
-                #_, _, _, _, summary_str = self.sess.run([d_label_optim,d_gen_label_optim,d_optim,d_on_z_optim, self.summary_op], feed_dict=fd)
-                #_, _ = self.sess.run([k_t_update,g_optim], feed_dict=fd)
-
             else:
                 sess.run([self.g_optim, self.k_t_update ,self.inc_step])
                 sess.run(self.g_optim)
-
-                #(equivalent)OLD:
-                #_, _ = self.sess.run([k_t_update, g_optim], feed_dict=fd)
-                #_, summary_str = self.sess.run([g_optim,self.summary_op], feed_dict=fd)
-
-
