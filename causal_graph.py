@@ -167,17 +167,6 @@ causal_graphs={
         ['Gray_Hair',[]],
         ],
 
-'old_big_causal_graph':[
-        ['Young',[]],
-        ['Male',[]],
-        ['Eyeglasses',['Young']],
-        ['Bald',            ['Male','Young']],
-        ['Mustache',        ['Male','Young']],
-        ['Smiling',         ['Male','Young']],
-        ['Wearing_Lipstick',['Male','Young']],
-        ['Mouth_Slightly_Open',['Smiling']],
-        ['Narrow_Eyes',        ['Smiling']],
-    ],
 
 'small_causal_graph':[
         ['Young',[]],
@@ -228,6 +217,17 @@ causal_graphs={
 
     ],
 
+'indep_big_causal_graph':[
+        ['Young',[]],
+        ['Male',[]],
+        ['Eyeglasses',[]],
+        ['Bald',            []],
+        ['Mustache',        []],
+        ['Smiling',         []],
+        ['Wearing_Lipstick',[]],
+        ['Mouth_Slightly_Open',[]],
+        ['Narrow_Eyes',        []],
+    ],
 
 
 'complete_minimal_graph':[

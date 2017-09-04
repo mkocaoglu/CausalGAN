@@ -43,7 +43,10 @@ TODO:
 
 
 '''
-stabproj seemed to work really well. I made changes default, and I merged into master.
+z reconstruction was removed and results seem to be improved.
+
+recent change to how batch_size is handled
+    cc_config.batch_size=dcgan_config.batch_size
 
 
 '''
@@ -82,10 +85,12 @@ def get_trainer():
     if config.model_type:
         if config.model_type=='dcgan':
             config.batch_size=dcgan_config.batch_size
+            cc_config.batch_size=dcgan_config.batch_size
             config.Model=CausalGAN.CausalGAN
             model_config=dcgan_config
         if config.model_type=='began':
             config.batch_size=began_config.batch_size
+            cc_config.batch_size=began_config.batch_size
             config.Model=CausalBEGAN.CausalBEGAN
             model_config=began_config
     else:#no image model
