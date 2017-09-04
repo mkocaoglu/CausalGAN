@@ -29,22 +29,24 @@ First download [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) datase
 
 The CausalGAN/CausalBEGAN code factorizes into two components, which can be trained or loaded independently: the causal_controller module specifies the model which learns a causal generative model over labels, and the causal_dcgan or causal_began modules learn a GAN over images given those labels. We denote training the causal controller over labels as "pretraining" (--is_pretrain=True), and training a GAN over images given labels as "training" (--is_train=True)
 
-To train an implicit causal model over labels:
+To train a causal implicit model over labels and then over the image given the labels use
+
+    $ python main.py --causal_model big_causal_graph --is_pretrain True --model_type began --is_train True
+
+where "big_causal_graph" is one of the causal graphs specified by the keys in the causal_graphs dictionary in causal_graph.py. 
+
+Alternatively, one can first train a causal implicit model over labels only with the following command:
 
     $ python main.py --causal_model big_causal_graph --is_pretrain True
 
-where "big_causal_graph" is one of the causal graphs specified by matching the keys in the causal_graphs dictionary in causal_graph.py. To additionally train an image model from scratch:
-
-    $ python main.py --causal_model $model_key --is_pretrain True --model_type began --is_train True
-
-or alternatively one can load an existing causal_controller module when beginning to train (the more intensive) image training:
+One can then train a conditional generative model for the images given the trained causal generative model for the labels (causal controller), which yields a causal implicit generative model for the image and the labels, as suggested in [arXiv link to the paper]:
 
     $ echo CC-MODEL_PATH='./logs/celebA_0810_191625_0.145tvd_bcg/controller/checkpoints/CC-Model-20000'
-    $ python main.py --causal_model $model_key --pt_load_path $CC-MODEL_PATH --model_type began --is_train True 
+    $ python main.py --causal_model big_causal_graph --pt_load_path $CC-MODEL_PATH --model_type began --is_train True 
 
 Instead of loading the model piecewise, once image training has been run once, the entire joint model can be loaded more simply by specifying the model directory:
 
-    $ python main.py --causal_model $model_key --load_path ./logs/celebA_0815_170635 --model_type began --is_train True 
+    $ python main.py --causal_model big_causal_graph --load_path ./logs/celebA_0815_170635 --model_type began --is_train True 
 
 Tensorboard visualization of the most recently created model is simply (as long as port 6006 is free):
 
@@ -54,7 +56,7 @@ Tensorboard visualization of the most recently created model is simply (as long 
 To interact with an already trained model I recommend the following procedure:
 
     ipython
-    In [1]: %run main --causal_model 'my_model_key' --load_path './logs/celebA_0815_170635' --model_type 'began'
+    In [1]: %run main --causal_model big_causal_graph --load_path './logs/celebA_0815_170635' --model_type 'began'
 
 For example to sample N=22 interventional images from do(Smiling=1) (as long as your causal graph includes a "Smiling" node:
 
