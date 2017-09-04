@@ -1,8 +1,6 @@
 # CausalGAN/CausalBEGAN in Tensorflow
 
-<> (Tensorflow implementation of [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717).)
-
-Authors' Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
+Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
 
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
 ### Top: Samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
@@ -127,6 +125,7 @@ For convenience, the configurations used saved in 4 .json files in the model dir
   Repo originally forked from these two
 - [BEGAN-tensorflow](https://github.com/carpedm20/BEGAN-tensorflow)
 - [DCGAN-tensorflow](https://github.com/carpedm20/DCGAN-tensorflow)
+- [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717)
 -->
 
 ## Authors
