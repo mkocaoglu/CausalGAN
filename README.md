@@ -3,13 +3,10 @@
 Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
 
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
-### Top: Samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
+### Top: Random samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
 ![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
-### Top: Samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
+### Top: Random samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
 
-
-![alt text](./assets/tvd_vs_step.png)
-###Test of tvd_vs_step graph
 
 ## Requirements
 - Python 2.7
@@ -89,24 +86,21 @@ For convenience, the configurations used saved in 4 .json files in the model dir
 
 ## Results
 
+### Causal Controller convergence
+We show tvd convergence for Causal Graph 1 (big_causal_graph in causal_graph.py), a complete version of Causal Graph 1 (complete_big_causal_graph in causal_graph.py, and an edge reversed version of the complete Causal Graph 1 (reverse_big_causal_graph in causal_graph.py). We could get reasonable marginals with a complete DAG containing all 40 nodes, but TVD becomes very difficult to measure. We show TVD convergence for 9 nodes for two complete graphs. When the graph is incomplete, there is a "TVD gap" but reasonable convergence.
+
+![alt text](./assets/tvd_vs_step.png)
+
+
+### CausalGAN
 ### Generator output (64x64) with `gamma=0.5` after 300k steps
 
-<> ![all_G_z0_64x64](./assets/all_G_z0_64x64.png)
+![alt text](./assets/causalgan_pictures/45507_G_diversity.png)
 
 
 ### Generator output (128x128) with `gamma=0.5` after 200k steps
 
 <> ![all_G_z0_64x64](./assets/all_G_z0_128x128.png)
-
-
-### Interpolation of Generator output (64x64) with `gamma=0.5` after 300k steps
-
-<> ![interp_G0_64x64](./assets/interp_G0_64x64.png)
-
-
-### Interpolation of Generator output (128x128) with `gamma=0.5` after 200k steps
-
-<> ![interp_G0_128x128](./assets/interp_G0_128x128.png)
 
     
 ### Interpolation of Discriminator output of real images
