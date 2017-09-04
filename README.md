@@ -2,12 +2,12 @@
 
 <> (Tensorflow implementation of [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717).)
 
-Authors' Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training]
+Authors' Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
 
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
-### top: samples from do(Bald=1); bottom: samples from cond(Bald=1)
+### Top: Samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
 ![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
-### top: samples from do(Mustache=1); bottom: samples from cond(Mustache=1)
+### Top: Samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
 
 ## Requirements
 - Python 2.7
