@@ -15,14 +15,13 @@ from figure_scripts.sample import intervention2d,condition2d
 from utils import summary_stats
 from models import *
 
-
 class CausalBEGAN(object):
     '''
     A quick quirk about this class.
     if the model is built with a gpu, it must
     later be loaded with a gpu in order to preserve
-    NCHW/NHCW-ness
-
+    tensor structure: NCHW/NHCW (number-channel-height-width/number-height-channel-width)
+    
     in paper <-> in code
     b1,c1    <-> b_k, k_t
     b2,c2    <-> b_l, l_t
@@ -33,9 +32,8 @@ class CausalBEGAN(object):
         '''
         batch_size: again a tensorflow placeholder
         config    : see causal_began/config.py
-
-
         '''
+
         self.batch_size=batch_size #a tensor
         self.config=config
         self.use_gpu = config.use_gpu
@@ -83,14 +81,9 @@ class CausalBEGAN(object):
                     tower_d_loss_real_label=[],
                     tower_d_loss_fake_label=[],
             )
-
         self.k_t = tf.get_variable(name='k_t',initializer=0.,trainable=False)
         self.l_t = tf.get_variable(name='l_t',initializer=0.,trainable=False)
         self.z_t = tf.get_variable(name='z_t',initializer=0.,trainable=False)
-
-
-
-
 
     def __call__(self, real_inputs, fake_inputs):
         '''
@@ -113,7 +106,6 @@ class CausalBEGAN(object):
         #[0,255] NHWC
         self.x = self.real_inputs.pop('x')
 
-
         #used to change dataformat in data queue
         if self.data_format == 'NCHW':
             #self.x = tf.transpose(self.x, [2, 0, 1])#3D
@@ -127,19 +119,15 @@ class CausalBEGAN(object):
                 get_conv_shape(self.x, self.data_format)
         self.config.repeat_num= int(np.log2(height)) - 2
         self.config.channel=self.channel
-        #print('channel:',self.channel)
 
         #x in [-1,1]
         x = norm_img(self.x)
 
-
-        ##TOWER##
         self.real_labels=tf.concat(self.real_inputs.values(),-1)
         self.fake_labels=tf.concat(self.fake_inputs.values(),-1)
 
         self.z_gen = tf.random_uniform(
             (self.batch_size, self.z_dim), minval=-1.0, maxval=1.0)
-
 
         if self.config.round_fake_labels:
             self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
@@ -149,9 +137,7 @@ class CausalBEGAN(object):
         G, self.G_var = GeneratorCNN(self.z,config)
 
         d_out, self.D_z, self.D_var = DiscriminatorCNN(tf.concat([G, x],0),config)
-        #d_out, self.D_z, self.D_var = DiscriminatorCNN(
-        #        tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
-        #        self.conv_hidden_num, self.data_format)
+
         AE_G, AE_x = tf.split(d_out, 2)
 
         self.D_encode_G, self.D_encode_x=tf.split(self.D_z, 2)#axis=0 by default
@@ -160,25 +146,17 @@ class CausalBEGAN(object):
             self.D_fake_labels_logits=tf.slice(self.D_encode_G,[0,0],[-1,n_labels])
             self.D_real_labels_logits=tf.slice(self.D_encode_x,[0,0],[-1,n_labels])
         else:
-            '''
-            It would have been interesting to try to pass labels through
-            encoder and decoder. basically began but with (x,y) in place of x.
-            
-            Instead we take an approach with a separate labeler network
-            '''
             self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(G,n_labels,config)
             self.D_real_labels_logits,_=Discriminator_labeler(x,n_labels,config,reuse=True)
 
             self.D_var += self.DL_var
-
 
         self.D_real_labels=tf.sigmoid(self.D_real_labels_logits)
         self.D_fake_labels=tf.sigmoid(self.D_fake_labels_logits)
         self.D_real_labels_list=tf.split(self.D_real_labels,n_labels,axis=1)
         self.D_fake_labels_list=tf.split(self.D_fake_labels,n_labels,axis=1)
 
-
-        #"sigmoid_cross_entropy_with_logits" is really long
+        # sigmoid_cross_entropy_with_logits
         def sxe(logits,labels):
             #use zeros or ones if pass in scalar
             if not isinstance(labels,tf.Tensor):
@@ -186,7 +164,7 @@ class CausalBEGAN(object):
             return tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=logits,labels=labels)
 
-        #Round fake labels before calc loss?
+        #Round fake labels before calc loss
         if self.config.round_fake_labels:
             fake_labels=tf.round(self.fake_labels)
         else:
@@ -194,6 +172,7 @@ class CausalBEGAN(object):
         self.fake_labels_logits= -tf.log(1/(self.fake_labels+self.TINY)-1)
 
         #One of three label losses available
+        # Default is squared loss, "squarediff"
         self.d_xe_real_label=sxe(self.D_real_labels_logits,self.real_labels)
         self.d_xe_fake_label=sxe(self.D_fake_labels_logits,fake_labels)
         self.g_xe_label=sxe(self.fake_labels_logits, self.D_fake_labels)
@@ -231,7 +210,6 @@ class CausalBEGAN(object):
         self.eqn2 = tf.square(m1-m2)
         self.eqn1 = (c1+c2-2*tf.sqrt(c1*c2))/self.eqn2
 
-        ##New label-margin loss:
         self.d_loss_real = tf.reduce_mean(u1)
         self.d_loss_fake = tf.reduce_mean(u2)
         self.g_loss_image = tf.reduce_mean(tf.abs(AE_G - G))
@@ -244,8 +222,6 @@ class CausalBEGAN(object):
             #Careful on z_t sign!#(z_t <==> c_3 from paper)
             self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
         else:
-            #can we get away without this complicated third margin?
-            #No. rare label images will have poor quality
             print('Warning: not using third margin')
             self.g_loss = self.g_loss_image + 1.*self.g_loss_label
 
@@ -263,7 +239,6 @@ class CausalBEGAN(object):
         self.tower_dict['tower_d_loss_fake_label'].append(self.d_loss_fake_label)
 
         self.var=self.G_var+self.D_var+[self.step]
-
 
     def build_train_op(self):
         #Now outside gpu loop
@@ -298,24 +273,11 @@ class CausalBEGAN(object):
         with tf.control_dependencies([k_update,l_update,z_update]):
             self.train_op=tf.group(g_optim, d_optim)
 
-
-        ##*#* Interesting but pass this time around
-        #never tried this but one might want to
-        ## Track the moving averages of all trainable
-        ## variables.
-        #variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, global_step)
-        #variables_averages_op = variable_averages.apply(tf.trainable_variables())
-        ## Group all updates to into a single
-        ## train op.
-        #train_op = tf.group(apply_gradient_op, variables_averages_op)
-
-
     def train_step(self,sess,counter):
         sess.run(self.train_op)
 
         if counter % self.config.lr_update_step == self.lr_update_step - 1:
             sess.run([self.g_lr_update, self.d_lr_update])
-
 
     def build_summary_op(self):
         names,real_labels_list=zip(*self.real_inputs.items())
@@ -372,6 +334,3 @@ class CausalBEGAN(object):
         tf.summary.scalar("misc/z_t", self.z_t),
 
         self.summary_op=tf.summary.merge_all()
-
-
-
