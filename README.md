@@ -1,10 +1,8 @@
-# Causal(BE)GAN in Tensorflow
-
-# (test comment)
+# CausalGAN/CausalBEGAN in Tensorflow
 
 <> (Tensorflow implementation of [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717).)
 
-Authors' Tensorflow implementation of [CausalGAN: Learning Implicit Causal Models with Adversarial Training]
+Authors' Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training]
 
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
 ### top: samples from do(Bald=1); bottom: samples from cond(Bald=1)
@@ -28,7 +26,7 @@ First download [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) datase
 
 ## Usage
 
-The Causal(BE)GAN code factorizes into two components, which can be trained or loaded independently: the causal_controller module specifies the model which learns a causal generative model over labels, and the causal_dcgan or causal_began modules learn a GAN over images given those labels. We denote training the causal controller over labels as "pretraining" (--is_pretrain=True), and training a GAN over images given labels as "training" (--is_train=True)
+The CausalGAN/CausalBEGAN code factorizes into two components, which can be trained or loaded independently: the causal_controller module specifies the model which learns a causal generative model over labels, and the causal_dcgan or causal_began modules learn a GAN over images given those labels. We denote training the causal controller over labels as "pretraining" (--is_pretrain=True), and training a GAN over images given labels as "training" (--is_train=True)
 
 To train an implicit causal model over labels:
 
