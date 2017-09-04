@@ -40,7 +40,7 @@ class CausalBEGAN(object):
         self.config=config
         self.use_gpu = config.use_gpu
         self.data_format=self.config.data_format#NHWC or NCHW
-        self.TINY = 10**-8
+        self.TINY = 10**-6
 
         self.step = tf.Variable(0, name='step', trainable=False)
 
