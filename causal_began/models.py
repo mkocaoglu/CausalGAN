@@ -9,16 +9,11 @@ def lrelu(x,leak=0.2,name='lrelu'):
         f2=0.5 * (1-leak)
         return f1*x + f2*tf.abs(x)
 
-
-#self.z, self.conv_hidden_num, self.channel,
-#self.repeat_num, self.data_format)
-#def GeneratorCNN(z, hidden_num, output_num, repeat_num, data_format,reuse=None):
 def GeneratorCNN( z, config, reuse=None):
     hidden_num=config.conv_hidden_num
     output_num=config.c_dim
     repeat_num=config.repeat_num
     data_format=config.data_format
-
 
     with tf.variable_scope("G",reuse=reuse) as vs:
         x = slim.fully_connected(z, np.prod([8, 8, hidden_num]),activation_fn=None,scope='fc1')
@@ -37,12 +32,6 @@ def GeneratorCNN( z, config, reuse=None):
     variables = tf.contrib.framework.get_variables(vs)
     return out, variables
 
-#def DiscriminatorCNN(image, config, reuse=None):
-#        d_out, self.D_z, self.D_var = DiscriminatorCNN(
-#                tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
-#                self.conv_hidden_num, self.data_format)
-
-#def DiscriminatorCNN(x, input_channel, z_num, repeat_num, hidden_num, data_format,reuse=None):
 def DiscriminatorCNN(image, config, reuse=None):
     hidden_num=config.conv_hidden_num
     data_format=config.data_format
@@ -88,10 +77,6 @@ def DiscriminatorCNN(image, config, reuse=None):
     return out, z, variables
 
 
-#self.D_real_labels_logits,  _        =Discriminator_labeler(
-#x, len(self.cc), self.repeat_num,
-#self.conv_hidden_num, self.data_format, reuse=True)
-#def Discriminator_labeler(image, output_size, repeat_num,hidden_num,data_format,reuse=None):
 def Discriminator_labeler(image, output_size, config, reuse=None):
     hidden_num=config.conv_hidden_num
     repeat_num=config.repeat_num

@@ -31,16 +31,6 @@ def summary_stats(name,tensor,collections=None,hist=False):
 
 
 def prepare_dirs_and_logger(config):
-    #formatter = logging.Formatter("%(asctime)s:%(levelname)s::%(message)s")
-    #logger = logging.getLogger()
-
-    #for hdlr in logger.handlers:
-    #    logger.removeHandler(hdlr)
-
-    #handler = logging.StreamHandler()
-    #handler.setFormatter(formatter)
-
-    #logger.addHandler(handler)
 
     if config.load_path:
         strip_lp=config.load_path.strip('./')

@@ -32,12 +32,13 @@ class CausalBEGAN(object):
     def __init__(self,batch_size,config):
         '''
         batch_size: again a tensorflow placeholder
-        config: see causal_began/config.py
+        config    : see causal_began/config.py
 
 
         '''
         self.batch_size=batch_size #a tensor
         self.config=config
+        self.use_gpu = config.use_gpu
         self.data_format=self.config.data_format#NHWC or NCHW
         self.TINY = 10**-8
 
@@ -53,7 +54,6 @@ class CausalBEGAN(object):
         optimizer = tf.train.AdamOptimizer
         self.g_optimizer, self.d_optimizer = optimizer(self.g_lr), optimizer(self.d_lr)
 
-
         self.lambda_k = config.lambda_k
         self.lambda_l = config.lambda_l
         self.lambda_z = config.lambda_z
@@ -65,17 +65,11 @@ class CausalBEGAN(object):
 
         self.model_dir = config.model_dir
 
-
-        self.use_gpu = config.use_gpu
-
-
         self.start_step = 0
         self.log_step = config.log_step
         self.max_step = config.max_step
         self.lr_update_step = config.lr_update_step
-        self.is_train = config.is_train#used?
-
-
+        self.is_train = config.is_train
 
         #Keeps track of params from different devices
         self.tower_dict=dict(
@@ -100,13 +94,14 @@ class CausalBEGAN(object):
 
     def __call__(self, real_inputs, fake_inputs):
         '''
-        self.__call__ is done once for every device with variables shared so
-        that a copy of the tensorflow graph created in self.__call__ resides on
-        each device
+        in a multi gpu setting, self.__call__ is done once for every device with variables shared so
+        that a copy of the tensorflow variables created in self.__call__ resides on
+        each device. This would be run multiple times in a loop over devices.
 
-        fake inputs is a dictionary of labels from cc
-        real_inputs is also a dictionary of labels
-            with an additional key 'x' for the real image
+        Parameters:
+        fake inputs : a dictionary of labels from cc
+        real_inputs : also a dictionary of labels
+                      with an additional key 'x' for the real image
         '''
         config=self.config
 
@@ -152,19 +147,7 @@ class CausalBEGAN(object):
             self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
 
         G, self.G_var = GeneratorCNN(self.z,config)
-        #G, self.G_var = GeneratorCNN(
-        #        self.z, self.conv_hidden_num, self.channel,
-        #        self.repeat_num, self.data_format)
 
-        '''
-        my approach was to just pretend 3 of the vars in the encoded space
-        represented our causal variables
-        z_num is only 64,I am using 3 for labels
-        so if we use like 20 causal labels, make it larger
-
-        It would have been interesting to try to pass labels through
-        encoder and decoder. basically began but with (x,y) in place of x.
-        '''
         d_out, self.D_z, self.D_var = DiscriminatorCNN(tf.concat([G, x],0),config)
         #d_out, self.D_z, self.D_var = DiscriminatorCNN(
         #        tf.concat([G, x], 0), self.channel, self.z_num, self.repeat_num,
@@ -177,17 +160,14 @@ class CausalBEGAN(object):
             self.D_fake_labels_logits=tf.slice(self.D_encode_G,[0,0],[-1,n_labels])
             self.D_real_labels_logits=tf.slice(self.D_encode_x,[0,0],[-1,n_labels])
         else:
-
+            '''
+            It would have been interesting to try to pass labels through
+            encoder and decoder. basically began but with (x,y) in place of x.
+            
+            Instead we take an approach with a separate labeler network
+            '''
             self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(G,n_labels,config)
             self.D_real_labels_logits,_=Discriminator_labeler(x,n_labels,config,reuse=True)
-
-            #self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(
-            #    G, len(self.cc), self.repeat_num,
-            #    self.conv_hidden_num, self.data_format)
-
-            #self.D_real_labels_logits,  _        =Discriminator_labeler(
-            #    x, len(self.cc), self.repeat_num,
-            #    self.conv_hidden_num, self.data_format, reuse=True)
 
             self.D_var += self.DL_var
 
@@ -206,9 +186,7 @@ class CausalBEGAN(object):
             return tf.nn.sigmoid_cross_entropy_with_logits(
                 logits=logits,labels=labels)
 
-
-
-        #Should we round fake labels before calc loss?
+        #Round fake labels before calc loss?
         if self.config.round_fake_labels:
             fake_labels=tf.round(self.fake_labels)
         else:
@@ -253,7 +231,6 @@ class CausalBEGAN(object):
         self.eqn2 = tf.square(m1-m2)
         self.eqn1 = (c1+c2-2*tf.sqrt(c1*c2))/self.eqn2
 
-
         ##New label-margin loss:
         self.d_loss_real = tf.reduce_mean(u1)
         self.d_loss_fake = tf.reduce_mean(u2)
@@ -264,21 +241,16 @@ class CausalBEGAN(object):
         self.d_loss=self.d_loss_image+self.d_loss_label
 
         if not self.config.no_third_margin:#normal mode
-            #Careful on z_t sign!
+            #Careful on z_t sign!#(z_t <==> c_3 from paper)
             self.g_loss = self.g_loss_image + self.z_t*self.g_loss_label
         else:
-            #can we get awa without this complicated third margin?
-            #No. rare label images will have poor qualit
+            #can we get away without this complicated third margin?
+            #No. rare label images will have poor quality
             print('Warning: not using third margin')
             self.g_loss = self.g_loss_image + 1.*self.g_loss_label
 
-        #pretrain:
-        #c_grad=self.c_optimizer.compute_gradients(self.c_loss,var_list=self.cc.train_var)
-        #dcc_grad=self.dcc_optimizer.compute_gradients(self.dcc_loss,var_list=self.dcc_var)
-
         # Calculate the gradients for the batch of data,
         # on this particular gpu tower.
-
         g_grad=self.g_optimizer.compute_gradients(self.g_loss,var_list=self.G_var)
         d_grad=self.d_optimizer.compute_gradients(self.d_loss,var_list=self.D_var)
 
@@ -294,21 +266,6 @@ class CausalBEGAN(object):
 
 
     def build_train_op(self):
-
-        #with tf.variable_scope('tower'):
-        #    for gpu,data_loader in self.data_by_gpu.items()[::-1]:
-        #        gpu_idx+=1
-        #        print('using device:',gpu)
-        #        tower=gpu.replace('/','').replace(':','_')
-        #        with tf.device(gpu),tf.name_scope(tower):
-
-        #            #Build num_gpu copies of graph: inputs->gradient
-        #            #Updates self.tower_dict
-        #            self.build_tower(data_loader)
-
-        #        #allow future gpu to use same variables
-        #        tf.get_variable_scope().reuse_variables()
-
         #Now outside gpu loop
 
         #attributes starting with ave_ are averaged over devices
@@ -322,11 +279,9 @@ class CausalBEGAN(object):
         self.balance_l = self.gamma_label * self.ave_d_loss_real_label - self.ave_d_loss_fake_label
         self.balance_z = self.zeta*tf.nn.relu(self.balance_k) - tf.nn.relu(self.balance_l)
 
-
         self.measure = self.ave_d_loss_real + tf.abs(self.balance_k)
         self.measure_complete = self.ave_d_loss_real + self.ave_d_loss_real_label + \
             tf.abs(self.balance_k)+tf.abs(self.balance_l)+tf.abs(self.balance_z)
-
 
         k_update = tf.assign(
             self.k_t, tf.clip_by_value(self.k_t + self.lambda_k*self.balance_k, 0, 1))
@@ -338,7 +293,6 @@ class CausalBEGAN(object):
         g_grads=average_gradients(self.tower_dict['g_tower_grads'])
         d_grads=average_gradients(self.tower_dict['d_tower_grads'])
 
-
         g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
         with tf.control_dependencies([k_update,l_update,z_update]):
@@ -346,6 +300,7 @@ class CausalBEGAN(object):
 
 
         ##*#* Interesting but pass this time around
+        #never tried this but one might want to
         ## Track the moving averages of all trainable
         ## variables.
         #variable_averages = tf.train.ExponentialMovingAverage(MOVING_AVERAGE_DECAY, global_step)
@@ -354,6 +309,7 @@ class CausalBEGAN(object):
         ## train op.
         #train_op = tf.group(apply_gradient_op, variables_averages_op)
 
+
     def train_step(self,sess,counter):
         sess.run(self.train_op)
 
@@ -361,15 +317,11 @@ class CausalBEGAN(object):
             sess.run([self.g_lr_update, self.d_lr_update])
 
 
-
     def build_summary_op(self):
-        #Move some of these summaries to CC
-        #Label summaries
         names,real_labels_list=zip(*self.real_inputs.items())
         _    ,fake_labels_list=zip(*self.fake_inputs.items())
         LabelList=[names,real_labels_list,fake_labels_list,
                    self.D_fake_labels_list,self.D_real_labels_list]
-        #for node,rlabel,d_fake_label,d_real_label in zip(*LabelList):
         for name,rlabel,flabel,d_fake_label,d_real_label in zip(*LabelList):
             with tf.name_scope(name):
 
@@ -390,7 +342,6 @@ class CausalBEGAN(object):
                 tf.summary.scalar('fake_label_accuracy',f_acc)
 
         ##Summaries picked from last gpu to run
-
         tf.summary.scalar('losslabel/d_loss_real_label',tf.reduce_mean(self.ave_d_loss_real_label))
         tf.summary.scalar('losslabel/d_loss_fake_label',tf.reduce_mean(self.ave_d_loss_fake_label))
         tf.summary.scalar('losslabel/g_loss_label',self.g_loss_label)
@@ -405,8 +356,8 @@ class CausalBEGAN(object):
 
         tf.summary.scalar("misc/d_lr", self.d_lr),
         tf.summary.scalar("misc/g_lr", self.g_lr),
-        tf.summary.scalar("misc/eqn1", self.eqn1),
-        tf.summary.scalar("misc/eqn2", self.eqn2),
+        tf.summary.scalar("misc/eqn1", self.eqn1),#From orig BEGAN paper
+        tf.summary.scalar("misc/eqn2", self.eqn2),#From orig BEGAN paper
 
         #summaries of gpu-averaged values
         tf.summary.scalar("loss/d_loss_real",self.ave_d_loss_real),
