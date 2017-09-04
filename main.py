@@ -20,38 +20,6 @@ from causal_dcgan import CausalGAN
 from IPython.core import debugger
 debug = debugger.Pdb().set_trace
 
-
-'''
-    Sometimes I leave notes here as a way to see what the motivation was for the
-    previous models and to highlight what code changes were made. File is copied
-    into log directory.
-'''
-
-
-'''
-TODO:
-    load config from json when load model
-    it seems like to make multi gpu functional again, causal_controller has to be created twice
-
-    CausalGAN: to test out:
-        config.label_type='discrete'
-        type_input_to_generator='labels'
-        stab_proj variants
-
-    Setup image saving for label_mode collapse
-'''
-
-
-'''
-z reconstruction was removed and results seem to be improved.
-
-recent change to how batch_size is handled
-    cc_config.batch_size=dcgan_config.batch_size
-
-
-'''
-
-
 def get_trainer():
     print('tf: resetting default graph!')
     tf.reset_default_graph()#for repeated calls in ipython
