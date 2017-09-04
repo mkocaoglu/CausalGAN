@@ -21,7 +21,6 @@ def did_succeed( output_dict, cond_dict ):
     to the integer in cond_dict
     '''
 
-
     #definition success:
     def is_win(key):
         #cond=np.squeeze(cond_dict[key])

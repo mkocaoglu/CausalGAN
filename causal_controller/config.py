@@ -60,31 +60,27 @@ pretrain_arg.add_argument('--pretrain_iter',type=int,default=10000,
 pretrain_arg.add_argument('--pt_factorized',type=str2bool,default=False,
                           help='''Interesting approach that seemed to stabalize
                           training, but is not needed in this application.
+                          It turned out that we could get very good training without
+                          this complication, so we did not include in the paper.
+                          I've left it commented out here in the code.
+
                           Whether the discriminator should be
                           factorized according to the structure of the graph
-                          to speed convergence''')
-
-#No longer functional
-#pretrain_arg.add_argument('--pt_round_node_labels',type=str2bool,default=True,
-#                          help='''whether the labels internal in the causal
-#                          controller should be rounded before calcaulting the
-#                          labels for the child nodes
-#                          Should probably be False when pt_factorized is False''')
-
-#pretrain_arg.add_argument('--pt_penalize_each_grad',type=str2bool,default=True,
-#                          help='''whether to enforce that the gradient penalty
-#                          for each component is close to 1, rather than
-#                          enforcing that their average is close to 1''')
+                          to speed/stabalize convergence.
+                          
+                          This creates a separate discriminator for each node
+                          that only looks at each causal nodes value and its
+                          parents''')
 
 #Network
 net_arg = add_argument_group('Network')
 
 net_arg.add_argument('--cc_n_layers',type=int, default=6,
-                     help='''this is the number of neural network fc layers
-                     between the causes of a neuron and the neuron itsef.''')
+                     help='''This is the number of neural network fc layers
+                     between the causes of a node and the node itsef.''')
 net_arg.add_argument('--cc_n_hidden',type=int, default=10,
                      help='''number of neurons per layer in causal controller.
-                     Also doubles as the dimensionality of the uniform noise
+                     Also functions as the dimensionality of the uniform noise
                      input to the controller''')
 
 # Data
@@ -92,9 +88,7 @@ data_arg = add_argument_group('Data')
 data_arg.add_argument('--causal_model', type=str)
 data_arg.add_argument('--dataset', type=str, default='celebA')
 
-#data_arg.add_argument('--split', type=str, default='train')#WARN never setup
 data_arg.add_argument('--batch_size', type=int, default=16)
-#data_arg.add_argument('--num_worker', type=int, default=4)
 data_arg.add_argument('--num_worker', type=int, default=24,
      help='number of threads to use for loading and preprocessing data')
 
@@ -112,11 +106,6 @@ misc_arg.add_argument('--save_step', type=int, default=5000)
 misc_arg.add_argument('--num_log_samples', type=int, default=3)
 misc_arg.add_argument('--log_level', type=str, default='INFO', choices=['INFO', 'DEBUG', 'WARN'])
 misc_arg.add_argument('--log_dir', type=str, default='logs')
-#misc_arg.add_argument('--test_data_path', type=str, default=None,
-#                      help='directory with images which will be used in test sample generation')
-
-
-
 
 
 def get_config():

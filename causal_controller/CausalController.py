@@ -84,7 +84,6 @@ class CausalController(object):
         self.node_names=list(self.node_names)
         self.label_names=self.node_names
 
-
         #set nodeclass attributes
         if debug:
             print('Using ',self.config.cc_n_layers,'between each causal node')
@@ -92,22 +91,18 @@ class CausalController(object):
         CausalNode.n_hidden=self.config.cc_n_hidden
         CausalNode.batch_size=self.batch_size
 
-
         with tf.variable_scope('causal_controller') as vs:
             self.step=tf.Variable(0, name='step', trainable=False)
             self.inc_step=tf.assign(self.step,self.step+1)
 
             self.nodes=[CausalNode(name=n,config=config) for n in self.node_names]
 
-
-            #={n:CausalNode(n) for n in self.node_names}
             for node,rents in zip(self.nodes,self.parent_names):
                 node.parents=[n for n in self.nodes if n.name in rents]
 
             ##construct graph##
             #Lazy construction avoids the pain of traversing the causal graph explicitly
-                #Realized late: this only works for me for graphs up to size 13
-                #python has some recursion issues that need to be handled carefully
+            #python recursion error if the graph is not a DAG
             for node in self.nodes:
                 node.setup_tensor()
 
@@ -118,8 +113,9 @@ class CausalController(object):
         self.label_dict={n.name:n.label for n in self.nodes}
         self.node_dict={n.name:n for n in self.nodes}
         self.z_dict={n.name:n.z for n in self.nodes}
+
         #enable access directly. Little dangerous
-            #Please don't have any nodes named "batch_size" for example
+        #Please don't have any nodes named "batch_size" for example
         self.__dict__.update(self.node_dict)
 
         #dcc variables are not saved, so if you reload in the middle of a
@@ -152,7 +148,6 @@ class CausalController(object):
         #Pretraining setup
         self.DCC=DiscriminatorW
 
-        #Assuming factorized right now
         #if self.config.pt_factorized:
             #self.DCC=FactorizedNetwork(self.graph,self.DCC,self.config)
 
@@ -224,7 +219,6 @@ class CausalController(object):
             return []
 
 
-
     def critic_update(self,sess):
         fetch_dict = {"critic_op":self.dcc_optim }
         for i in range(self.config.n_critic):
@@ -277,9 +271,6 @@ class CausalController(object):
         for v in do_dict.values():
             assert(v==0 or v==1)
 
-        #How many at a time
-        #batch_size=N
-
         arr_do_dict={k:v*np.ones([N,1]) for k,v in do_dict.items()}
 
         feed_dict = self.do2feed(arr_do_dict)#{tensor:array}
@@ -293,7 +284,7 @@ class CausalController(object):
         if not cond_dict:
             return sess.run(fetch_dict, feed_dict)
 
-        else:#cond_dict not trivial
+        else:#cond_dict not None
 
             rows=np.arange(N)#what idx do we need
             #init
@@ -305,14 +296,12 @@ class CausalController(object):
 
             ii=0
             while( n_remaining > 0 ):
-                #debug()
                 ii+=1
 
                 #Run N samples
                 out=sess.run(fetch_dict, feed_dict)
 
                 bool_pass = did_succeed(out,cond_dict)
-                #print('did_succeed',bool_pass)
                 pass_idx=iter_rows[bool_pass]
                 pass_idx=pass_idx[:n_remaining]
                 pass_dict={k:v[pass_idx] for k,v in out.items()}
@@ -320,6 +309,7 @@ class CausalController(object):
                 outputs.concat(pass_dict)
                 n_remaining=N-len(outputs)
 
+                #    :(
                 if ii>max_fail:
                     print('WARNING: for cond_dict:',cond_dict,)
                     print('could not condition in ',max_fail*N, 'samples')
@@ -371,8 +361,8 @@ class CausalNode(object):
         if self.batch_size==-1:
             raise Exception('class attribute CausalNode.batch_size must be set')
 
-        #Use tf.random_uniform instead of placeholder for noise
         with tf.variable_scope(self.name) as vs:
+            #I think config.seed would have to be passed explicitly here
             self.z=tf.random_uniform((self.batch_size,self.n_hidden),minval=-1.0,maxval=1.0)
             self.init_var = tf.contrib.framework.get_variables(vs)
             self.setup_var=[]#empty until setup_tensor runs
@@ -387,13 +377,10 @@ class CausalNode(object):
         tf_parents=[self.z]+[node.label for node in self.parents]
 
 
-        #print("Warning, using lrelu instead of tanh!")
         with tf.variable_scope(self.name) as vs:
-            h=tf.concat(tf_parents,-1)#vector of parent tensors
+            h=tf.concat(tf_parents,-1)#tensor of parent values
             for l in range(self.n_layers-1):
                 h=slim.fully_connected(h,self.n_hidden,activation_fn=lrelu,scope='layer'+str(l))
-                #tanh is also an option
-                #h=slim.fully_connected(h,self.n_hidden,activation_fn=tf.nn.tanh,scope='layer'+str(l))
 
             self._label_logit = slim.fully_connected(h,1,activation_fn=None,scope='proj')
             self._label=tf.nn.sigmoid( self._label_logit )
@@ -401,7 +388,9 @@ class CausalNode(object):
                 print('self.',self.name,' has setup _label=',self._label)
 
             #There could actually be some (quiet) error here I think if one of the
-            #names is a substring of some other name. Sorry coded poorly
+            #names in the causal graph is a substring of some other name.
+                #e.g. 'hair' and 'black_hair'
+            #Sorry, not coded to anticipate corner case
             self.setup_var=tf.contrib.framework.get_variables(vs)
     @property
     def var(self):
@@ -433,11 +422,16 @@ class CausalNode(object):
 
     def setup_pretrain(self,config,label_loader,DCC):
         '''
-        This only happens if cc_config.pt_factorized=True
-        In this case convergence of each node is treated like it's own gan
-        conditioned on the parent nodes labels.
+        This function is not functional because
+        this only happens if cc_config.pt_factorized=True.
 
+        In this case convergence of each node is treated like its
+        own gan conditioned on the parent nodes labels.
+
+        I couldn't bring myself to delete it, but it's not needed
+        to get good convergence for the models we tested.
         '''
+
         print('setting up pretrain:',self.name)
 
         with tf.variable_scope(self.name,reuse=self.reuse) as vs:
@@ -445,8 +439,6 @@ class CausalNode(object):
             n_hidden=self.config.critic_hidden_size
 
             parent_names=[p.name for p in self.parents]
-            #real_inputs=tf.concat([label_loader[n] for n in parent_names]+[label_loader[self.name]],axis=1)
-            #fake_inputs=tf.concat([label_loader[n] for n in parent_names]+[self.label],axis=1)
             real_inputs=tf.concat([label_loader[n] for n in parent_names]+[label_loader[self.name]],axis=1)
             fake_inputs=tf.concat([p.label for p in self.parents]+[self.label],axis=1)
 

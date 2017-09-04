@@ -5,6 +5,7 @@ slim = tf.contrib.slim
 
 def lrelu(x,leak=0.2,name='lrelu'):
     with tf.variable_scope(name):
+        #Trick that saves memory by avoiding tf.max
         f1=0.5 * (1+leak)
         f2=0.5 * (1-leak)
         return f1*x + f2*tf.abs(x)
@@ -33,13 +34,13 @@ def DiscriminatorW(labels,batch_size, n_hidden, config, reuse=None):
 
 def Grad_Penalty(real_data,fake_data,Discriminator,config):
     '''
+    Implemention from "Improved training of Wasserstein"
     Interpolation based estimation of the gradient of the discriminator.
     Used to penalize the derivative rather than explicitly constrain lipschitz.
     '''
     batch_size=config.batch_size
     LAMBDA=config.lambda_W
     n_hidden=config.critic_hidden_size
-    #gradient penalty "Improved training of Wasserstein"
     alpha = tf.random_uniform([batch_size,1],0.,1.)
     interpolates = alpha*real_data + ((1-alpha)*fake_data)#Could do more if not fixed batch_size
     disc_interpolates = Discriminator(interpolates,batch_size,n_hidden=n_hidden,config=config, reuse=True)[1]#logits

@@ -3,7 +3,10 @@ class ArrayDict(object):
 
     '''
     This is a class for manipulating dictionaries of arrays
-    or dictionaries of scalars. I find this comes up pretty often when dealing with tensorflow.
+    or dictionaries of scalars. I find this comes up pretty often when dealing
+    with tensorflow, because you can pass dictionaries to feed_dict and get
+    dictionaries back. If you use a smaller batch_size, you then want to
+    "concatenate" these outputs for each key.
     '''
 
     def __init__(self):
@@ -27,8 +30,6 @@ class ArrayDict(object):
                 raise ValueError('key:',key,'was not in a_dict.keys()')
 
         for key,val in a_dict.items():
-            #print('key:',key)
-
             #Check same keys
             if not key in self.dict.keys():
                 raise ValueError('argument key:',key,'was not in self.dict')
@@ -62,7 +63,6 @@ class ArrayDict(object):
     def __getitem__(self,at):
         return {k:v[at] for k,v in self.items()}
 
-
 #debug, run tests
 if __name__=='__main__':
     out1=ArrayDict()
@@ -77,8 +77,4 @@ if __name__=='__main__':
     out2.concat(d2)
     out2.concat(d1)
     out2.concat(d3)
-
-
-
-
 
