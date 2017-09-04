@@ -22,6 +22,7 @@ First download [CelebA](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) datase
 
     $ apt-get install p7zip-full # ubuntu
     $ brew install p7zip # Mac
+    $ pip install tqdm
     $ python download.py
 
 ## Usage
