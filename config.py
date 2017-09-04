@@ -103,7 +103,8 @@ misc_arg.add_argument('--log_dir', type=str, default='logs', help='''where to st
 #misc_arg.add_argument('--sample_per_image', type=int, default=64,
 #                      help='# of sample per image during test sample generation')
 
-misc_arg.add_argument('--seed', type=int, default=22)
+misc_arg.add_argument('--seed', type=int, default=22,help=
+                      '''Not working right now: TF seed should be fixed to make sure exogenous noise for each causal node is fixed also''')
 
 #Doesn't do anything atm
 #misc_arg.add_argument('--visualize', action='store_true')

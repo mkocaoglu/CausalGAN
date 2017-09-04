@@ -40,27 +40,26 @@ def get_trainer():
 
     ###SEEDS###
     np.random.seed(config.seed)
-    tf.set_random_seed(config.seed)
-
+    #tf.set_random_seed(config.seed) # Not working right now.
 
     prepare_dirs_and_logger(config)
     if not config.load_path:
         print('saving config because load path not given')
         save_configs(config,cc_config,dcgan_config,began_config)
 
-
     #Resolve model differences and batch_size
     if config.model_type:
         if config.model_type=='dcgan':
             config.batch_size=dcgan_config.batch_size
-            cc_config.batch_size=dcgan_config.batch_size
+            cc_config.batch_size=dcgan_config.batch_size # make sure the batch size of cc is the same as the image model
             config.Model=CausalGAN.CausalGAN
             model_config=dcgan_config
         if config.model_type=='began':
             config.batch_size=began_config.batch_size
-            cc_config.batch_size=began_config.batch_size
+            cc_config.batch_size=began_config.batch_size # make sure the batch size of cc is the same as the image model
             config.Model=CausalBEGAN.CausalBEGAN
             model_config=began_config
+
     else:#no image model
         model_config=None
         config.batch_size=cc_config.batch_size
@@ -71,12 +70,9 @@ def get_trainer():
     #Interpret causal_model keyword
     cc_config.graph=get_causal_graph(config.causal_model)
 
-
-
     #Builds and loads specified models:
     trainer=Trainer(config,cc_config,model_config)
     return trainer
-
 
 def main(trainer):
     #Do pretraining
@@ -87,8 +83,6 @@ def main(trainer):
         if trainer.model_config.is_train:
             trainer.train_loop()
 
-
-
 if __name__ == "__main__":
     trainer=get_trainer()
 
@@ -98,17 +92,6 @@ if __name__ == "__main__":
     if hasattr(trainer,'model'):
         model=trainer.model
 
-
     main(trainer)
 
-    #so ipython isn't interupted annoyingly
-    #I think each queue creates a step/sec INFO warning
     tf.logging.set_verbosity(tf.logging.ERROR)
-
-
-    #I wish there were a way to tell supervisor to allow further graph
-    #modifications so that if running this in ipython, more tensors could be created after
-
-
-
-
