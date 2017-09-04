@@ -7,6 +7,10 @@ Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Mod
 ![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
 ### Top: Samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
 
+
+![alt text](./assets/tvd_vs_step.png)
+###Test of tvd_vs_step graph
+
 ## Requirements
 - Python 2.7
 - [Pillow](https://pillow.readthedocs.io/en/4.0.x/)
