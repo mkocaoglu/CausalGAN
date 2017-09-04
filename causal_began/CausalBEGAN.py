@@ -22,6 +22,11 @@ class CausalBEGAN(object):
     if the model is built with a gpu, it must
     later be loaded with a gpu in order to preserve
     NCHW/NHCW-ness
+
+    in paper <-> in code
+    b1,c1    <-> b_k, k_t
+    b2,c2    <-> b_l, l_t
+    b3,c3    <-> b_z, z_t
     '''
 
     def __init__(self,batch_size,config):
