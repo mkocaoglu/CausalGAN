@@ -31,9 +31,9 @@ The CausalGAN/CausalBEGAN code factorizes into two components, which can be trai
 
 To train an implicit causal model over labels:
 
-    $ python main.py --causal_model $model_key --is_pretrain True
+    $ python main.py --causal_model big_causal_graph --is_pretrain True
 
-where model_key specifies the causal_graph for the model by matching a key in the causal_graphs dictionary in causal_graph.py. To additionally train an image model from scratch:
+where "big_causal_graph" is one of the causal graphs specified by matching the keys in the causal_graphs dictionary in causal_graph.py. To additionally train an image model from scratch:
 
     $ python main.py --causal_model $model_key --is_pretrain True --model_type began --is_train True
 
