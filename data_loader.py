@@ -32,13 +32,12 @@ class DataLoader(object):
         self.is_crop=config.is_crop
         self.is_grayscale=config.grayscale
 
-        #attr_file= glob("{}/*.{}".format(config.data_dir, 'txt'))[0]
         attr_file= glob("{}/*.{}".format(config.data_path, 'txt'))[0]
         setattr(config,'attr_file',attr_file)
 
         attributes = pd.read_csv(config.attr_file,delim_whitespace=True) #+-1
         #Store all labels for reference
-        self.all_attr= 0.5*(attributes+1)# attributes is 0,1)
+        self.all_attr= 0.5*(attributes+1)# attributes is {0,1}
         self.all_label_means=self.all_attr.mean()
 
         #but only return desired labels in queues
@@ -50,7 +49,7 @@ class DataLoader(object):
 
         self.num_examples_per_epoch=len(self.filenames)
         self.min_fraction_of_examples_in_queue=0.001#go faster during debug
-        #self.min_fraction_of_examples_in_queue=0.01#have enough to do shuffling
+        #self.min_fraction_of_examples_in_queue=0.01
         self.min_queue_examples=int(self.num_examples_per_epoch*self.min_fraction_of_examples_in_queue)
 
 
@@ -61,17 +60,11 @@ class DataLoader(object):
             uint_label=tf.train.slice_input_producer([tf_labels])[0]
         label=tf.to_float(uint_label)
 
-        #All labels, not just those in graph
+        #All labels, not just those in causal_model
         dict_data={sl:tl for sl,tl in
                    zip(self.label_names,tf.split(label,len(self.label_names)))}
 
-        #print('labelshape:',dict_data['Male'].get_shape().as_list())#[1]
 
-
-        print ('Filling label queue with %d labels before starting to train. '
-            'I don\'t know how long this will take' % self.min_queue_examples)
-        #I think there are 3 other threads used elsewhere?
-        #Forget why I think that
         num_preprocess_threads = max(self.num_worker-3,1)
 
         data_batch = tf.train.shuffle_batch(
@@ -96,11 +89,9 @@ class DataLoader(object):
         img_contents=tf.read_file(img_filename)
         image = tf.image.decode_jpeg(img_contents, channels=3)
 
-
         image=tf.cast(image,dtype=tf.float32)
         if self.config.is_crop:#use dcgan cropping
-            #dcgan center-crops input to 108x108, outputs 64x64 #centrally crops it
-            #We emulate that here
+            #dcgan center-crops input to 108x108, outputs 64x64 #centrally crops it #We emulate that here
             image=tf.image.resize_image_with_crop_or_pad(image,108,108)
             #image=tf.image.resize_bilinear(image,[scale_size,scale_size])#must be 4D
 
@@ -116,35 +107,25 @@ class DataLoader(object):
 
             tf.summary.image('real_image',tf.expand_dims(image,0))
 
-        #used to transpose based on data_format here#Now internalized to model
 
 
         label=tf.to_float(uint_label)
-        #inputs to dictionary:
         #Creates a dictionary  {'Male',male_tensor, 'Young',young_tensor} etc..
-        #dict_data={sl:tf.reshape(tl,[1,1]) for sl,tl in
         dict_data={sl:tl for sl,tl in
                    zip(self.label_names,tf.split(label,len(self.label_names)))}
         assert not 'x' in dict_data.keys()#don't have a label named "x"
         dict_data['x']=image
 
-        #label=tf.to_int32(str_label)#keep as float?
-
         print ('Filling queue with %d Celeb images before starting to train. '
             'I don\'t know how long this will take' % self.min_queue_examples)
-        #I think there are 3 other threads used elsewhere
-        num_preprocess_threads = max(self.num_worker-3,1)
-        #image_batch, real_label_batch = tf.train.shuffle_batch(
+        num_preprocess_threads = max(self.num_worker,1)
+
         data_batch = tf.train.shuffle_batch(
                 dict_data,
                 batch_size=batch_size,
                 num_threads=num_preprocess_threads,
                 capacity=self.min_queue_examples + 3 * batch_size,
                 min_after_dequeue=self.min_queue_examples,
-                #allow_smaller_final_batch=True)
                 )
-        # Display the training images in the visualizer.
-        #TODO: doesn't quite work because depends on whether is NCHW.Better elsewhere
-        #tf.summary.image('real_images', data_batch['x'])
         return data_batch
 
