@@ -95,12 +95,13 @@ We show tvd convergence for Causal Graph 1 (big_causal_graph in causal_graph.py)
 ### CausalGAN
 ### Generator output (64x64) with `gamma=0.5` after 300k steps
 
+### CausalGAN Generator output (16x16) (randomly sampled label)
 ![alt text](./assets/causalgan_pictures/45507_G_diversity.png)
 
+### CausalBEGAN Generator output (16x16) (randomly sampled label)
+![alt text](./assets/causalbegan_pictures/   )
 
-### Generator output (128x128) with `gamma=0.5` after 200k steps
 
-<> ![all_G_z0_64x64](./assets/all_G_z0_128x128.png)
 
     
 ### Interpolation of Discriminator output of real images
