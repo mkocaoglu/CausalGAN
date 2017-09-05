@@ -1,0 +1,8 @@
+#Approach uses imagemagick
+#Take the first 20 images in a folder and convert to gif
+ls -v | head -20 | xargs cp -t newfolder
+cd newfolder
+mogrify -format png *.pdf
+mogrify -crop 62.5%x62.5%+0+0 *.png
+rm *.pdf
+convert -delay 20 $(ls -v) -loop 0 -layers optimize mygifname.gif
