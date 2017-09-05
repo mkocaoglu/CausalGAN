@@ -2,9 +2,9 @@
 
 Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
 
-### Top: Random samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
+### Top: Random samples from do(Bald=1); Bottom: Random samples from cond(Bald=1)
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
-### Top: Random samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
+### Top: Random samples from do(Mustache=1); Bottom: Random samples from cond(Mustache=1)
 ![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
 
 
@@ -98,50 +98,42 @@ For the following images when we condition or intervene, these operations can be
 ### CausalGAN Conditioning vs Intervening
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
-Bald
+![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png) Bald
 
-![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png) Mouth Slightly Open
 
-Mouth Slightly Open
+![alt text](./assets/causalgan_pictures/45507_intvcond_Mustache=1_2x10.png) Mustache
 
-![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Narrow_Eyes=1_2x10.png) Narrow Eyes
 
-Mustache
+![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png) Smiling
 
-![alt text](./assets/causalgan_pictures/45507_intvcond_Mustache=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png) Eyeglasses
 
-Narrow Eyes
-
-![alt text](./assets/causalgan_pictures/45507_intvcond_Narrow_Eyes=1_2x10.png)
-
-Smiling
-
-![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png)
-
-Eyeglasses
-
-![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
-
-Wearing Lipstick
-
-![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png) Wearing Lipstick
 
 ### CausalBEGAN Conditioning vs Intervening
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Bald=1_2x10.png) Bald
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Mouth_Slightly_Open=1_2x10.png) Mouth Slightly Open
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Mustache=1_2x10.png) Mustache
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Narrow_Eyes=1_2x10.png) Narrow Eyes
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Smiling=1_2x10.png) Smiling
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png)  Eyeglasses
+
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Wearing_Lipstick=1_2x10.png) Wearing Lipstick
 
 ### CausalGAN Generator output (10x10) (randomly sampled label)
-![alt text](https://user-images.githubusercontent.com/10726729/30072501-22926b20-9230-11e7-83ed-eded622d30e9.gif)
+![alt text](https://user-images.githubusercontent.com/10726729/30076306-09743002-923e-11e7-8011-8523cd914f25.gif)
 
 ### CausalBEGAN Generator output (10x10) (randomly sampled label)
-![alt text](https://user-images.githubusercontent.com/10726729/30072154-10224d3a-922f-11e7-933e-73b2caf45154.gif)
+![alt text](https://user-images.githubusercontent.com/10726729/30076379-38b407fc-923e-11e7-81aa-4310c76a2e39.gif)
 
 ## Related works
 <---
