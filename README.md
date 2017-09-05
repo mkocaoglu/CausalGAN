@@ -102,10 +102,6 @@ Bald
 
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png)
 
-Eyeglasses
-
-![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
-
 Mouth Slightly Open
 
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png)
@@ -122,6 +118,10 @@ Smiling
 
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png)
 
+Eyeglasses
+
+![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
+
 Wearing Lipstick
 
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png)
@@ -130,12 +130,12 @@ Wearing Lipstick
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Bald=1_2x10.png) Bald
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png) Eyeglasses
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Mouth_Slightly_Open=1_2x10.png) Mouth Slightly Open
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Mustache=1_2x10.png)
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Narrow_Eyes=1_2x10.png)
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Smiling=1_2x10.png)
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Wearing_Lipstick=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Mustache=1_2x10.png) Mustache
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Narrow_Eyes=1_2x10.png) Narrow Eyes
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Smiling=1_2x10.png) Smiling
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png)  Eyeglasses
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Wearing_Lipstick=1_2x10.png) Wearing Lipstick
 
 ### CausalGAN Generator output (10x10) (randomly sampled label)
 ![alt text](https://user-images.githubusercontent.com/10726729/30072501-22926b20-9230-11e7-83ed-eded622d30e9.gif)
