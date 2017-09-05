@@ -118,10 +118,10 @@ For each label, images were randomly sampled by either _intervening_ (top row) o
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Wearing_Lipstick=1_2x10.png)
 
 ### CausalGAN Generator output (10x10) (randomly sampled label)
-![alt text](https://user-images.githubusercontent.com/10726729/30070562-6c9bd578-9229-11e7-9ee4-4911dd44bc3d.gif)
+![alt text](https://user-images.githubusercontent.com/10726729/30072501-22926b20-9230-11e7-83ed-eded622d30e9.gif)
 
 ### CausalBEGAN Generator output (10x10) (randomly sampled label)
-![alt text](https://user-images.githubusercontent.com/10726729/30069997-c3461e08-9227-11e7-861f-ccbc79dd9572.gif)
+![alt text](https://user-images.githubusercontent.com/10726729/30072154-10224d3a-922f-11e7-933e-73b2caf45154.gif)
 
 ## Related works
 <---
