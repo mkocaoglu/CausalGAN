@@ -135,13 +135,17 @@ For each label, images were randomly sampled by either _intervening_ (top row) o
 ### CausalBEGAN Generator output (10x10) (randomly sampled label)
 ![alt text](https://user-images.githubusercontent.com/10726729/30076379-38b407fc-923e-11e7-81aa-4310c76a2e39.gif)
 
-## Related works
 <---
   Repo originally forked from these two
 - [BEGAN-tensorflow](https://github.com/carpedm20/BEGAN-tensorflow)
 - [DCGAN-tensorflow](https://github.com/carpedm20/DCGAN-tensorflow)
-- [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717)
 -->
+
+## Related works
+- [Generative Adversarial Networks](https://arxiv.org/abs/1406.2661)
+- [Unsupervised Representation Learning with Deep Convolutional Generative Adversarial Networks](https://arxiv.org/abs/1511.06434)
+- [Wasserstein GAN](https://arxiv.org/abs/1701.07875)
+- [BEGAN: Boundary Equilibrium Generative Adversarial Networks](https://arxiv.org/abs/1703.10717)
 
 ## Authors
 
