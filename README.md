@@ -99,18 +99,31 @@ For the following images when we condition or intervene, these operations can be
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
 Bald
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png)
+
 Eyeglasses
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
+
 Mouth Slightly Open
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png)
+
 Mustache
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Mustache=1_2x10.png)
+
 Narrow Eyes
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Narrow_Eyes=1_2x10.png)
+
 Smiling
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png)
+
 Wearing Lipstick
+
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png)
 
 ### CausalBEGAN Conditioning vs Intervening
