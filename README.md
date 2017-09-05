@@ -129,9 +129,9 @@ Wearing Lipstick
 ### CausalBEGAN Conditioning vs Intervening
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Bald=1_2x10.png)
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png)
-![alt text](./assets/causalbegan_pictures/190001_intvcond_Mouth_Slightly_Open=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Bald=1_2x10.png) Bald
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png) Eyeglasses
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Mouth_Slightly_Open=1_2x10.png) Mouth Slightly Open
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Mustache=1_2x10.png)
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Narrow_Eyes=1_2x10.png)
 ![alt text](./assets/causalbegan_pictures/190001_intvcond_Smiling=1_2x10.png)
