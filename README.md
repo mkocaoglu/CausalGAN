@@ -2,10 +2,10 @@
 
 Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
 
-![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
 ### Top: Random samples from do(Bald=1); Bottom: Samples from cond(Bald=1)
-![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
+![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
 ### Top: Random samples from do(Mustache=1); Bottom: Samples from cond(Mustache=1)
+![alt text](./assets/314393_began_Mustache_topdo1_botcond1.png)
 
 
 ## Requirements
@@ -98,12 +98,19 @@ For the following images when we condition or intervene, these operations can be
 ### CausalGAN Conditioning vs Intervening
 For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
 
+Bald
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png)
+Eyeglasses
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
+Mouth Slightly Open
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png)
+Mustache
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Mustache=1_2x10.png)
+Narrow Eyes
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Narrow_Eyes=1_2x10.png)
+Smiling
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png)
+Wearing Lipstick
 ![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png)
 
 ### CausalBEGAN Conditioning vs Intervening
