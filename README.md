@@ -81,43 +81,49 @@ configurations:
 ./causal_dcgan/config  :  specific to CausalGAN
 ./causal_began/config  :  specific to CausalBEGAN
 
-For convenience, the configurations used saved in 4 .json files in the model directory for future reference.
+For convenience, the configurations used are saved in 4 .json files in the model directory for future reference.
 
 
 ## Results
 
 ### Causal Controller convergence
-We show tvd convergence for Causal Graph 1 (big_causal_graph in causal_graph.py), a complete version of Causal Graph 1 (complete_big_causal_graph in causal_graph.py, and an edge reversed version of the complete Causal Graph 1 (reverse_big_causal_graph in causal_graph.py). We could get reasonable marginals with a complete DAG containing all 40 nodes, but TVD becomes very difficult to measure. We show TVD convergence for 9 nodes for two complete graphs. When the graph is incomplete, there is a "TVD gap" but reasonable convergence.
+We show convergence in TVD for Causal Graph 1 (big_causal_graph in causal_graph.py), a completed version of Causal Graph 1 (complete_big_causal_graph in causal_graph.py, and an edge reversed version of the complete Causal Graph 1 (reverse_big_causal_graph in causal_graph.py). We could get reasonable marginals with a complete DAG containing all 40 nodes, but TVD becomes very difficult to measure. We show TVD convergence for 9 nodes for two complete graphs. When the graph is incomplete, there is a "TVD gap" but reasonable convergence.
 
 ![alt text](./assets/tvd_vs_step.png)
 
+### Conditional vs Interventional Sampling:
+We trained a causal implicit generative model assuming we are given the following causal graph over labels:
+For the following images when we condition or intervene, these operations can be reasoned about from the graph structure. e.g., conditioning on mustache=1 should give more male whereas intervening should not (since the edges from the parents are disconnected in an intervention).
 
-### CausalGAN
-### Generator output (64x64) with `gamma=0.5` after 300k steps
+### CausalGAN Conditioning vs Intervening
+For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
+
+![alt text](./assets/causalgan_pictures/45507_intvcond_Bald=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Eyeglasses=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Mouth_Slightly_Open=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Mustache=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Narrow_Eyes=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Smiling=1_2x10.png)
+![alt text](./assets/causalgan_pictures/45507_intvcond_Wearing_Lipstick=1_2x10.png)
+
+### CausalBEGAN Conditioning vs Intervening
+For each label, images were randomly sampled by either _intervening_ (top row) or _conditioning_ (bottom row) on label=1.
+
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Bald=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Eyeglasses=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Mouth_Slightly_Open=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Mustache=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Narrow_Eyes=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Smiling=1_2x10.png)
+![alt text](./assets/causalbegan_pictures/190001_intvcond_Wearing_Lipstick=1_2x10.png)
 
 ### CausalGAN Generator output (16x16) (randomly sampled label)
 ![alt text](./assets/causalgan_pictures/45507_G_diversity.png)
 
 ### CausalBEGAN Generator output (16x16) (randomly sampled label)
-![alt text](./assets/causalbegan_pictures/   )
+![alt text](./assets/causalbegan_pictures/190001_G_diversity.png)
 
 
-
-    
-### Interpolation of Discriminator output of real images
-<---   
-![alt tag](./assets/AE_batch.png)   
-![alt tag](./assets/interp_1.png)   
-![alt tag](./assets/interp_2.png)   
-![alt tag](./assets/interp_3.png)   
-![alt tag](./assets/interp_4.png)   
-![alt tag](./assets/interp_5.png)   
-![alt tag](./assets/interp_6.png)   
-![alt tag](./assets/interp_7.png)   
-![alt tag](./assets/interp_8.png)   
-![alt tag](./assets/interp_9.png)   
-![alt tag](./assets/interp_10.png)
--->
 
 ## Related works
 <---

@@ -12,11 +12,9 @@ from utils import save_image
 from data_loader import DataLoader
 from figure_scripts.pairwise import crosstab
 
-
-
 class Trainer(object):
 
-    def __init__(self,config,cc_config,model_config=None):
+    def __init__(self, config, cc_config, model_config=None):
         self.config=config
         self.cc_config=cc_config
         self.model_dir = config.model_dir
@@ -37,14 +35,13 @@ class Trainer(object):
         self.load_path = config.load_path
         self.use_gpu = config.use_gpu
 
-
         #This tensor controls batch_size for all models
-        #Not expected to change during training, but during inference it can be
+        #Not expected to change during training, but during testing it can be
         #helpful to change it
+
         self.batch_size=tf.placeholder_with_default(self.config.batch_size,[],name='batch_size')
 
         loader_batch_size=config.num_devices*config.batch_size
-
 
         #Always need to build CC
         print('setting up CausalController')
@@ -58,10 +55,9 @@ class Trainer(object):
 
         if self.cc_config.is_pretrain or self.config.build_pretrain:
             print('setup pretrain')
-            #queue system to feed labels quickly. Does not queue images
+            #queue system to feed labels quickly. This does not queue images
             label_queue= self.data.get_label_queue(loader_batch_size)
             self.cc.build_pretrain(label_queue)
-
 
         #Build Model
         if self.model_config:
@@ -73,7 +69,7 @@ class Trainer(object):
             #will have image summaries at 100k but trainer model saved at Model-110k
             self.step+=self.model.step
 
-
+            # This queue holds (image,label) pairs, and is used for training conditional GANs
             data_queue=self.data.get_data_queue(loader_batch_size)
 
             self.real_data_by_gpu = distribute_input_data(data_queue,config.num_gpu)
@@ -111,7 +107,6 @@ class Trainer(object):
         sess_config = tf.ConfigProto(allow_soft_placement=True,
                                     gpu_options=gpu_options)
 
-
         sv = tf.train.Supervisor(
                                 logdir=self.save_model_dir,
                                 is_chief=True,
@@ -123,13 +118,6 @@ class Trainer(object):
                                 ready_for_local_init_op=None
                                 )
         self.sess = sv.prepare_or_wait_for_session(config=sess_config)
-
-        #ckpt = tf.train.get_checkpoint_state(self.model_dir)
-        #if ckpt and ckpt.model_checkpoint_path:
-        #    ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
-        #    self.saver.restore(self.sess, os.path.join(self.model_dir, ckpt_name))
-        #    print(" [*] Success to read {}".format(ckpt_name))
-
 
         if cc_config.pt_load_path:
             print('Attempting to load pretrain model:',cc_config.pt_load_path)
@@ -154,10 +142,9 @@ class Trainer(object):
                 pnt_str=pnt_str.format(model_step)
             print(pnt_str)
 
-
         #PREPARE training:
         #TODO save as Variables so they are restored to same values when load model
-        fixed_batch_size=256#get this many fixed z values
+        fixed_batch_size=256 #get this many fixed z values
 
         self.fetch_fixed_z={n.z:n.z for n in self.cc.nodes}
         if model_config:
@@ -166,25 +153,6 @@ class Trainer(object):
         #feed_dict that ensures constant inputs
         #add feed_fixed_z[self.cc.Male.label]=1*ones() to intervene
         self.feed_fixed_z=self.sess.run(self.fetch_fixed_z,{self.batch_size:fixed_batch_size})
-
-
-
-
-        #self.feed_fixed.update({'x':x_fixed})#needed?
-
-        #requires data_queue
-        #x_fixed = self.sess.run(self.data_queue['x'],{self.batch_size:fixed_batch_size})
-
-
-
-        #This guy is a dictionary of all possible z tensors
-        #he has 1 for every causal label plus one called 'z_gen'
-        #Use him to sample z and to feed z in
-        #self.z_fd=self.cc.sample_z.copy()
-        #self.z_fd.update({'z_gen':self.z_gen})
-
-
-
 
     def pretrain_loop(self,num_iter=None):
         '''
@@ -197,7 +165,6 @@ class Trainer(object):
         #TODO: potentially should be moved into CausalController for consistency
 
         num_iter = num_iter or self.cc.config.pretrain_iter
-
 
         if hasattr(self,'model'):
             model_step=self.sess.run(self.model.step)
@@ -280,8 +247,6 @@ class Trainer(object):
         #Train loop
         print('Entering train loop..')
         for counter in trange(num_iter):
-            #print('counter',counter)
-            #maybe a statement warning when losses are Nan?
 
             self.model.train_step(self.sess,counter)
 
@@ -301,29 +266,19 @@ class Trainer(object):
             if counter % (self.config.log_step * 100) == 0:
                 self.causal_sampling([2,10])
 
-
     ##Wrapper methods
     def sample_label(self, cond_dict=None, do_dict=None,N=None):
         return self.cc.sample_label(self.sess,cond_dict=cond_dict,do_dict=do_dict,N=N)
     ##
 
-
     ##Sampling and figure methods
     def label_interpolation(self,inputs=None,save_dir=None,ext='.pdf'):
         '''
-        Label interpolation doesn't really make sense when the causal
-        controller is trained to always output discrete labels, but here we are.
-
-        holding all other inputs the same, move a causal controller
-        labels between 0 and 1. Recalculate downstream effects
+        Holding all other inputs the same, move a causal controller
+        labels between 0 and 1. Recalculate the downstream effects to capture the causal effect.
 
         For each label, this makes an 8x8 image with each row being
         an instance of z_fixed with varying label
-
-        You don't have to pass inputs but if you do, it should be a dictionary
-        whose keys are tensors and values have first dimension 8
-
-        TODO I don't think it will work with multi gpu
         '''
 
         interpolation_dir=os.path.join(self.model_dir,'label_interpolation')
@@ -353,21 +308,24 @@ class Trainer(object):
         out_str="[*] Interpolation Samples saved: "+save_name
         print(save_name.format(save_dir,step,'*'))
 
-    def causal_sampling(self,img_shape,ext='.pdf'):
+    def causal_sampling(self, img_shape ,ext='.pdf'):
         '''
         sampling new noise inputs each time, draw samples from
-        internvetional distributions.
+        interventional distributions.
         Recalculate downstream effects given a label value
 
         img_shape must have rows divisible by 2
-        The top half is interpreted as intv label=1
-        Bottom half is intv label=0
 
-
-        You don't have to pass inputs but if you do, it should be a dictionary
-        whose keys are tensors and values have first dimension 8
-
-        TODO I don't think it will work with multi gpu
+        This function implements the following three sampling techniques: 
+        1) Images where 
+            Top half is sampled from the intervention do(label=1)
+            Bottom half is sampled from the intervention do(label=0)
+        2) Images where
+            Top half is sampled from the intervention do(label=1/0)
+            Bottom half is sampled conditioned on |label = 1/0
+        3) Image where 
+            Top half is sampled conditioned on |label = 1
+            Bottom half is sampled conditioned on |label = 0
         '''
 
         assert len(img_shape)==2,'2d shape for output'
@@ -395,7 +353,6 @@ class Trainer(object):
         save_name_intv =os.path.join(intervention_dir,'{}_interv_{}'+shape_str+ext)
         save_name_intvcond=os.path.join(intv_v_conditioning_dir,'{}_intvcond_{}={}'+shape_str+ext)
 
-
         half_shape=[img_shape[0]//2, img_shape[1]]
         N=np.prod(half_shape)
 
@@ -407,7 +364,6 @@ class Trainer(object):
             d0=self.sample_label(do_dict=  {name:0},N=N)
             d1=self.sample_label(do_dict=  {name:1},N=N)
 
-            #ex: {self.cc.Male (Tensor):1}
             feed_c0={self.cc.label_dict[k]:v for k,v in c0.iteritems()}
             feed_c1={self.cc.label_dict[k]:v for k,v in c1.iteritems()}
             feed_d0={self.cc.label_dict[k]:v for k,v in d0.iteritems()}
@@ -424,10 +380,10 @@ class Trainer(object):
             d0_images=self.sess.run(self.model.G,feed_d0)
             d1_images=self.sess.run(self.model.G,feed_d1)
 
-            save_path_cond    =save_name_cond.format(step,name)
-            save_path_intv    =save_name_intv.format(step,name)
-            save_path_intvcond0=save_name_intvcond.format(step,name,0)
-            save_path_intvcond1=save_name_intvcond.format(step,name,1)
+            save_path_cond      = save_name_cond.format(step,name)
+            save_path_intv      = save_name_intv.format(step,name)
+            save_path_intvcond0 = save_name_intvcond.format(step,name,0)
+            save_path_intvcond1 = save_name_intvcond.format(step,name,1)
 
             #saveimage fills row by row from top left
             save_image(np.concatenate([c1_images,c0_images]),save_path_cond,nrow=img_shape[0])
@@ -458,7 +414,7 @@ class Trainer(object):
 
         step,images = self.sess.run([self.model.step,self.model.G], feed_dict=feed_fixed)
 
-        print('im shape',images.shape)
+        print('image shape',images.shape)
 
         save_path=save_name.format(step)
         save_image(images, save_path, nrow=nrow)
