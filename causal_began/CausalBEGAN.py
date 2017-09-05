@@ -21,7 +21,7 @@ class CausalBEGAN(object):
     if the model is built with a gpu, it must
     later be loaded with a gpu in order to preserve
     tensor structure: NCHW/NHCW (number-channel-height-width/number-height-channel-width)
-    
+
     in paper <-> in code
     b1,c1    <-> b_k, k_t
     b2,c2    <-> b_l, l_t
@@ -40,6 +40,7 @@ class CausalBEGAN(object):
         self.data_format=self.config.data_format#NHWC or NCHW
         self.TINY = 10**-6
 
+        #number of calls to self.g_optim
         self.step = tf.Variable(0, name='step', trainable=False)
 
         #optimizers
@@ -101,7 +102,7 @@ class CausalBEGAN(object):
         #The keys are all the labels union 'x'
         self.real_inputs=real_inputs
         self.fake_inputs=fake_inputs
-        n_labels=len(fake_inputs)
+        n_labels=len(fake_inputs)#number of labels in graph, not dataset
 
         #[0,255] NHWC
         self.x = self.real_inputs.pop('x')
@@ -120,35 +121,36 @@ class CausalBEGAN(object):
         self.config.repeat_num= int(np.log2(height)) - 2
         self.config.channel=self.channel
 
+        #There are two versions: "x" and "self.x".
+        #    "x" is normalized for computation
+        #    "self.x" is unnormalized for saving and summaries
+        #    likewise for "G" and "self.G"
         #x in [-1,1]
         x = norm_img(self.x)
 
         self.real_labels=tf.concat(self.real_inputs.values(),-1)
         self.fake_labels=tf.concat(self.fake_inputs.values(),-1)
 
+        #noise given to generate image in addition to labels
         self.z_gen = tf.random_uniform(
             (self.batch_size, self.z_dim), minval=-1.0, maxval=1.0)
 
-        if self.config.round_fake_labels:
+        if self.config.round_fake_labels:#default
             self.z= tf.concat( [tf.round(self.fake_labels), self.z_gen],axis=-1,name='z')
         else:
             self.z= tf.concat( [self.fake_labels, self.z_gen],axis=-1,name='z')
 
         G, self.G_var = GeneratorCNN(self.z,config)
-
         d_out, self.D_z, self.D_var = DiscriminatorCNN(tf.concat([G, x],0),config)
-
         AE_G, AE_x = tf.split(d_out, 2)
-
         self.D_encode_G, self.D_encode_x=tf.split(self.D_z, 2)#axis=0 by default
 
         if not self.config.separate_labeler:
             self.D_fake_labels_logits=tf.slice(self.D_encode_G,[0,0],[-1,n_labels])
             self.D_real_labels_logits=tf.slice(self.D_encode_x,[0,0],[-1,n_labels])
-        else:
+        else:#default
             self.D_fake_labels_logits,self.DL_var=Discriminator_labeler(G,n_labels,config)
             self.D_real_labels_logits,_=Discriminator_labeler(x,n_labels,config,reuse=True)
-
             self.D_var += self.DL_var
 
         self.D_real_labels=tf.sigmoid(self.D_real_labels_logits)
@@ -165,10 +167,12 @@ class CausalBEGAN(object):
                 logits=logits,labels=labels)
 
         #Round fake labels before calc loss
-        if self.config.round_fake_labels:
+        if self.config.round_fake_labels:#default
             fake_labels=tf.round(self.fake_labels)
         else:
             fake_labels=self.fake_labels
+
+        #This is here because it's used in cross_entropy calc, but it's not used by default
         self.fake_labels_logits= -tf.log(1/(self.fake_labels+self.TINY)-1)
 
         #One of three label losses available
@@ -179,25 +183,26 @@ class CausalBEGAN(object):
 
         self.d_absdiff_real_label=tf.abs(self.D_real_labels  - self.real_labels)
         self.d_absdiff_fake_label=tf.abs(self.D_fake_labels  - fake_labels)
-        self.g_absdiff_label=tf.abs(fake_labels  -  self.D_fake_labels)
+        self.g_absdiff_label     =tf.abs(fake_labels  -  self.D_fake_labels)
 
         self.d_squarediff_real_label=tf.square(self.D_real_labels  - self.real_labels)
         self.d_squarediff_fake_label=tf.square(self.D_fake_labels  - fake_labels)
-        self.g_squarediff_label=tf.square(fake_labels  -  self.D_fake_labels)
+        self.g_squarediff_label     =tf.square(fake_labels  -  self.D_fake_labels)
 
         if self.config.label_loss=='xe':
             self.d_loss_real_label = tf.reduce_mean(self.d_xe_real_label)
             self.d_loss_fake_label = tf.reduce_mean(self.d_xe_fake_label)
-            self.g_loss_label=tf.reduce_mean(self.g_xe_label)
+            self.g_loss_label      = tf.reduce_mean(self.g_xe_label)
         elif self.config.label_loss=='absdiff':
             self.d_loss_real_label = tf.reduce_mean(self.d_absdiff_real_label)
             self.d_loss_fake_label = tf.reduce_mean(self.d_absdiff_fake_label)
-            self.g_loss_label = tf.reduce_mean(self.g_absdiff_label)
+            self.g_loss_label      = tf.reduce_mean(self.g_absdiff_label)
         elif self.config.label_loss=='squarediff':
             self.d_loss_real_label = tf.reduce_mean(self.d_squarediff_real_label)
             self.d_loss_fake_label = tf.reduce_mean(self.d_squarediff_fake_label)
-            self.g_loss_label = tf.reduce_mean(self.g_squarediff_label)
+            self.g_loss_label      = tf.reduce_mean(self.g_squarediff_label)
 
+        #"self.G" is [0,255], "G" is [-1,1]
         self.G = denorm_img(G, self.data_format)
         self.AE_G, self.AE_x = denorm_img(AE_G, self.data_format), denorm_img(AE_x, self.data_format)
 
@@ -207,8 +212,8 @@ class CausalBEGAN(object):
         m2=tf.reduce_mean(u2)
         c1=tf.reduce_mean(tf.square(u1-m1))
         c2=tf.reduce_mean(tf.square(u2-m2))
-        self.eqn2 = tf.square(m1-m2)
-        self.eqn1 = (c1+c2-2*tf.sqrt(c1*c2))/self.eqn2
+        self.eqn2 = tf.square(m1-m2)#from orig began paper
+        self.eqn1 = (c1+c2-2*tf.sqrt(c1*c2))/self.eqn2#from orig began paper
 
         self.d_loss_real = tf.reduce_mean(u1)
         self.d_loss_fake = tf.reduce_mean(u2)
@@ -250,6 +255,7 @@ class CausalBEGAN(object):
         self.ave_d_loss_fake_label =tf.reduce_mean(self.tower_dict['tower_d_loss_fake_label'])
         self.ave_g_loss_label      =tf.reduce_mean(self.tower_dict['tower_g_loss_label'])
 
+        #recalculate balance equations (b1,b2,b3 in paper)
         self.balance_k = self.gamma * self.ave_d_loss_real - self.ave_g_loss_image
         self.balance_l = self.gamma_label * self.ave_d_loss_real_label - self.ave_d_loss_fake_label
         self.balance_z = self.zeta*tf.nn.relu(self.balance_k) - tf.nn.relu(self.balance_l)
@@ -258,6 +264,7 @@ class CausalBEGAN(object):
         self.measure_complete = self.ave_d_loss_real + self.ave_d_loss_real_label + \
             tf.abs(self.balance_k)+tf.abs(self.balance_l)+tf.abs(self.balance_z)
 
+        #update margins coefficients (c1,c2,c3 in paper)
         k_update = tf.assign(
             self.k_t, tf.clip_by_value(self.k_t + self.lambda_k*self.balance_k, 0, 1))
         l_update = tf.assign(
@@ -270,7 +277,10 @@ class CausalBEGAN(object):
 
         g_optim = self.g_optimizer.apply_gradients(g_grads, global_step=self.step)
         d_optim = self.d_optimizer.apply_gradients(d_grads)
+
+        #every time train_op is run, run k_update, l_update, z_update
         with tf.control_dependencies([k_update,l_update,z_update]):
+            #when train_op is run, run [g_optim,d_optim]
             self.train_op=tf.group(g_optim, d_optim)
 
     def train_step(self,sess,counter):
@@ -294,7 +304,6 @@ class CausalBEGAN(object):
 
                 summary_stats('d_fake_label',d_fake_label,hist=True)
                 summary_stats('d_real_label',d_real_label,hist=True)
-
 
                 tf.summary.scalar('ave_d_fake_abs_diff',tf.reduce_mean(tf.abs(flabel-d_fake_label)))
                 tf.summary.scalar('ave_d_real_abs_diff',tf.reduce_mean(tf.abs(rlabel-d_real_label)))
@@ -333,4 +342,7 @@ class CausalBEGAN(object):
         tf.summary.scalar("misc/l_t", self.l_t),
         tf.summary.scalar("misc/z_t", self.z_t),
 
+        #doesn't include summaries from causal controller
+        #TODO: rework so only 1 copy of summaries if multiple gpu
         self.summary_op=tf.summary.merge_all()
+
