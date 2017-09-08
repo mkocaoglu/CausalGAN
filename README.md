@@ -1,6 +1,6 @@
 # CausalGAN/CausalBEGAN in Tensorflow
 
-Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper]
+Tensorflow implementation of [CausalGAN: Learning Causal Implicit Generative Models with Adversarial Training, arXiv link to the paper](https://arxiv.org/abs/1709.02023)
 
 ### Top: Random samples from do(Bald=1); Bottom: Random samples from cond(Bald=1)
 ![alt text](./assets/314393_began_Bald_topdo1_botcond1.png)
